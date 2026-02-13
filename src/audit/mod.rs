@@ -122,20 +122,28 @@ fn write_to_file(
     });
 
     // Append to file
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)?;
-
+    // Append to file with secure permissions
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = file.metadata()?.permissions();
-        perms.set_mode(0o600); // Owner read/write only
-        file.set_permissions(perms)?;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .mode(0o600)  // Set permissions atomically on creation
+            .open(&log_path)?;
+
+        writeln!(file, "{}", serde_json::to_string(&entry)?)?;
     }
 
-    writeln!(file, "{}", serde_json::to_string(&entry)?)?;
+    #[cfg(not(unix))]
+    {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)?;
+
+        writeln!(file, "{}", serde_json::to_string(&entry)?)?;
+    }
 
     Ok(())
 }
