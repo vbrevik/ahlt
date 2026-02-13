@@ -30,15 +30,21 @@ pub fn find_navigation(
     let mut stmt = conn.prepare(
         "SELECT e.name, e.label, \
                 COALESCE(p_url.value, '') AS url, \
-                COALESCE(p_perm.value, '') AS permission_code, \
+                COALESCE(perm.name, '') AS permission_code, \
                 COALESCE(p_parent.value, '') AS parent \
          FROM entities e \
          LEFT JOIN entity_properties p_url \
              ON e.id = p_url.entity_id AND p_url.key = 'url' \
-         LEFT JOIN entity_properties p_perm \
-             ON e.id = p_perm.entity_id AND p_perm.key = 'permission_code' \
          LEFT JOIN entity_properties p_parent \
              ON e.id = p_parent.entity_id AND p_parent.key = 'parent' \
+         LEFT JOIN relations r_perm \
+             ON e.id = r_perm.source_id \
+             AND r_perm.relation_type_id = ( \
+                 SELECT id FROM entities \
+                 WHERE entity_type = 'relation_type' AND name = 'requires_permission' \
+             ) \
+         LEFT JOIN entities perm \
+             ON r_perm.target_id = perm.id AND perm.entity_type = 'permission' \
          WHERE e.entity_type = 'nav_item' AND e.is_active = 1 \
          ORDER BY e.sort_order, e.id"
     ).unwrap();
