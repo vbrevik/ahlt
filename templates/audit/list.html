@@ -88,7 +88,7 @@
     </div>
     <div class="pagination-controls">
         {% if audit_page.page > 1 %}
-        <a href="/audit?page={{ audit_page.page - 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t }}{% endif %}" class="btn btn-sm">← Previous</a>
+        <a href="/audit?page={{ audit_page.page - 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q|urlencode }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a|urlencode }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t|urlencode }}{% endif %}" class="btn btn-sm">← Previous</a>
         {% else %}
         <span class="btn btn-sm" disabled>← Previous</span>
         {% endif %}
@@ -96,7 +96,7 @@
         <span class="pagination-current">Page {{ audit_page.page }} of {{ audit_page.total_pages }}</span>
 
         {% if audit_page.page < audit_page.total_pages %}
-        <a href="/audit?page={{ audit_page.page + 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t }}{% endif %}" class="btn btn-sm">Next →</a>
+        <a href="/audit?page={{ audit_page.page + 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q|urlencode }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a|urlencode }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t|urlencode }}{% endif %}" class="btn btn-sm">Next →</a>
         {% else %}
         <span class="btn btn-sm" disabled>Next →</span>
         {% endif %}
