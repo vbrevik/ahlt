@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Audit Log</h1>
+</div>
+
+<div class="filter-bar">
+    <form method="get" action="/audit" class="audit-filters">
+        <input type="search" name="q" placeholder="Search by user or summary..."
+               value="{% if let Some(q) = search_query %}{{ q }}{% endif %}"
+               class="search-input">
+
+        <select name="action" class="filter-select">
+            <option value="all" {% if action_filter.is_none() %}selected{% endif %}{% if let Some(a) = action_filter %}{% if a == "all" %}selected{% endif %}{% endif %}>All Actions</option>
+            <option value="user." {% if let Some(a) = action_filter %}{% if a.starts_with("user.") %}selected{% endif %}{% endif %}>User Actions</option>
+            <option value="role." {% if let Some(a) = action_filter %}{% if a.starts_with("role.") %}selected{% endif %}{% endif %}>Role Actions</option>
+            <option value="setting." {% if let Some(a) = action_filter %}{% if a.starts_with("setting.") %}selected{% endif %}{% endif %}>Setting Actions</option>
+        </select>
+
+        <select name="target_type" class="filter-select">
+            <option value="all" {% if target_type_filter.is_none() %}selected{% endif %}{% if let Some(t) = target_type_filter %}{% if t == "all" %}selected{% endif %}{% endif %}>All Types</option>
+            <option value="user" {% if let Some(t) = target_type_filter %}{% if t == "user" %}selected{% endif %}{% endif %}>User</option>
+            <option value="role" {% if let Some(t) = target_type_filter %}{% if t == "role" %}selected{% endif %}{% endif %}>Role</option>
+            <option value="setting" {% if let Some(t) = target_type_filter %}{% if t == "setting" %}selected{% endif %}{% endif %}>Setting</option>
+        </select>
+
+        <button type="submit" class="btn">Filter</button>
+        {% if search_query.is_some() || (action_filter.is_some() && action_filter.as_ref().unwrap() != "all") || (target_type_filter.is_some() && target_type_filter.as_ref().unwrap() != "all") %}
+        <a href="/audit" class="btn">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if audit_page.total_pages > 1 %}
+<div class="pagination-info">
+    Page {{ audit_page.page }} of {{ audit_page.total_pages }} ({{ audit_page.total_count }} total)
+</div>
+{% endif %}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Target</th>
+            <th>Summary</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if audit_page.entries.is_empty() %}
+        <tr>
+            <td colspan="5" class="no-data">No audit entries found</td>
+        </tr>
+        {% else %}
+        {% for entry in audit_page.entries %}
+        <tr>
+            <td>{{ entry.created_at }}</td>
+            <td>{{ entry.username }}</td>
+            <td><code>{{ entry.action }}</code></td>
+            <td>{{ entry.target_type }}:{{ entry.target_id }}</td>
+            <td>{{ entry.summary }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+    </tbody>
+</table>
+
+{% if audit_page.total_pages > 1 %}
+<div class="pagination">
+    <div class="pagination-info">
+        Page {{ audit_page.page }} of {{ audit_page.total_pages }} ({{ audit_page.total_count }} total)
+    </div>
+    <div class="pagination-controls">
+        {% if audit_page.page > 1 %}
+        <a href="/audit?page={{ audit_page.page - 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t }}{% endif %}" class="btn btn-sm">← Previous</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>← Previous</span>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ audit_page.page }} of {{ audit_page.total_pages }}</span>
+
+        {% if audit_page.page < audit_page.total_pages %}
+        <a href="/audit?page={{ audit_page.page + 1 }}&per_page={{ audit_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}{% if let Some(a) = action_filter %}&action={{ a }}{% endif %}{% if let Some(t) = target_type_filter %}&target_type={{ t }}{% endif %}" class="btn btn-sm">Next →</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>Next →</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

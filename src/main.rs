@@ -100,6 +100,8 @@ async fn main() -> std::io::Result<()> {
                     // Settings
                     .route("/settings", web::get().to(handlers::settings_handlers::list))
                     .route("/settings", web::post().to(handlers::settings_handlers::save))
+                    // Audit log
+                    .route("/audit", web::get().to(handlers::audit_handlers::list))
                     // Ontology explorer — Concepts (schema graph) is the landing page
                     .route("/ontology", web::get().to(handlers::ontology_handlers::graph))
                     .route("/ontology/data", web::get().to(handlers::ontology_handlers::data))

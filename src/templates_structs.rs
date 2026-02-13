@@ -7,6 +7,7 @@ use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheck
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
+use crate::models::audit::AuditEntryPage;
 use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -130,4 +131,14 @@ pub struct SettingsTemplate {
 pub struct AccountTemplate {
     pub ctx: PageContext,
     pub errors: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "audit/list.html")]
+pub struct AuditListTemplate {
+    pub ctx: PageContext,
+    pub audit_page: AuditEntryPage,
+    pub search_query: Option<String>,
+    pub action_filter: Option<String>,
+    pub target_type_filter: Option<String>,
 }

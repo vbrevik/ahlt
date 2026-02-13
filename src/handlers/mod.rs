@@ -1,4 +1,5 @@
 pub mod account_handlers;
+pub mod audit_handlers;
 pub mod auth_handlers;
 pub mod dashboard;
 pub mod ontology_handlers;
