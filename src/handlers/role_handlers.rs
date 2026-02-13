@@ -161,7 +161,17 @@ pub async fn create(
     }
 
     match role::create(&conn, name.trim(), label.trim(), description.trim(), &perm_ids) {
-        Ok(_) => {
+        Ok(role_id) => {
+            // Audit log
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            let details = serde_json::json!({
+                "role_name": name.trim(),
+                "permission_count": perm_ids.len(),
+                "summary": format!("Created role '{}'", label.trim())
+            });
+            let _ = crate::audit::log(&conn, current_user_id, "role.created",
+                                      "role", role_id, details);
+
             let _ = session.insert("flash", "Role created successfully");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
@@ -260,6 +270,16 @@ pub async fn update(
 
     match role::update(&conn, id, name.trim(), label.trim(), description.trim(), &perm_ids) {
         Ok(_) => {
+            // Audit log for permission changes
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            let details = serde_json::json!({
+                "role_name": name.trim(),
+                "new_permission_count": perm_ids.len(),
+                "summary": format!("Updated permissions for role '{}'", label.trim())
+            });
+            let _ = crate::audit::log(&conn, current_user_id, "role.permissions_changed",
+                                      "role", id, details);
+
             let _ = session.insert("flash", "Role updated successfully");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
@@ -321,6 +341,17 @@ pub async fn delete(
 
     match role::delete(&conn, id) {
         Ok(_) => {
+            // Audit log
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            if let Ok(Some(deleted_role)) = role::find_detail_by_id(&conn, id) {
+                let details = serde_json::json!({
+                    "role_name": deleted_role.name,
+                    "summary": format!("Deleted role '{}'", deleted_role.label)
+                });
+                let _ = crate::audit::log(&conn, current_user_id, "role.deleted",
+                                          "role", id, details);
+            }
+
             let _ = session.insert("flash", "Role deleted");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))

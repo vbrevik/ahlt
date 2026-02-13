@@ -149,7 +149,17 @@ pub async fn create(
     };
 
     match user::create(&conn, &new) {
-        Ok(_) => {
+        Ok(user_id) => {
+            // Audit log
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            let details = serde_json::json!({
+                "email": new.email,
+                "role_id": new.role_id,
+                "summary": format!("Created user '{}'", new.username)
+            });
+            let _ = crate::audit::log(&conn, current_user_id, "user.created",
+                                      "user", user_id, details);
+
             let _ = session.insert("flash", "User created successfully");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
@@ -345,6 +355,17 @@ pub async fn delete(
 
     match user::delete(&conn, id) {
         Ok(_) => {
+            // Audit log
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            if let Ok(Some(deleted_user)) = user::find_display_by_id(&conn, id) {
+                let details = serde_json::json!({
+                    "username": deleted_user.username,
+                    "summary": format!("Deleted user '{}'", deleted_user.username)
+                });
+                let _ = crate::audit::log(&conn, current_user_id, "user.deleted",
+                                          "user", id, details);
+            }
+
             let _ = session.insert("flash", "User deleted");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
