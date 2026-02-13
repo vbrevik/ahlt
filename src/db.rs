@@ -127,6 +127,38 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         perm_ids.push((id, code));
     }
 
+    // Query permission IDs for later nav→permission relations
+    let dashboard_view_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='dashboard.view'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
+    let users_list_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='users.list'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
+    let roles_manage_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='roles.manage'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
+    let settings_manage_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='settings.manage'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
+    // Get requires_permission relation type ID
+    let requires_permission_rel_type_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='requires_permission'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
     // --- Role-permission relations ---
     // Admin gets all permissions
     for (perm_id, _) in &perm_ids {
@@ -191,6 +223,22 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_settings_id, "url", "/settings");
     insert_prop(&conn, nav_admin_settings_id, "permission_code", "settings.manage");
     insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
+
+    // --- Nav→permission relations ---
+    // Dashboard requires dashboard.view
+    insert_relation(&conn, requires_permission_rel_type_id, nav_dashboard_id, dashboard_view_perm_id);
+
+    // Admin > Users requires users.list
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_users_id, users_list_perm_id);
+
+    // Admin > Roles requires roles.manage
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_roles_id, roles_manage_perm_id);
+
+    // Admin > Ontology requires settings.manage
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_ontology_id, settings_manage_perm_id);
+
+    // Admin > Settings requires settings.manage
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_settings_id, settings_manage_perm_id);
 
     log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 6 nav items, 2 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
