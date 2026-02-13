@@ -1,34 +1,5 @@
 use rusqlite::{Connection, params};
-use serde::Deserialize;
-
-/// Internal user struct for authentication — includes password hash.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    pub password: String,
-    pub email: String,
-    pub display_name: String,
-    pub role_id: i64,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-/// Safe version for templates — no password hash, includes role info from relations.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct UserDisplay {
-    pub id: i64,
-    pub username: String,
-    pub email: String,
-    pub display_name: String,
-    pub role_id: i64,
-    pub role_name: String,
-    pub role_label: String,
-    pub created_at: String,
-    pub updated_at: String,
-}
+use super::types::{User, UserDisplay, UserPage, NewUser};
 
 /// SQL for user display: entity + email property + role via has_role relation.
 const SELECT_USER_DISPLAY: &str = "\
@@ -59,15 +30,6 @@ fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
-}
-
-/// Pagination metadata for user list.
-pub struct UserPage {
-    pub users: Vec<UserDisplay>,
-    pub page: i64,
-    pub per_page: i64,
-    pub total_count: i64,
-    pub total_pages: i64,
 }
 
 /// Find users with pagination and optional search support.
@@ -175,14 +137,6 @@ pub fn count(conn: &Connection) -> rusqlite::Result<i64> {
         [],
         |row| row.get(0),
     )
-}
-
-pub struct NewUser {
-    pub username: String,
-    pub password: String,
-    pub email: String,
-    pub display_name: String,
-    pub role_id: i64,
 }
 
 /// Create a new user entity with properties and role relation.
@@ -302,15 +256,4 @@ pub fn update_password(conn: &Connection, id: i64, password_hash: &str) -> rusql
         params![id],
     )?;
     Ok(())
-}
-
-/// Form data from create/edit user forms.
-#[derive(Debug, Deserialize)]
-pub struct UserForm {
-    pub username: String,
-    pub password: String,
-    pub email: String,
-    pub display_name: String,
-    pub role_id: String, // comes as string from form, parse to i64
-    pub csrf_token: String,
 }
