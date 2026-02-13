@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, ResponseError};
+use askama::Template;
 use std::fmt;
 
 #[derive(Debug)]
@@ -49,6 +50,14 @@ impl ResponseError for AppError {
             }
         }
     }
+}
+
+/// Helper to render Askama templates with automatic error conversion.
+pub fn render<T: Template>(tmpl: T) -> Result<HttpResponse, AppError> {
+    let body = tmpl.render()?;  // Uses From<askama::Error> for AppError
+    Ok(HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(body))
 }
 
 impl From<rusqlite::Error> for AppError {
