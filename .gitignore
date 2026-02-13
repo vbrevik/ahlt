@@ -3,6 +3,7 @@
 *.db
 .env
 *.png
+!docs/screenshots/*.png
 .playwright-mcp/
 .claude/
 .serena/
