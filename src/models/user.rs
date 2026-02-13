@@ -77,27 +77,49 @@ pub fn find_all_display(conn: &Connection) -> rusqlite::Result<Vec<UserDisplay>>
     Ok(users)
 }
 
-/// Find users with pagination support.
-pub fn find_paginated(conn: &Connection, page: i64, per_page: i64) -> rusqlite::Result<UserPage> {
+/// Find users with pagination and optional search support.
+pub fn find_paginated(conn: &Connection, page: i64, per_page: i64, search: Option<&str>) -> rusqlite::Result<UserPage> {
     // Clamp pagination params
     let page = page.max(1);
     let per_page = per_page.clamp(1, 100);
     let offset = (page - 1) * per_page;
 
+    // Build search clause and params
+    let (search_clause, search_params): (String, Vec<String>) = match search {
+        Some(q) if !q.trim().is_empty() => {
+            let pattern = format!("%{}%", q.trim());
+            (
+                " AND (e.name LIKE ?1 OR e.label LIKE ?1)".to_string(),
+                vec![pattern],
+            )
+        },
+        _ => ("".to_string(), vec![]),
+    };
+
     // Get total count
-    let total_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities WHERE entity_type = 'user'",
-        [],
-        |row| row.get(0),
-    )?;
+    let count_sql = format!("SELECT COUNT(*) FROM entities e WHERE e.entity_type = 'user'{}", search_clause);
+    let total_count: i64 = if search_params.is_empty() {
+        conn.query_row(&count_sql, [], |row| row.get(0))?
+    } else {
+        conn.query_row(&count_sql, params![&search_params[0]], |row| row.get(0))?
+    };
 
     let total_pages = (total_count as f64 / per_page as f64).ceil() as i64;
 
     // Get paginated results
-    let sql = format!("{SELECT_USER_DISPLAY} ORDER BY e.id LIMIT ?1 OFFSET ?2");
+    let sql = if search_params.is_empty() {
+        format!("{SELECT_USER_DISPLAY} ORDER BY e.id LIMIT ?1 OFFSET ?2")
+    } else {
+        format!("{SELECT_USER_DISPLAY}{} ORDER BY e.id LIMIT ?2 OFFSET ?3", search_clause)
+    };
     let mut stmt = conn.prepare(&sql)?;
-    let users = stmt.query_map(params![per_page, offset], row_to_user_display)?
-        .collect::<Result<Vec<_>, _>>()?;
+    let users = if search_params.is_empty() {
+        stmt.query_map(params![per_page, offset], row_to_user_display)?
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        stmt.query_map(params![&search_params[0], per_page, offset], row_to_user_display)?
+            .collect::<Result<Vec<_>, _>>()?
+    };
 
     Ok(UserPage {
         users,

@@ -20,6 +20,15 @@
     {% if ctx.permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
 </div>
 
+<form method="get" action="/users" class="search-form">
+    <input type="search" name="q" placeholder="Search by username or name..."
+           value="{% if let Some(q) = search_query %}{{ q }}{% endif %}" class="search-input">
+    <button type="submit" class="btn">Search</button>
+    {% if search_query.is_some() %}
+    <a href="/users" class="btn">Clear</a>
+    {% endif %}
+</form>
+
 <table class="table">
     <thead>
         <tr>
@@ -61,7 +70,7 @@
     </div>
     <div class="pagination-controls">
         {% if user_page.page > 1 %}
-        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">← Previous</a>
+        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">← Previous</a>
         {% else %}
         <span class="btn btn-sm" disabled>← Previous</span>
         {% endif %}
@@ -69,7 +78,7 @@
         <span class="pagination-current">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
 
         {% if user_page.page < user_page.total_pages %}
-        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">Next →</a>
+        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">Next →</a>
         {% else %}
         <span class="btn btn-sm" disabled>Next →</span>
         {% endif %}

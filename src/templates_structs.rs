@@ -59,6 +59,7 @@ pub struct DashboardTemplate {
 pub struct UserListTemplate {
     pub ctx: PageContext,
     pub user_page: UserPage,
+    pub search_query: Option<String>,
 }
 
 #[derive(Template)]

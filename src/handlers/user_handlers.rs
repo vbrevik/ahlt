@@ -15,6 +15,7 @@ use crate::templates_structs::{PageContext, UserListTemplate, UserFormTemplate};
 pub struct PaginationQuery {
     page: Option<i64>,
     per_page: Option<i64>,
+    q: Option<String>,
 }
 
 pub async fn list(
@@ -34,7 +35,8 @@ pub async fn list(
     let ctx = PageContext::build(&session, &conn, "/users");
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(25);
-    let user_page = user::find_paginated(&conn, page, per_page).unwrap_or_else(|_| user::UserPage {
+    let search = query.q.as_deref();
+    let user_page = user::find_paginated(&conn, page, per_page, search).unwrap_or_else(|_| user::UserPage {
         users: vec![],
         page: 1,
         per_page: 25,
@@ -42,7 +44,7 @@ pub async fn list(
         total_pages: 0,
     });
 
-    let tmpl = UserListTemplate { ctx, user_page };
+    let tmpl = UserListTemplate { ctx, user_page, search_query: query.q.clone() };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),
