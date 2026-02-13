@@ -4,4 +4,5 @@ pub mod ontology;
 pub mod relation;
 pub mod permission;
 pub mod role;
+pub mod setting;
 pub mod user;

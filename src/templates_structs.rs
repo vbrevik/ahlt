@@ -5,6 +5,7 @@ use rusqlite::Connection;
 use crate::models::user::UserDisplay;
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
+use crate::models::setting::SettingDisplay;
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -103,4 +104,11 @@ pub struct OntologyDataTemplate {
 pub struct OntologyDetailTemplate {
     pub ctx: PageContext,
     pub entity: EntityDetail,
+}
+
+#[derive(Template)]
+#[template(path = "settings.html")]
+pub struct SettingsTemplate {
+    pub ctx: PageContext,
+    pub settings: Vec<SettingDisplay>,
 }

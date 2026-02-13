@@ -174,6 +174,23 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_ontology_id, "permission_code", "settings.manage");
     insert_prop(&conn, nav_admin_ontology_id, "parent", "admin");
 
-    log::info!("Seeded ontology: 2 relation types, 2 roles, {} permissions, 5 nav items, 1 admin user", perms.len());
+    // --- Settings ---
+    let setting_name_id = insert_entity(&conn, "setting", "app.name", "Application Name", 1);
+    insert_prop(&conn, setting_name_id, "value", "Ahlt");
+    insert_prop(&conn, setting_name_id, "description", "The name displayed in the navbar and page titles");
+    insert_prop(&conn, setting_name_id, "setting_type", "text");
+
+    let setting_desc_id = insert_entity(&conn, "setting", "app.description", "Application Description", 2);
+    insert_prop(&conn, setting_desc_id, "value", "Administration Platform");
+    insert_prop(&conn, setting_desc_id, "description", "A short description of this application");
+    insert_prop(&conn, setting_desc_id, "setting_type", "text");
+
+    // Admin → Settings: sidebar child
+    let nav_admin_settings_id = insert_entity(&conn, "nav_item", "admin.settings", "Settings", 4);
+    insert_prop(&conn, nav_admin_settings_id, "url", "/settings");
+    insert_prop(&conn, nav_admin_settings_id, "permission_code", "settings.manage");
+    insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
+
+    log::info!("Seeded ontology: 2 relation types, 2 roles, {} permissions, 6 nav items, 2 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }

@@ -112,34 +112,18 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Reference tab: entity type summary cards, relation pattern breakdowns, schema reference tables
 - `admin.ontology` nav item under Admin module, gated by `settings.manage`
 
+### App Settings (3.1 + 3.2)
+- Settings as entities with entity_type='setting', properties: `value`, `description`, `setting_type` (text/number/boolean)
+- Seeded defaults: `app.name` = "Ahlt", `app.description` = "Administration Platform"
+- `GET /settings` form + `POST /settings` save with upsert, protected by `settings.manage`
+- `admin.settings` nav item under Admin module
+- Supports text, number, and boolean (select dropdown) field types
+
 ---
 
 ## Remaining Backlog
 
-### Phase 2: Settings + CSRF
-
-#### 3.1 — App Settings (entity_type = 'setting')
-**Priority:** Medium | **Effort:** Small | **Status:** Ready
-
-No new tables — settings are just entities with entity_type='setting'. Properties: `value`, `description`, `setting_type` (text/number/boolean).
-
-Seed defaults: `app.name` = "Ahlt", `app.description` = "Administration Platform".
-
-**Files:** `src/db.rs` (seed), new `src/models/setting.rs`
-
----
-
-#### 3.2 — Settings management page
-**Priority:** Medium | **Effort:** Medium
-
-- `GET /settings` — list all settings in a form
-- `POST /settings` — save changes
-- Protected by `settings.manage` permission
-- New seed: `admin.settings` nav_item with parent=admin, permission=settings.manage
-
-**Files:** new `src/handlers/settings_handlers.rs`, `src/templates_structs.rs`, new `templates/settings.html`, `src/main.rs`, `src/db.rs` (seed nav item)
-
----
+### Phase 2: Runtime Settings + CSRF
 
 #### 3.3 — Use settings in runtime
 **Priority:** Medium | **Effort:** Small
@@ -212,13 +196,15 @@ New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   3.1 Settings entities       5.4 CSRF
-Epic 2: Data-Driven Nav       3.2 Settings page           6.1 Change password
-5.1 Self-deletion guard       3.3 Runtime settings        6.2 Error pages
+Epic 1: Ontology Foundation   3.3 Runtime settings        5.4 CSRF
+Epic 2: Data-Driven Nav                                   6.1 Change password
+5.1 Self-deletion guard                                   6.2 Error pages
 5.2 Last admin guard                                      6.3 Pagination
 5.3 Session key from env                                  6.4 Search/filter
 4.1 Role Management UI                                    7.3 Audit trail
 Ontology Explorer
+3.1 Settings entities
+3.2 Settings page
 7.1 Git + GitHub
 7.2 Favicon
 PageContext refactor
