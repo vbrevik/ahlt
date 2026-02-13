@@ -183,7 +183,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Dashboard: standalone top-level item (no children → no sidebar)
     let nav_dashboard_id = insert_entity(&conn, "nav_item", "dashboard", "Dashboard", 1);
     insert_prop(&conn, nav_dashboard_id, "url", "/dashboard");
-    insert_prop(&conn, nav_dashboard_id, "permission_code", "");
 
     // Admin: module header item (children appear in sidebar)
     let _nav_admin_id = insert_entity(&conn, "nav_item", "admin", "Admin", 2);
@@ -192,19 +191,16 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Admin → Users: sidebar child
     let nav_admin_users_id = insert_entity(&conn, "nav_item", "admin.users", "Users", 1);
     insert_prop(&conn, nav_admin_users_id, "url", "/users");
-    insert_prop(&conn, nav_admin_users_id, "permission_code", "users.list");
     insert_prop(&conn, nav_admin_users_id, "parent", "admin");
 
     // Admin → Roles: sidebar child
     let nav_admin_roles_id = insert_entity(&conn, "nav_item", "admin.roles", "Roles", 2);
     insert_prop(&conn, nav_admin_roles_id, "url", "/roles");
-    insert_prop(&conn, nav_admin_roles_id, "permission_code", "roles.manage");
     insert_prop(&conn, nav_admin_roles_id, "parent", "admin");
 
     // Admin → Ontology: sidebar child
     let nav_admin_ontology_id = insert_entity(&conn, "nav_item", "admin.ontology", "Ontology", 3);
     insert_prop(&conn, nav_admin_ontology_id, "url", "/ontology");
-    insert_prop(&conn, nav_admin_ontology_id, "permission_code", "settings.manage");
     insert_prop(&conn, nav_admin_ontology_id, "parent", "admin");
 
     // --- Settings ---
@@ -221,7 +217,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Admin → Settings: sidebar child
     let nav_admin_settings_id = insert_entity(&conn, "nav_item", "admin.settings", "Settings", 4);
     insert_prop(&conn, nav_admin_settings_id, "url", "/settings");
-    insert_prop(&conn, nav_admin_settings_id, "permission_code", "settings.manage");
     insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
 
     // --- Nav→permission relations ---
