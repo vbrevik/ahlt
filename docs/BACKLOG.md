@@ -168,20 +168,20 @@ All domain objects share three generic tables — no dedicated tables per type:
 - CSS: `.pagination`, `.pagination-info`, `.pagination-controls` with disabled button states
 - Graceful degradation: single-page datasets show clean interface without pagination UI
 
+### Search/Filter on User List (6.4)
+- Query parameter: `?q=searchterm` for filtering users by username or display name
+- `user::find_paginated()` extended with `search: Option<&str>` parameter
+- SQL: `WHERE e.entity_type = 'user' AND (e.name LIKE ?1 OR e.label LIKE ?1)` pattern with wildcard wrapping
+- Bug fix: count query was missing table alias `e`, causing search clause (`e.name LIKE ?`) to fail
+- Search form UI: input + Search button + conditional Clear link when active
+- Pagination links preserve search query parameter: `?page=N&per_page=M&q=term`
+- Search input displays current query value on page load
+
 ---
 
 ## Remaining Backlog
 
 ### Phase 4: Polish
-
----
-
-#### 6.4 — Search/filter users
-**Priority:** Low | **Effort:** Small
-
-Accept `?q=searchterm` query param. SQL: `WHERE name LIKE ? OR label LIKE ?` on user entities.
-
-**Files:** `src/handlers/user_handlers.rs`, `src/models/user.rs`, `templates/users/list.html`
 
 ---
 
@@ -197,7 +197,7 @@ New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   6.4 Search/filter           7.3 Audit trail
+Epic 1: Ontology Foundation   7.3 Audit trail             [empty]
 Epic 2: Data-Driven Nav
 5.1 Self-deletion guard
 5.2 Last admin guard
@@ -211,6 +211,7 @@ Ontology Explorer
 6.1 Change password
 6.2 Custom error pages
 6.3 Pagination
+6.4 Search/filter users
 6.5 Navbar avatar dropdown
 7.1 Git + GitHub
 7.2 Favicon
