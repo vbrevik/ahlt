@@ -49,21 +49,7 @@ fn is_important(action: &str) -> bool {
 
 // Helper: Get current date in YYYY-MM-DD format
 fn get_current_date() -> String {
-    use std::time::SystemTime;
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("Time went backwards");
-    let secs = now.as_secs();
-
-    // Simple date calculation (good enough for daily rotation)
-    let days = secs / 86400;
-    let epoch_days = days + 719468; // Days from 0000-01-01 to 1970-01-01
-
-    let year = (epoch_days / 365) as i32; // Approximate
-    let month = ((epoch_days % 365) / 30) as u32 + 1; // Approximate
-    let day = ((epoch_days % 365) % 30) as u32 + 1; // Approximate
-
-    format!("{:04}-{:02}-{:02}", year, month.min(12), day.min(31))
+    chrono::Utc::now().format("%Y-%m-%d").to_string()
 }
 
 // Helper: Get log file path for given date
