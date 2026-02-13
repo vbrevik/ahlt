@@ -173,6 +173,38 @@ pub fn log(
     Ok(())
 }
 
-pub fn cleanup_old_entries(_conn: &Connection) {
-    // Will implement later
+pub fn cleanup_old_entries(conn: &Connection) {
+    // Get retention_days setting
+    let retention_days: i64 = conn.query_row(
+        "SELECT value FROM entity_properties
+         WHERE entity_id = (SELECT id FROM entities WHERE entity_type='setting' AND name='audit.retention_days')
+           AND key='value'",
+        [],
+        |row| row.get::<_, String>(0).map(|s| s.parse().unwrap_or(90)),
+    ).unwrap_or(90);
+
+    // Skip if retention is 0 (keep forever)
+    if retention_days == 0 {
+        eprintln!("Audit retention: keeping all entries (retention_days=0)");
+        return;
+    }
+
+    // Delete old audit entries (CASCADE deletes properties automatically)
+    let result = conn.execute(
+        "DELETE FROM entities
+         WHERE entity_type = 'audit_entry'
+           AND created_at < date('now', '-' || ?1 || ' days')",
+        [retention_days],
+    );
+
+    match result {
+        Ok(deleted) => {
+            if deleted > 0 {
+                eprintln!("Audit cleanup: deleted {} entries older than {} days", deleted, retention_days);
+            }
+        }
+        Err(e) => {
+            eprintln!("Audit cleanup failed: {:?}", e);
+        }
+    }
 }

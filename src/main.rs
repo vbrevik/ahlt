@@ -26,6 +26,12 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to hash default password");
     db::seed_ontology(&pool, &admin_hash);
 
+    // Clean up old audit entries based on retention policy
+    {
+        let conn = pool.get().expect("Failed to get connection for audit cleanup");
+        audit::cleanup_old_entries(&conn);
+    }
+
     // Session encryption key — load from SESSION_KEY env var for persistent sessions across restarts
     let secret_key = match std::env::var("SESSION_KEY") {
         Ok(val) if val.len() >= 64 => {
