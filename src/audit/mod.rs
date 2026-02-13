@@ -28,6 +28,16 @@ impl From<serde_json::Error> for AuditError {
     }
 }
 
+impl std::fmt::Display for AuditError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AuditError::FileError(e) => write!(f, "File error: {}", e),
+            AuditError::DbError(e) => write!(f, "Database error: {}", e),
+            AuditError::JsonError(e) => write!(f, "JSON error: {}", e),
+        }
+    }
+}
+
 // Placeholder functions - will implement in later tasks
 pub fn log(
     _conn: &Connection,
