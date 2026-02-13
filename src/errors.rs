@@ -2,13 +2,14 @@ use actix_web::{HttpResponse, ResponseError};
 use std::fmt;
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum AppError {
     Db(rusqlite::Error),
     Pool(r2d2::Error),
     Template(askama::Error),
     Hash(String),
     NotFound,
+    PermissionDenied(String),
+    Session(String),
 }
 
 impl fmt::Display for AppError {
@@ -19,6 +20,8 @@ impl fmt::Display for AppError {
             AppError::Template(e) => write!(f, "Template error: {e}"),
             AppError::Hash(e) => write!(f, "Hash error: {e}"),
             AppError::NotFound => write!(f, "Not found"),
+            AppError::PermissionDenied(perm) => write!(f, "Permission denied: {}", perm),
+            AppError::Session(msg) => write!(f, "Session error: {}", msg),
         }
     }
 }
@@ -26,6 +29,11 @@ impl fmt::Display for AppError {
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         match self {
+            AppError::PermissionDenied(_) => {
+                HttpResponse::Forbidden()
+                    .content_type("text/html; charset=utf-8")
+                    .body("<h1>403 Forbidden</h1><p>You don't have permission to access this resource.</p>")
+            }
             AppError::NotFound => {
                 let html = include_str!("../templates/errors/404.html");
                 HttpResponse::NotFound()
