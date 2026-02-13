@@ -118,6 +118,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("users.delete", "Delete Users", "Users"),
         ("roles.manage", "Manage Roles", "Roles"),
         ("settings.manage", "Manage Settings", "Settings"),
+        ("audit.view", "View Audit Log", "Admin"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -219,6 +220,22 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_settings_id, "url", "/settings");
     insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
 
+    // --- Audit settings ---
+    let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
+    insert_prop(&conn, audit_enabled_id, "value", "true");
+    insert_prop(&conn, audit_enabled_id, "setting_type", "boolean");
+    insert_prop(&conn, audit_enabled_id, "description", "Master toggle for audit logging (database and filesystem)");
+
+    let audit_log_path_id = insert_entity(&conn, "setting", "audit.log_path", "Audit Log Directory", 4);
+    insert_prop(&conn, audit_log_path_id, "value", "data/audit/");
+    insert_prop(&conn, audit_log_path_id, "setting_type", "text");
+    insert_prop(&conn, audit_log_path_id, "description", "Directory path for audit log files (absolute or relative)");
+
+    let audit_retention_id = insert_entity(&conn, "setting", "audit.retention_days", "Audit Retention (Days)", 5);
+    insert_prop(&conn, audit_retention_id, "value", "90");
+    insert_prop(&conn, audit_retention_id, "setting_type", "number");
+    insert_prop(&conn, audit_retention_id, "description", "Days to keep audit entries in database (0 = forever)");
+
     // --- Nav→permission relations ---
     // Dashboard requires dashboard.view
     insert_relation(&conn, requires_permission_rel_type_id, nav_dashboard_id, dashboard_view_perm_id);
@@ -235,6 +252,24 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Admin > Settings requires settings.manage
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_settings_id, settings_manage_perm_id);
 
-    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 6 nav items, 2 settings, 1 admin user", perms.len());
+    // Create audit directory with secure permissions
+    let audit_path = "data/audit";
+    if !std::path::Path::new(audit_path).exists() {
+        std::fs::create_dir_all(audit_path)
+            .expect("Failed to create audit directory");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(audit_path)
+                .expect("Failed to get audit dir metadata")
+                .permissions();
+            perms.set_mode(0o700); // Owner read/write/execute only
+            std::fs::set_permissions(audit_path, perms)
+                .expect("Failed to set audit dir permissions");
+        }
+    }
+
+    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 6 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
