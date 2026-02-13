@@ -1,6 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse, Responder};
 use askama::Template;
+use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
@@ -10,9 +11,16 @@ use crate::auth::session::{get_user_id, require_permission};
 use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, UserListTemplate, UserFormTemplate};
 
+#[derive(Deserialize)]
+pub struct PaginationQuery {
+    page: Option<i64>,
+    per_page: Option<i64>,
+}
+
 pub async fn list(
     pool: web::Data<DbPool>,
     session: Session,
+    query: web::Query<PaginationQuery>,
 ) -> impl Responder {
     if let Err(resp) = require_permission(&session, "users.list") {
         return resp;
@@ -24,9 +32,17 @@ pub async fn list(
     };
 
     let ctx = PageContext::build(&session, &conn, "/users");
-    let users = user::find_all_display(&conn).unwrap_or_default();
+    let page = query.page.unwrap_or(1);
+    let per_page = query.per_page.unwrap_or(25);
+    let user_page = user::find_paginated(&conn, page, per_page).unwrap_or_else(|_| user::UserPage {
+        users: vec![],
+        page: 1,
+        per_page: 25,
+        total_count: 0,
+        total_pages: 0,
+    });
 
-    let tmpl = UserListTemplate { ctx, users };
+    let tmpl = UserListTemplate { ctx, user_page };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),

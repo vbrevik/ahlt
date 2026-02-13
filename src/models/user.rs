@@ -61,11 +61,51 @@ fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
     })
 }
 
+/// Pagination metadata for user list.
+pub struct UserPage {
+    pub users: Vec<UserDisplay>,
+    pub page: i64,
+    pub per_page: i64,
+    pub total_count: i64,
+    pub total_pages: i64,
+}
+
 pub fn find_all_display(conn: &Connection) -> rusqlite::Result<Vec<UserDisplay>> {
     let sql = format!("{SELECT_USER_DISPLAY} ORDER BY e.id");
     let mut stmt = conn.prepare(&sql)?;
     let users = stmt.query_map([], row_to_user_display)?.collect::<Result<Vec<_>, _>>()?;
     Ok(users)
+}
+
+/// Find users with pagination support.
+pub fn find_paginated(conn: &Connection, page: i64, per_page: i64) -> rusqlite::Result<UserPage> {
+    // Clamp pagination params
+    let page = page.max(1);
+    let per_page = per_page.clamp(1, 100);
+    let offset = (page - 1) * per_page;
+
+    // Get total count
+    let total_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities WHERE entity_type = 'user'",
+        [],
+        |row| row.get(0),
+    )?;
+
+    let total_pages = (total_count as f64 / per_page as f64).ceil() as i64;
+
+    // Get paginated results
+    let sql = format!("{SELECT_USER_DISPLAY} ORDER BY e.id LIMIT ?1 OFFSET ?2");
+    let mut stmt = conn.prepare(&sql)?;
+    let users = stmt.query_map(params![per_page, offset], row_to_user_display)?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(UserPage {
+        users,
+        page,
+        per_page,
+        total_count,
+        total_pages,
+    })
 }
 
 pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {

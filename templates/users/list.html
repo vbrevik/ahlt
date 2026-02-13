@@ -32,7 +32,7 @@
         </tr>
     </thead>
     <tbody>
-    {% for user in users %}
+    {% for user in user_page.users %}
         <tr>
             <td>{{ user.id }}</td>
             <td>{{ user.username }}</td>
@@ -53,4 +53,27 @@
     {% endfor %}
     </tbody>
 </table>
+
+{% if user_page.total_pages > 1 %}
+<div class="pagination">
+    <div class="pagination-info">
+        Page {{ user_page.page }} of {{ user_page.total_pages }} ({{ user_page.total_count }} total)
+    </div>
+    <div class="pagination-controls">
+        {% if user_page.page > 1 %}
+        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">← Previous</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>← Previous</span>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
+
+        {% if user_page.page < user_page.total_pages %}
+        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">Next →</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>Next →</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

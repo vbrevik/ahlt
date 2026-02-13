@@ -2,7 +2,7 @@ use actix_session::Session;
 use askama::Template;
 use rusqlite::Connection;
 
-use crate::models::user::UserDisplay;
+use crate::models::user::{UserDisplay, UserPage};
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
@@ -58,7 +58,7 @@ pub struct DashboardTemplate {
 #[template(path = "users/list.html")]
 pub struct UserListTemplate {
     pub ctx: PageContext,
-    pub users: Vec<UserDisplay>,
+    pub user_page: UserPage,
 }
 
 #[derive(Template)]
