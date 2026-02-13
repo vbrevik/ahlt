@@ -188,11 +188,68 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Pagination links preserve search query parameter: `?page=N&per_page=M&q=term`
 - Search input displays current query value on page load
 
+### Code Cleanup & Refactoring (Tasks 1-28)
+
+**Phase 1-2: Error Handling Foundation** (Tasks 1-9)
+- Enhanced AppError enum with 8 variants (Db, Pool, Template, Hash, NotFound, PermissionDenied, Session, Csrf)
+- Implemented ResponseError trait for HTTP error responses (403 for permissions/CSRF, 404 for NotFound, 500 for others)
+- Created render() helper for template rendering with automatic error conversion
+- Updated session helpers to return Result types (get_user_id, get_username, get_permissions, require_permission)
+- Updated PageContext::build to return Result<Self, AppError>
+- Updated csrf::validate_csrf to return Result<(), AppError>
+- Fixed 10 clippy warnings (unused imports, redundant enum names, collapsible ifs)
+- Removed dead code (find_all_display function)
+
+**Phase 3: Handler Migration** (Tasks 10-21)
+- Migrated all 27 handlers to AppError pattern across 8 files
+- User handlers (6): list, new_form, create, edit_form, update, delete
+- Role handlers (6): list, new_form, create, edit_form, update, delete
+- Audit handlers (1): list
+- Account handlers (2): form, submit
+- Settings handlers (2): list, save
+- Ontology handlers (6): concepts, graph, graph_data, schema_data, data, data_detail
+- Auth handlers (3): login_page, login_submit, logout
+- Dashboard handler (1): index
+- Impact: ~280 lines of boilerplate eliminated, consistent ? operator usage
+- Code reviews caught missing validation (role update) and audit logging (user update) early
+
+**Phase 4: File Splitting** (Tasks 23-28)
+- Split models/ontology.rs (471 lines) → 4 modules (schema.rs, instance.rs, entities.rs, mod.rs)
+- Split models/user.rs (370 lines) → 3 modules (types.rs, queries.rs, mod.rs)
+- Split models/role.rs (323 lines) → 3 modules (types.rs, queries.rs, mod.rs)
+- Split handlers/user_handlers.rs (236 lines) → 3 modules (list.rs, crud.rs, mod.rs)
+- Split handlers/role_handlers.rs (~280 lines) → 4 modules (helpers.rs, list.rs, crud.rs, mod.rs)
+- Total: 1,680 lines reorganized into 17 focused modules
+- Impact: Better code organization, clearer separation of concerns, easier navigation
+
+**Documentation**
+- Created CLAUDE.md with comprehensive project context:
+  - Architecture overview (stack, directory structure, EAV pattern)
+  - Key patterns (AppError, session helpers, template rendering, EAV)
+  - Gotchas (Askama 0.14, Actix-web 4, SQLite + r2d2)
+  - Development workflows (adding handlers, audit logging, migrations)
+  - Refactoring workflow (phased approach with reviews)
+  - Code review checklist (CRUD consistency, audit logging, validation)
+  - Verification commands (cargo check patterns, build status)
+  - Time-saving analysis (18-28 hours avoided with upfront context)
+  - Recent refactoring summary (Phases 1-4)
+
+**Commits:** 22 commits created with detailed messages and co-authorship
+
 ---
 
 ## Remaining Backlog
 
-### Phase 4: Polish
+### Testing & Deployment
+- Manual testing of all CRUD operations
+- Automated tests for critical paths (login, user CRUD, permissions)
+- Production deployment preparation (env vars, session key, etc.)
+
+### Future Features
+- Warnings system (already has navbar badge placeholder)
+- More entity types (projects, tasks, documents, etc.)
+- Configurable workflows
+- API access for external integrations
 
 ---
 
@@ -201,10 +258,10 @@ All domain objects share three generic tables — no dedicated tables per type:
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   [empty]                     [empty]
-Epic 2: Data-Driven Nav
-5.1 Self-deletion guard
-5.2 Last admin guard
+Epic 1: Ontology Foundation   Manual testing              Automated tests
+Epic 2: Data-Driven Nav       Production deployment       Warnings system
+5.1 Self-deletion guard                                   More entity types
+5.2 Last admin guard                                      API access
 5.3 Session key from env
 5.4 CSRF protection
 4.1 Role Management UI
@@ -222,6 +279,10 @@ Ontology Explorer
 7.3 Audit trail
 PageContext refactor
 2.3 Nav perms via relations
+Code cleanup (Tasks 1-28):
+- Phase 1-2: Error foundation
+- Phase 3: Handler migration
+- Phase 4: File splitting
 ```
 
 ## Architecture Decisions
