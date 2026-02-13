@@ -99,6 +99,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // --- Relation types ---
     let has_role_id = insert_entity(&conn, "relation_type", "has_role", "Has Role", 0);
     let has_perm_id = insert_entity(&conn, "relation_type", "has_permission", "Has Permission", 0);
+    let _requires_perm_id = insert_entity(&conn, "relation_type", "requires_permission", "Requires Permission", 0);
 
     // --- Roles ---
     let admin_role_id = insert_entity(&conn, "role", "admin", "Administrator", 1);
@@ -191,6 +192,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_settings_id, "permission_code", "settings.manage");
     insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
 
-    log::info!("Seeded ontology: 2 relation types, 2 roles, {} permissions, 6 nav items, 2 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 6 nav items, 2 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
