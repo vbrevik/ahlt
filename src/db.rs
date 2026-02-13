@@ -261,11 +261,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(audit_path)
+            let mut file_perms = std::fs::metadata(audit_path)
                 .expect("Failed to get audit dir metadata")
                 .permissions();
-            perms.set_mode(0o700); // Owner read/write/execute only
-            std::fs::set_permissions(audit_path, perms)
+            file_perms.set_mode(0o700); // Owner read/write/execute only
+            std::fs::set_permissions(audit_path, file_perms)
                 .expect("Failed to set audit dir permissions");
         }
     }
