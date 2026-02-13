@@ -35,7 +35,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `role` | Named collection of permissions | `description`, `is_default` |
 | `permission` | Atomic capability | `group_name` |
 | `user` | Account with role relation | `password`, `email` |
-| `nav_item` | Menu entry (module or page) | `url`, `permission_code`, `parent` |
+| `nav_item` | Menu entry (module or page) | `url`, `parent` *(permission via relation)* |
 | `setting` | Key-value config *(planned)* | `value`, `description` |
 
 ### Relations in Use
@@ -44,6 +44,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 |---|---|---|
 | `has_role` | user → role | User's assigned role |
 | `has_permission` | role → permission | Role's granted permissions |
+| `requires_permission` | nav_item → permission | Nav item access requirement |
 
 ### Permission Codes (seed data)
 
@@ -83,6 +84,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 - 2.2 Two-tier rendering: modules in header, pages in sidebar
 - Active state detection (children first, then top-level fallback)
 - Permission-gated visibility (module visible if any child permitted)
+- 2.3 Nav permissions via relations: converted nav_item permission checks from `permission_code` text properties to `requires_permission` relations (nav_item→permission), making permissions visible in ontology graph and consistent with EAV model
 
 ### Security (partial)
 - 5.1 Self-deletion protection
@@ -147,29 +149,30 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Click-outside-to-close with global document listener
 - CSS: `.user-dropdown`, `.avatar`, `.dropdown-panel`, `.badge-count` classes with animation
 
+### Custom Error Pages (6.2)
+- HTML templates for 404 and 500 errors with branded design
+- templates/errors/404.html: "Page Not Found" with Go to Dashboard / Go Back buttons
+- templates/errors/500.html: "Server Error" with Go to Dashboard / Try Again buttons
+- Centered layout with warm gradient background matching login page, large amber error code
+- Updated AppError::error_response() to serve HTML via include_str!() instead of plain text
+- Registered default_service() handler for 404 fallback on unmatched routes
+- CSS: .error-page, .error-icon, .error-content, .error-actions
+
+### Pagination on User List (6.3)
+- Query parameters: `?page=1&per_page=25` with defaults and clamping (1-100 per page)
+- `UserPage` struct: bundles users Vec + pagination metadata (page, per_page, total_count, total_pages)
+- `user::find_paginated()`: SQL LIMIT/OFFSET pattern with total count calculation
+- Handler: `web::Query<PaginationQuery>` with `Option<i64>` fields for flexible defaults
+- Template: conditional pagination controls (`{% if total_pages > 1 %}`) with Previous/Next buttons
+- Page info display: "Page X of Y (Z total)" format
+- CSS: `.pagination`, `.pagination-info`, `.pagination-controls` with disabled button states
+- Graceful degradation: single-page datasets show clean interface without pagination UI
+
 ---
 
 ## Remaining Backlog
 
-### Phase 3: Polish
-
----
-
-#### 6.2 — Custom error pages
-**Priority:** Low | **Effort:** Small
-
-Askama templates for 404 and 500 errors. Register via actix-web's custom error handlers.
-
-**Files:** new `templates/errors/404.html`, `templates/errors/500.html`, `src/errors.rs`
-
----
-
-#### 6.3 — Pagination on user list
-**Priority:** Low | **Effort:** Small
-
-Accept `?page=1&per_page=25` query params. SQL: `LIMIT ? OFFSET ?`. Render prev/next links.
-
-**Files:** `src/handlers/user_handlers.rs`, `src/models/user.rs`, `templates/users/list.html`
+### Phase 4: Polish
 
 ---
 
@@ -194,8 +197,8 @@ New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   6.2 Error pages             6.3 Pagination
-Epic 2: Data-Driven Nav       7.3 Audit trail             6.4 Search/filter
+Epic 1: Ontology Foundation   6.4 Search/filter           7.3 Audit trail
+Epic 2: Data-Driven Nav
 5.1 Self-deletion guard
 5.2 Last admin guard
 5.3 Session key from env
@@ -206,10 +209,13 @@ Ontology Explorer
 3.2 Settings page
 3.3 Runtime settings
 6.1 Change password
+6.2 Custom error pages
+6.3 Pagination
 6.5 Navbar avatar dropdown
 7.1 Git + GitHub
 7.2 Favicon
 PageContext refactor
+2.3 Nav perms via relations
 ```
 
 ## Architecture Decisions
