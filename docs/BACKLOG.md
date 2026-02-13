@@ -112,29 +112,21 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Reference tab: entity type summary cards, relation pattern breakdowns, schema reference tables
 - `admin.ontology` nav item under Admin module, gated by `settings.manage`
 
-### App Settings (3.1 + 3.2)
+### App Settings (3.1 + 3.2 + 3.3)
 - Settings as entities with entity_type='setting', properties: `value`, `description`, `setting_type` (text/number/boolean)
 - Seeded defaults: `app.name` = "Ahlt", `app.description` = "Administration Platform"
 - `GET /settings` form + `POST /settings` save with upsert, protected by `settings.manage`
 - `admin.settings` nav item under Admin module
 - Supports text, number, and boolean (select dropdown) field types
+- Runtime integration: `app.name` drives navbar brand, page titles (all templates), and login page brand
+- `setting::get_value()` used in `PageContext::build()` (authenticated pages) and login handler
+- No caching — simple DB lookup per request, sufficient at current scale
 
 ---
 
 ## Remaining Backlog
 
-### Phase 2: Runtime Settings + CSRF
-
-#### 3.3 — Use settings in runtime
-**Priority:** Medium | **Effort:** Small
-
-Replace hardcoded values with DB lookups:
-- Page title / navbar brand from `app.name`
-- Cache settings at startup, refresh on save
-
-**Files:** `src/main.rs`, `templates/base.html`, `templates/partials/nav.html`
-
----
+### Phase 2: CSRF + Polish
 
 #### 5.4 — CSRF protection
 **Priority:** Medium | **Effort:** Medium
@@ -196,15 +188,16 @@ New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   3.3 Runtime settings        5.4 CSRF
-Epic 2: Data-Driven Nav                                   6.1 Change password
-5.1 Self-deletion guard                                   6.2 Error pages
-5.2 Last admin guard                                      6.3 Pagination
-5.3 Session key from env                                  6.4 Search/filter
-4.1 Role Management UI                                    7.3 Audit trail
+Epic 1: Ontology Foundation   5.4 CSRF                    6.2 Error pages
+Epic 2: Data-Driven Nav       6.1 Change password         6.3 Pagination
+5.1 Self-deletion guard                                   6.4 Search/filter
+5.2 Last admin guard                                      7.3 Audit trail
+5.3 Session key from env
+4.1 Role Management UI
 Ontology Explorer
 3.1 Settings entities
 3.2 Settings page
+3.3 Runtime settings
 7.1 Git + GitHub
 7.2 Favicon
 PageContext refactor

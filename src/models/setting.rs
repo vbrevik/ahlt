@@ -38,6 +38,18 @@ pub fn find_all(conn: &Connection) -> rusqlite::Result<Vec<SettingDisplay>> {
     Ok(settings)
 }
 
+/// Get a single setting's value by name, returning a default if not found.
+pub fn get_value(conn: &Connection, name: &str, default: &str) -> String {
+    conn.query_row(
+        "SELECT COALESCE(p.value, ?2) \
+         FROM entities e \
+         LEFT JOIN entity_properties p ON e.id = p.entity_id AND p.key = 'value' \
+         WHERE e.entity_type = 'setting' AND e.name = ?1",
+        params![name, default],
+        |row| row.get(0),
+    ).unwrap_or_else(|_| default.to_string())
+}
+
 /// Update a single setting's value by entity id (upsert on entity_properties).
 pub fn update_value(conn: &Connection, id: i64, value: &str) -> rusqlite::Result<()> {
     conn.execute(

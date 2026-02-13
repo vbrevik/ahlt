@@ -4,7 +4,7 @@ use askama::Template;
 use serde::Deserialize;
 
 use crate::db::DbPool;
-use crate::models::{user, role, permission};
+use crate::models::{user, role, permission, setting};
 use crate::auth::password;
 use crate::templates_structs::LoginTemplate;
 
@@ -14,7 +14,10 @@ pub struct LoginForm {
     pub password: String,
 }
 
-pub async fn login_page(session: Session) -> impl Responder {
+pub async fn login_page(
+    pool: web::Data<DbPool>,
+    session: Session,
+) -> impl Responder {
     // If already logged in, redirect to dashboard
     if session.get::<i64>("user_id").unwrap_or(None).is_some() {
         return HttpResponse::SeeOther()
@@ -22,7 +25,11 @@ pub async fn login_page(session: Session) -> impl Responder {
             .finish();
     }
 
-    let tmpl = LoginTemplate { error: None };
+    let app_name = pool.get()
+        .map(|conn| setting::get_value(&conn, "app.name", "Ahlt"))
+        .unwrap_or_else(|_| "Ahlt".to_string());
+
+    let tmpl = LoginTemplate { error: None, app_name };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),
@@ -39,11 +46,14 @@ pub async fn login_submit(
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
+    let app_name = setting::get_value(&conn, "app.name", "Ahlt");
+
     // Look up user
     let found = user::find_by_username(&conn, &form.username);
     let render_error = |msg: &str| {
         let tmpl = LoginTemplate {
             error: Some(msg.to_string()),
+            app_name: app_name.clone(),
         };
         match tmpl.render() {
             Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),

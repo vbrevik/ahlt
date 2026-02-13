@@ -5,7 +5,7 @@ use rusqlite::Connection;
 use crate::models::user::UserDisplay;
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
-use crate::models::setting::SettingDisplay;
+use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -17,6 +17,7 @@ pub struct PageContext {
     pub flash: Option<String>,
     pub nav_modules: Vec<NavModule>,
     pub sidebar_items: Vec<NavSidebarItem>,
+    pub app_name: String,
 }
 
 impl PageContext {
@@ -25,7 +26,8 @@ impl PageContext {
         let permissions = get_permissions(session);
         let flash = take_flash(session);
         let (nav_modules, sidebar_items) = nav_item::find_navigation(conn, &permissions, current_path);
-        Self { username, permissions, flash, nav_modules, sidebar_items }
+        let app_name = setting::get_value(conn, "app.name", "Ahlt");
+        Self { username, permissions, flash, nav_modules, sidebar_items, app_name }
     }
 }
 
@@ -33,6 +35,7 @@ impl PageContext {
 #[template(path = "login.html")]
 pub struct LoginTemplate {
     pub error: Option<String>,
+    pub app_name: String,
 }
 
 #[derive(Template)]
