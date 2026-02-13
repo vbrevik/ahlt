@@ -1,4 +1,3 @@
-use actix_files;
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, cookie::Key, middleware, web};
 
