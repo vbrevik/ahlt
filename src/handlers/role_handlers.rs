@@ -339,11 +339,14 @@ pub async fn delete(
             .finish();
     }
 
+    // Fetch role details before deletion for audit log
+    let role_details = role::find_detail_by_id(&conn, id).ok().flatten();
+
     match role::delete(&conn, id) {
         Ok(_) => {
             // Audit log
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
-            if let Ok(Some(deleted_role)) = role::find_detail_by_id(&conn, id) {
+            if let Some(deleted_role) = role_details {
                 let details = serde_json::json!({
                     "role_name": deleted_role.name,
                     "summary": format!("Deleted role '{}'", deleted_role.label)

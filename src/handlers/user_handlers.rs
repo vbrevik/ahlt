@@ -353,11 +353,14 @@ pub async fn delete(
         }
     }
 
+    // Fetch user details before deletion for audit log
+    let user_details = user::find_display_by_id(&conn, id).ok().flatten();
+
     match user::delete(&conn, id) {
         Ok(_) => {
             // Audit log
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
-            if let Ok(Some(deleted_user)) = user::find_display_by_id(&conn, id) {
+            if let Some(deleted_user) = user_details {
                 let details = serde_json::json!({
                     "username": deleted_user.username,
                     "summary": format!("Deleted user '{}'", deleted_user.username)
