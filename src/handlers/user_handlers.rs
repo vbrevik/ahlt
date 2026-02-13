@@ -40,18 +40,12 @@ pub async fn list(
 pub async fn new_form(
     pool: web::Data<DbPool>,
     session: Session,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.create") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.create")?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
-
-    let ctx = PageContext::build(&session, &conn, "/users");
-    let roles = role::find_all_display(&conn).unwrap_or_default();
+    let conn = pool.get()?;
+    let ctx = PageContext::build(&session, &conn, "/users")?;
+    let roles = role::find_all_display(&conn)?;
 
     let tmpl = UserFormTemplate {
         ctx,
@@ -61,10 +55,7 @@ pub async fn new_form(
         roles,
         errors: vec![],
     };
-    match tmpl.render() {
-        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-        Err(_) => HttpResponse::InternalServerError().body("Template error"),
-    }
+    render(tmpl)
 }
 
 pub async fn create(
