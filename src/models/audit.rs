@@ -77,12 +77,12 @@ pub fn find_paginated(
         params_vec.push(Box::new(pattern));
     }
 
-    if let Some(action) = action_filter.filter(|a| *a != "all") {
+    if let Some(action) = action_filter.filter(|a| a != &"all") {
         filters.push(format!("p_action.value LIKE ?{}", params_vec.len() + 1));
         params_vec.push(Box::new(format!("{}%", action)));
     }
 
-    if let Some(target) = target_type_filter.filter(|t| *t != "all") {
+    if let Some(target) = target_type_filter.filter(|t| t != &"all") {
         filters.push(format!("p_target_type.value = ?{}", params_vec.len() + 1));
         params_vec.push(Box::new(target.to_string()));
     }

@@ -70,13 +70,6 @@ pub struct UserPage {
     pub total_pages: i64,
 }
 
-pub fn find_all_display(conn: &Connection) -> rusqlite::Result<Vec<UserDisplay>> {
-    let sql = format!("{SELECT_USER_DISPLAY} ORDER BY e.id");
-    let mut stmt = conn.prepare(&sql)?;
-    let users = stmt.query_map([], row_to_user_display)?.collect::<Result<Vec<_>, _>>()?;
-    Ok(users)
-}
-
 /// Find users with pagination and optional search support.
 pub fn find_paginated(conn: &Connection, page: i64, per_page: i64, search: Option<&str>) -> rusqlite::Result<UserPage> {
     // Clamp pagination params
