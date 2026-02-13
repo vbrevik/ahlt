@@ -149,6 +149,17 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Click-outside-to-close with global document listener
 - CSS: `.user-dropdown`, `.avatar`, `.dropdown-panel`, `.badge-count` classes with animation
 
+### Audit Trail (7.3)
+- Two-tier system: high-value events in database (EAV), all events in filesystem (JSON Lines)
+- Database: audit_entry entities with properties (user_id, action, target_type, target_id, summary)
+- Filesystem: Daily-rotated .jsonl files in data/audit/ with secure permissions (0600/0700)
+- Settings: audit.enabled, audit.log_path, audit.retention_days
+- Retention cleanup on startup (configurable, 0=forever)
+- UI: /audit with search, action filter, target type filter, pagination
+- Permission: audit.view for viewing logs
+- Integration: user create/delete, role create/delete/permissions_changed logged
+- Error handling: logging failures never block requests (logged to stderr)
+
 ### Custom Error Pages (6.2)
 - HTML templates for 404 and 500 errors with branded design
 - templates/errors/404.html: "Page Not Found" with Go to Dashboard / Go Back buttons
@@ -185,19 +196,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 ---
 
-#### 7.3 — Audit trail
-**Priority:** Low | **Effort:** Medium
-
-New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type`, `target_id`, `details`. Write entries from handlers on create/update/delete.
-
----
-
 ## Implementation Order
 
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   7.3 Audit trail             [empty]
+Epic 1: Ontology Foundation   [empty]                     [empty]
 Epic 2: Data-Driven Nav
 5.1 Self-deletion guard
 5.2 Last admin guard
@@ -215,6 +219,7 @@ Ontology Explorer
 6.5 Navbar avatar dropdown
 7.1 Git + GitHub
 7.2 Favicon
+7.3 Audit trail
 PageContext refactor
 2.3 Nav perms via relations
 ```
