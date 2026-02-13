@@ -157,13 +157,17 @@ h2 {
     background: var(--nav-bg);
     padding: 0 2rem;
     display: flex;
-    justify-content: space-between;
     align-items: center;
     height: 60px;
     border-bottom: 2px solid var(--accent);
     position: sticky;
     top: 0;
     z-index: 100;
+}
+
+.navbar-brand {
+    flex: 1;
+    min-width: 0;
 }
 
 .navbar-brand a {
@@ -173,7 +177,7 @@ h2 {
     color: var(--nav-text-hover);
     text-decoration: none;
     letter-spacing: -0.03em;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
     padding: 0.5rem 0;
@@ -196,10 +200,18 @@ h2 {
     opacity: 0.85;
 }
 
-.navbar-menu {
+.navbar-center {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+}
+
+.navbar-end {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
 }
 
 .navbar a {
@@ -222,13 +234,147 @@ h2 {
     background: rgba(255, 255, 255, 0.1);
 }
 
-.navbar-user {
-    color: var(--nav-text);
+/* --- User dropdown --- */
+.user-dropdown {
+    position: relative;
+}
+
+.avatar-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    outline: none;
+}
+
+.avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.875rem;
+    letter-spacing: -0.02em;
+    position: relative;
+    transition: box-shadow var(--duration) var(--ease);
+    user-select: none;
+}
+
+.avatar-btn:hover .avatar,
+.user-dropdown.open .avatar {
+    box-shadow: 0 0 0 2px var(--nav-bg), 0 0 0 4px var(--accent);
+}
+
+.avatar-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-full);
+    background: var(--danger);
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+    border: 2px solid var(--nav-bg);
+}
+
+.dropdown-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 0.375rem 0;
+    z-index: 200;
+}
+
+.user-dropdown.open .dropdown-panel {
+    display: block;
+    animation: dropdown-in var(--duration) var(--ease);
+}
+
+@keyframes dropdown-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-header {
+    padding: 0.625rem 1rem 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.25rem;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.5rem 1rem;
     font-size: 0.8125rem;
     font-weight: 500;
-    margin-left: 0.75rem;
-    padding-left: 1rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text);
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: background var(--duration) var(--ease);
+}
+
+.dropdown-item:hover {
+    background: var(--bg-subtle);
+    color: var(--text);
+}
+
+.dropdown-item-danger {
+    color: var(--danger);
+}
+
+.dropdown-item-danger:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.dropdown-item-form {
+    margin: 0;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0;
+}
+
+.badge-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
 }
 
 /* === Buttons === */
@@ -1525,12 +1671,13 @@ select:focus-visible {
         height: 52px;
     }
 
-    .navbar-menu {
+    .navbar-center {
         gap: 0;
     }
 
-    .navbar-user {
-        display: none;
+    .navbar-center a {
+        padding: 0.5rem;
+        font-size: 0.8125rem;
     }
 
     .page-header {

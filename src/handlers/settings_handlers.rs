@@ -4,6 +4,7 @@ use askama::Template;
 
 use crate::db::DbPool;
 use crate::models::setting;
+use crate::auth::csrf;
 use crate::auth::session::require_permission;
 use crate::templates_structs::{PageContext, SettingsTemplate};
 
@@ -61,6 +62,13 @@ pub async fn list(
     }
 }
 
+fn get_field<'a>(params: &'a [(String, String)], key: &str) -> &'a str {
+    params.iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.as_str())
+        .unwrap_or("")
+}
+
 pub async fn save(
     pool: web::Data<DbPool>,
     session: Session,
@@ -70,12 +78,15 @@ pub async fn save(
         return resp;
     }
 
+    let params = parse_form_body(&body);
+    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
+        return resp;
+    }
+
     let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
-
-    let params = parse_form_body(&body);
 
     // Each setting is submitted as setting_<id>=<value>
     for (key, value) in &params {

@@ -87,6 +87,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/{id}/edit", web::get().to(handlers::role_handlers::edit_form))
                     .route("/roles/{id}", web::post().to(handlers::role_handlers::update))
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
+                    // Account
+                    .route("/account", web::get().to(handlers::account_handlers::form))
+                    .route("/account", web::post().to(handlers::account_handlers::submit))
                     // Settings
                     .route("/settings", web::get().to(handlers::settings_handlers::list))
                     .route("/settings", web::post().to(handlers::settings_handlers::save))

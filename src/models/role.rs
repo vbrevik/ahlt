@@ -2,6 +2,7 @@ use rusqlite::{Connection, params};
 
 /// For use in templates (dropdowns, display).
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RoleDisplay {
     pub id: i64,
     pub name: String,
@@ -21,6 +22,7 @@ pub struct RoleListItem {
 
 /// For role edit form — role info + list of all permissions with checked state.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RoleDetail {
     pub id: i64,
     pub name: String,
@@ -30,6 +32,7 @@ pub struct RoleDetail {
 
 /// A permission with its checked state for the role form.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PermissionCheckbox {
     pub id: i64,
     pub code: String,

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use rusqlite::{Connection, params};
 use super::entity::Entity;
 

@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, ResponseError};
 use std::fmt;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     Db(rusqlite::Error),
     Pool(r2d2::Error),

@@ -2,6 +2,7 @@ use rusqlite::{Connection, params};
 
 /// A setting for display and editing.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SettingDisplay {
     pub id: i64,
     pub name: String,

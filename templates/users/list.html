@@ -44,6 +44,7 @@
                 {% if ctx.permissions.has("users.delete") %}
                 <form method="post" action="/users/{{ user.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete this user?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
                 {% endif %}

@@ -20,6 +20,7 @@
 </div>
 
 <form method="post" action="/settings" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
     {% for s in settings %}
     <div class="form-group">
         <label for="setting_{{ s.id }}">{{ s.label }}</label>

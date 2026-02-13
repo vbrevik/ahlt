@@ -122,30 +122,36 @@ All domain objects share three generic tables — no dedicated tables per type:
 - `setting::get_value()` used in `PageContext::build()` (authenticated pages) and login handler
 - No caching — simple DB lookup per request, sufficient at current scale
 
+### CSRF Protection (5.4)
+- Token generation: 32 random bytes hex-encoded, stored in session
+- `src/auth/csrf.rs`: `get_or_create_token()` + `validate_csrf()` with constant-time comparison
+- All 7 form templates updated with hidden `csrf_token` input field
+- All 9 POST handlers validate CSRF before processing
+- Form structs: added `csrf_token` field to `LoginForm`, `UserForm`; raw body handlers extract from parsed params; body-less handlers use shared `CsrfOnly` struct
+- Dependencies: `rand = "0.9"`, `hex = "0.4"`
+
+### Change Password (6.1)
+- `GET /account`: form with current/new/confirm password fields + CSRF token
+- `POST /account`: validates current password, checks new==confirm, updates via upsert on entity_properties
+- New functions: `user::find_password_hash_by_id()`, `user::update_password()`
+- Navbar username link changed to clickable link to `/account`
+- Flash message on successful password change
+- Form errors: wrong current password, mismatch confirmation
+
+### Navbar Avatar Dropdown (6.5)
+- Replaced username text + separate logout form with avatar dropdown
+- Avatar: circular button showing user initial (first letter, uppercase) in accent color
+- Dropdown panel: username header, Profile (→ /account), Warnings (→ /warnings with badge), divider, Logout (red, CSRF form)
+- Badge support: `warning_count` field in PageContext (currently 0, ready for warnings feature), red notification badge on avatar when warnings > 0
+- Three-section centered navbar layout: brand (left, flex:1), modules (center), user dropdown (right, flex:1)
+- Click-outside-to-close with global document listener
+- CSS: `.user-dropdown`, `.avatar`, `.dropdown-panel`, `.badge-count` classes with animation
+
 ---
 
 ## Remaining Backlog
 
-### Phase 2: CSRF + Polish
-
-#### 5.4 — CSRF protection
-**Priority:** Medium | **Effort:** Medium
-
-Generate a random token per session, embed as hidden form field, validate on POST handlers.
-
-**Files:** new `src/auth/csrf.rs`, all templates with forms, all POST handlers
-
----
-
 ### Phase 3: Polish
-
-#### 6.1 — Change own password page
-**Priority:** Medium | **Effort:** Small
-
-`GET /account` — form with current password, new password, confirm.
-`POST /account` — validate and update.
-
-**Files:** new `src/handlers/account_handlers.rs`, new `templates/account.html`
 
 ---
 
@@ -188,16 +194,19 @@ New entity_type `audit_entry` with properties: `user_id`, `action`, `target_type
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   5.4 CSRF                    6.2 Error pages
-Epic 2: Data-Driven Nav       6.1 Change password         6.3 Pagination
-5.1 Self-deletion guard                                   6.4 Search/filter
-5.2 Last admin guard                                      7.3 Audit trail
+Epic 1: Ontology Foundation   6.2 Error pages             6.3 Pagination
+Epic 2: Data-Driven Nav       7.3 Audit trail             6.4 Search/filter
+5.1 Self-deletion guard
+5.2 Last admin guard
 5.3 Session key from env
+5.4 CSRF protection
 4.1 Role Management UI
 Ontology Explorer
 3.1 Settings entities
 3.2 Settings page
 3.3 Runtime settings
+6.1 Change password
+6.5 Navbar avatar dropdown
 7.1 Git + GitHub
 7.2 Favicon
 PageContext refactor

@@ -2,13 +2,43 @@
     <div class="navbar-brand">
         <a href="/dashboard">{{ ctx.app_name }}</a>
     </div>
-    <div class="navbar-menu">
+    <div class="navbar-center">
         {% for m in ctx.nav_modules %}
         <a href="{{ m.url }}"{% if m.is_active %} class="active"{% endif %}>{{ m.label }}</a>
         {% endfor %}
-        <span class="navbar-user">{{ ctx.username }}</span>
-        <form method="post" action="/logout" class="inline">
-            <button type="submit" class="btn-link">Logout</button>
-        </form>
+    </div>
+    <div class="navbar-end">
+        <div class="user-dropdown">
+            <button class="avatar-btn" type="button" onclick="this.parentElement.classList.toggle('open')">
+                <span class="avatar">
+                    {{ ctx.avatar_initial }}
+                    {% if ctx.warning_count > 0 %}
+                    <span class="avatar-badge">{{ ctx.warning_count }}</span>
+                    {% endif %}
+                </span>
+            </button>
+            <div class="dropdown-panel">
+                <div class="dropdown-header">{{ ctx.username }}</div>
+                <a href="/account" class="dropdown-item">Profile</a>
+                <a href="/warnings" class="dropdown-item">
+                    Warnings
+                    {% if ctx.warning_count > 0 %}
+                    <span class="badge-count">{{ ctx.warning_count }}</span>
+                    {% endif %}
+                </a>
+                <div class="dropdown-divider"></div>
+                <form method="post" action="/logout" class="dropdown-item-form">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="dropdown-item dropdown-item-danger">Logout</button>
+                </form>
+            </div>
+        </div>
     </div>
 </nav>
+<script>
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.user-dropdown.open').forEach(function(d) {
+        if (!d.contains(e.target)) d.classList.remove('open');
+    });
+});
+</script>

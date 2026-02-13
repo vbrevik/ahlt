@@ -7,17 +7,21 @@ use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheck
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
+use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
 /// Common context shared by all authenticated pages.
 /// Templates access these as `ctx.username`, `ctx.nav_modules`, etc.
 pub struct PageContext {
     pub username: String,
+    pub avatar_initial: String,
     pub permissions: Permissions,
     pub flash: Option<String>,
     pub nav_modules: Vec<NavModule>,
     pub sidebar_items: Vec<NavSidebarItem>,
     pub app_name: String,
+    pub csrf_token: String,
+    pub warning_count: i64,
 }
 
 impl PageContext {
@@ -27,7 +31,10 @@ impl PageContext {
         let flash = take_flash(session);
         let (nav_modules, sidebar_items) = nav_item::find_navigation(conn, &permissions, current_path);
         let app_name = setting::get_value(conn, "app.name", "Ahlt");
-        Self { username, permissions, flash, nav_modules, sidebar_items, app_name }
+        let csrf_token = csrf::get_or_create_token(session);
+        let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
+        let warning_count = 0; // TODO: wire up when warnings feature is built
+        Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count }
     }
 }
 
@@ -36,6 +43,7 @@ impl PageContext {
 pub struct LoginTemplate {
     pub error: Option<String>,
     pub app_name: String,
+    pub csrf_token: String,
 }
 
 #[derive(Template)]
@@ -114,4 +122,11 @@ pub struct OntologyDetailTemplate {
 pub struct SettingsTemplate {
     pub ctx: PageContext,
     pub settings: Vec<SettingDisplay>,
+}
+
+#[derive(Template)]
+#[template(path = "account.html")]
+pub struct AccountTemplate {
+    pub ctx: PageContext,
+    pub errors: Vec<String>,
 }

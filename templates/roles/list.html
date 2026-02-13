@@ -46,6 +46,7 @@
                 {% if role.user_count == 0 %}
                 <form method="post" action="/roles/{{ role.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete this role?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
                 {% endif %}

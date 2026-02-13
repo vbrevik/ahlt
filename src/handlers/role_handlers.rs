@@ -4,7 +4,9 @@ use askama::Template;
 
 use crate::db::DbPool;
 use crate::models::role;
+use crate::auth::csrf;
 use crate::auth::session::require_permission;
+use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, RoleListTemplate, RoleFormTemplate};
 
 /// Decode a URL-encoded string (form data): `+` → space, `%HH` → byte.
@@ -114,12 +116,16 @@ pub async fn create(
         return resp;
     }
 
+    let params = parse_form_body(&body);
+    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
+        return resp;
+    }
+
     let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
-    let params = parse_form_body(&body);
     let name = get_field(&params, "name");
     let label = get_field(&params, "label");
     let description = get_field(&params, "description");
@@ -232,6 +238,11 @@ pub async fn update(
         return resp;
     }
 
+    let params = parse_form_body(&body);
+    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
+        return resp;
+    }
+
     let id = path.into_inner();
 
     let conn = match pool.get() {
@@ -239,7 +250,6 @@ pub async fn update(
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
-    let params = parse_form_body(&body);
     let name = get_field(&params, "name");
     let label = get_field(&params, "label");
     let description = get_field(&params, "description");
@@ -284,8 +294,12 @@ pub async fn delete(
     pool: web::Data<DbPool>,
     session: Session,
     path: web::Path<i64>,
+    form: web::Form<CsrfOnly>,
 ) -> impl Responder {
     if let Err(resp) = require_permission(&session, "roles.manage") {
+        return resp;
+    }
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
         return resp;
     }
 

@@ -5,13 +5,19 @@ use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::{user, role, permission, setting};
-use crate::auth::password;
+use crate::auth::{csrf, password};
 use crate::templates_structs::LoginTemplate;
 
 #[derive(Deserialize)]
 pub struct LoginForm {
     pub username: String,
     pub password: String,
+    pub csrf_token: String,
+}
+
+#[derive(Deserialize)]
+pub struct CsrfOnly {
+    pub csrf_token: String,
 }
 
 pub async fn login_page(
@@ -29,7 +35,8 @@ pub async fn login_page(
         .map(|conn| setting::get_value(&conn, "app.name", "Ahlt"))
         .unwrap_or_else(|_| "Ahlt".to_string());
 
-    let tmpl = LoginTemplate { error: None, app_name };
+    let csrf_token = csrf::get_or_create_token(&session);
+    let tmpl = LoginTemplate { error: None, app_name, csrf_token };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),
@@ -41,6 +48,11 @@ pub async fn login_submit(
     session: Session,
     form: web::Form<LoginForm>,
 ) -> impl Responder {
+    // Validate CSRF token
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
+        return resp;
+    }
+
     let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
@@ -51,9 +63,11 @@ pub async fn login_submit(
     // Look up user
     let found = user::find_by_username(&conn, &form.username);
     let render_error = |msg: &str| {
+        let csrf_token = csrf::get_or_create_token(&session);
         let tmpl = LoginTemplate {
             error: Some(msg.to_string()),
             app_name: app_name.clone(),
+            csrf_token,
         };
         match tmpl.render() {
             Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
@@ -93,7 +107,13 @@ pub async fn login_submit(
     }
 }
 
-pub async fn logout(session: Session) -> impl Responder {
+pub async fn logout(
+    session: Session,
+    form: web::Form<CsrfOnly>,
+) -> impl Responder {
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
+        return resp;
+    }
     session.purge();
     HttpResponse::SeeOther()
         .insert_header(("Location", "/login"))

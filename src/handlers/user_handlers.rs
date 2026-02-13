@@ -5,8 +5,9 @@ use askama::Template;
 use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
 use crate::models::role;
-use crate::auth::password;
+use crate::auth::{csrf, password};
 use crate::auth::session::{get_user_id, require_permission};
+use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, UserListTemplate, UserFormTemplate};
 
 pub async fn list(
@@ -68,6 +69,9 @@ pub async fn create(
     form: web::Form<UserForm>,
 ) -> impl Responder {
     if let Err(resp) = require_permission(&session, "users.create") {
+        return resp;
+    }
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
         return resp;
     }
 
@@ -203,6 +207,9 @@ pub async fn update(
     if let Err(resp) = require_permission(&session, "users.edit") {
         return resp;
     }
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
+        return resp;
+    }
 
     let id = path.into_inner();
 
@@ -280,8 +287,12 @@ pub async fn delete(
     pool: web::Data<DbPool>,
     session: Session,
     path: web::Path<i64>,
+    form: web::Form<CsrfOnly>,
 ) -> impl Responder {
     if let Err(resp) = require_permission(&session, "users.delete") {
+        return resp;
+    }
+    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
         return resp;
     }
 

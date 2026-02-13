@@ -253,6 +253,7 @@ pub fn find_relation_type_summaries(conn: &Connection) -> rusqlite::Result<Vec<R
 
 /// Entity row for the data browser list view.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct EntityListItem {
     pub id: i64,
     pub entity_type: String,
@@ -269,6 +270,7 @@ pub struct EntityProperty {
 
 /// A related entity (used for both incoming and outgoing relations).
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RelatedEntity {
     pub id: i64,
     pub entity_type: String,
@@ -295,6 +297,7 @@ pub struct EntityDetail {
 }
 
 /// List all entities, optionally filtered by entity_type.
+#[allow(dead_code)]
 pub fn find_entity_list(conn: &Connection, type_filter: Option<&str>) -> rusqlite::Result<Vec<EntityListItem>> {
     let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match type_filter {
         Some(t) if !t.is_empty() => (
@@ -402,6 +405,7 @@ pub fn find_entity_detail(conn: &Connection, id: i64) -> rusqlite::Result<Option
 }
 
 /// Get distinct entity types for filter UI.
+#[allow(dead_code)]
 pub fn find_entity_types(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT DISTINCT entity_type FROM entities ORDER BY entity_type"

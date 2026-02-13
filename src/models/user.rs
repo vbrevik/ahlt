@@ -3,6 +3,7 @@ use serde::Deserialize;
 
 /// Internal user struct for authentication — includes password hash.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct User {
     pub id: i64,
     pub username: String,
@@ -16,6 +17,7 @@ pub struct User {
 
 /// Safe version for templates — no password hash, includes role info from relations.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct UserDisplay {
     pub id: i64,
     pub username: String,
@@ -221,6 +223,32 @@ pub fn count_by_role_id(conn: &Connection, role_id: i64) -> rusqlite::Result<i64
     )
 }
 
+/// Get password hash for a user by id.
+pub fn find_password_hash_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = 'password'"
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
+    match rows.next() {
+        Some(val) => Ok(Some(val?)),
+        None => Ok(None),
+    }
+}
+
+/// Update only the password property for a user.
+pub fn update_password(conn: &Connection, id: i64, password_hash: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'password', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![id, password_hash],
+    )?;
+    conn.execute(
+        "UPDATE entities SET updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?1",
+        params![id],
+    )?;
+    Ok(())
+}
+
 /// Form data from create/edit user forms.
 #[derive(Debug, Deserialize)]
 pub struct UserForm {
@@ -229,4 +257,5 @@ pub struct UserForm {
     pub email: String,
     pub display_name: String,
     pub role_id: String, // comes as string from form, parse to i64
+    pub csrf_token: String,
 }
