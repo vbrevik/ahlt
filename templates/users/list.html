@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Users — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Users</h1>
+    {% if permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Display Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.display_name }}</td>
+            <td>{{ user.email }}</td>
+            <td><span class="badge badge-{{ user.role_name }}">{{ user.role_label }}</span></td>
+            <td class="actions">
+                {% if permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm">Edit</a>{% endif %}
+                {% if permissions.has("users.delete") %}
+                <form method="post" action="/users/{{ user.id }}/delete" class="inline"
+                      onsubmit="return confirm('Delete this user?')">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

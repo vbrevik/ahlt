@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<h1>Dashboard</h1>
+<div class="card-grid">
+    <div class="card">
+        <div class="card-label">Total Users</div>
+        <div class="card-value">{{ user_count }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Your Role</div>
+        <div class="card-value">{{ role_label }}</div>
+    </div>
+</div>
+<p>Welcome, <strong>{{ username }}</strong>. Use the navigation above to manage users.</p>
+{% endblock %}
