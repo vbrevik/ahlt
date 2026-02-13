@@ -4,3 +4,5 @@
 .env
 *.png
 .playwright-mcp/
+.claude/
+.serena/
