@@ -5,35 +5,35 @@ use std::io::Write;
 
 #[derive(Debug)]
 pub enum AuditError {
-    FileError(std::io::Error),
-    DbError(rusqlite::Error),
-    JsonError(serde_json::Error),
+    File(std::io::Error),
+    Db(rusqlite::Error),
+    Json(serde_json::Error),
 }
 
 impl From<std::io::Error> for AuditError {
     fn from(err: std::io::Error) -> Self {
-        AuditError::FileError(err)
+        AuditError::File(err)
     }
 }
 
 impl From<rusqlite::Error> for AuditError {
     fn from(err: rusqlite::Error) -> Self {
-        AuditError::DbError(err)
+        AuditError::Db(err)
     }
 }
 
 impl From<serde_json::Error> for AuditError {
     fn from(err: serde_json::Error) -> Self {
-        AuditError::JsonError(err)
+        AuditError::Json(err)
     }
 }
 
 impl std::fmt::Display for AuditError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AuditError::FileError(e) => write!(f, "File error: {}", e),
-            AuditError::DbError(e) => write!(f, "Database error: {}", e),
-            AuditError::JsonError(e) => write!(f, "JSON error: {}", e),
+            AuditError::File(e) => write!(f, "File error: {}", e),
+            AuditError::Db(e) => write!(f, "Database error: {}", e),
+            AuditError::Json(e) => write!(f, "JSON error: {}", e),
         }
     }
 }
