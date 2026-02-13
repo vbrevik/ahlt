@@ -26,10 +26,18 @@ impl fmt::Display for AppError {
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            AppError::NotFound => HttpResponse::NotFound().body("Not Found"),
+            AppError::NotFound => {
+                let html = include_str!("../templates/errors/404.html");
+                HttpResponse::NotFound()
+                    .content_type("text/html; charset=utf-8")
+                    .body(html)
+            }
             _ => {
                 log::error!("{self}");
-                HttpResponse::InternalServerError().body("Internal Server Error")
+                let html = include_str!("../templates/errors/500.html");
+                HttpResponse::InternalServerError()
+                    .content_type("text/html; charset=utf-8")
+                    .body(html)
             }
         }
     }

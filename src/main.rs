@@ -102,6 +102,13 @@ async fn main() -> std::io::Result<()> {
                     .route("/ontology/api/schema", web::get().to(handlers::ontology_handlers::schema_data))
                     .route("/ontology/api/graph", web::get().to(handlers::ontology_handlers::graph_data))
             )
+            // Default 404 handler (must be registered last)
+            .default_service(web::to(|| async {
+                let html = include_str!("../templates/errors/404.html");
+                actix_web::HttpResponse::NotFound()
+                    .content_type("text/html; charset=utf-8")
+                    .body(html)
+            }))
     })
     .bind("127.0.0.1:8080")?
     .run()
