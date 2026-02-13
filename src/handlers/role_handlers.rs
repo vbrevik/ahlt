@@ -1,11 +1,11 @@
 use actix_session::Session;
-use actix_web::{web, HttpResponse, Responder};
-use askama::Template;
+use actix_web::{web, HttpResponse};
 
 use crate::db::DbPool;
 use crate::models::role;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
+use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, RoleListTemplate, RoleFormTemplate};
 
@@ -57,41 +57,28 @@ fn get_all<'a>(params: &'a [(String, String)], key: &str) -> Vec<&'a str> {
 pub async fn list(
     pool: web::Data<DbPool>,
     session: Session,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
-    let ctx = PageContext::build(&session, &conn, "/roles");
-    let roles = role::find_all_list_items(&conn).unwrap_or_default();
+    let ctx = PageContext::build(&session, &conn, "/roles")?;
+    let roles = role::find_all_list_items(&conn)?;
 
     let tmpl = RoleListTemplate { ctx, roles };
-    match tmpl.render() {
-        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-        Err(_) => HttpResponse::InternalServerError().body("Template error"),
-    }
+    render(tmpl)
 }
 
 pub async fn new_form(
     pool: web::Data<DbPool>,
     session: Session,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
-    let ctx = PageContext::build(&session, &conn, "/roles");
-    let permissions = role::find_permission_checkboxes(&conn, 0).unwrap_or_default();
+    let ctx = PageContext::build(&session, &conn, "/roles")?;
+    let permissions = role::find_permission_checkboxes(&conn, 0)?;
 
     let tmpl = RoleFormTemplate {
         ctx,
@@ -101,30 +88,20 @@ pub async fn new_form(
         permissions,
         errors: vec![],
     };
-    match tmpl.render() {
-        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-        Err(_) => HttpResponse::InternalServerError().body("Template error"),
-    }
+    render(tmpl)
 }
 
 pub async fn create(
     pool: web::Data<DbPool>,
     session: Session,
     body: String,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
 
     let params = parse_form_body(&body);
-    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
-        return resp;
-    }
+    csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     let name = get_field(&params, "name");
     let label = get_field(&params, "label");
@@ -144,8 +121,8 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/roles");
-        let permissions = role::find_permission_checkboxes(&conn, 0).unwrap_or_default();
+        let ctx = PageContext::build(&session, &conn, "/roles")?;
+        let permissions = role::find_permission_checkboxes(&conn, 0)?;
         let tmpl = RoleFormTemplate {
             ctx,
             form_action: "/roles".to_string(),
@@ -154,10 +131,7 @@ pub async fn create(
             permissions,
             errors,
         };
-        return match tmpl.render() {
-            Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-            Err(_) => HttpResponse::InternalServerError().body("Template error"),
-        };
+        return render(tmpl);
     }
 
     match role::create(&conn, name.trim(), label.trim(), description.trim(), &perm_ids) {
@@ -173,9 +147,9 @@ pub async fn create(
                                       "role", role_id, details);
 
             let _ = session.insert("flash", "Role created successfully");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
-                .finish()
+                .finish())
         }
         Err(e) => {
             let msg = if e.to_string().contains("UNIQUE") {
@@ -183,8 +157,8 @@ pub async fn create(
             } else {
                 format!("Error creating role: {e}")
             };
-            let ctx = PageContext::build(&session, &conn, "/roles");
-            let permissions = role::find_permission_checkboxes(&conn, 0).unwrap_or_default();
+            let ctx = PageContext::build(&session, &conn, "/roles")?;
+            let permissions = role::find_permission_checkboxes(&conn, 0)?;
             let tmpl = RoleFormTemplate {
                 ctx,
                 form_action: "/roles".to_string(),
@@ -193,10 +167,7 @@ pub async fn create(
                 permissions,
                 errors: vec![msg],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
     }
 }
@@ -205,22 +176,17 @@ pub async fn edit_form(
     pool: web::Data<DbPool>,
     session: Session,
     path: web::Path<i64>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
 
     let id = path.into_inner();
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
-    match role::find_detail_by_id(&conn, id) {
-        Ok(Some(r)) => {
-            let ctx = PageContext::build(&session, &conn, "/roles");
-            let permissions = role::find_permission_checkboxes(&conn, id).unwrap_or_default();
+    match role::find_detail_by_id(&conn, id)? {
+        Some(r) => {
+            let ctx = PageContext::build(&session, &conn, "/roles")?;
+            let permissions = role::find_permission_checkboxes(&conn, id)?;
             let tmpl = RoleFormTemplate {
                 ctx,
                 form_action: format!("/roles/{id}"),
@@ -229,12 +195,9 @@ pub async fn edit_form(
                 permissions,
                 errors: vec![],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
-        _ => HttpResponse::NotFound().body("Role not found"),
+        None => Ok(HttpResponse::NotFound().body("Role not found")),
     }
 }
 
@@ -243,22 +206,15 @@ pub async fn update(
     session: Session,
     path: web::Path<i64>,
     body: String,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
 
     let params = parse_form_body(&body);
-    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
-        return resp;
-    }
+    csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
     let id = path.into_inner();
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     let name = get_field(&params, "name");
     let label = get_field(&params, "label");
@@ -267,6 +223,30 @@ pub async fn update(
         .iter()
         .filter_map(|s| s.parse().ok())
         .collect();
+
+    // Validate
+    let mut errors = vec![];
+    if name.trim().is_empty() {
+        errors.push("Name is required".to_string());
+    }
+    if label.trim().is_empty() {
+        errors.push("Label is required".to_string());
+    }
+
+    if !errors.is_empty() {
+        let existing = role::find_detail_by_id(&conn, id).ok().flatten();
+        let ctx = PageContext::build(&session, &conn, "/roles")?;
+        let permissions = role::find_permission_checkboxes(&conn, id)?;
+        let tmpl = RoleFormTemplate {
+            ctx,
+            form_action: format!("/roles/{id}"),
+            form_title: "Edit Role".to_string(),
+            role: existing,
+            permissions,
+            errors,
+        };
+        return render(tmpl);
+    }
 
     match role::update(&conn, id, name.trim(), label.trim(), description.trim(), &perm_ids) {
         Ok(_) => {
@@ -281,9 +261,9 @@ pub async fn update(
                                       "role", id, details);
 
             let _ = session.insert("flash", "Role updated successfully");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
-                .finish()
+                .finish())
         }
         Err(e) => {
             let msg = if e.to_string().contains("UNIQUE") {
@@ -292,8 +272,8 @@ pub async fn update(
                 format!("Error updating role: {e}")
             };
             let existing = role::find_detail_by_id(&conn, id).ok().flatten();
-            let ctx = PageContext::build(&session, &conn, "/roles");
-            let permissions = role::find_permission_checkboxes(&conn, id).unwrap_or_default();
+            let ctx = PageContext::build(&session, &conn, "/roles")?;
+            let permissions = role::find_permission_checkboxes(&conn, id)?;
             let tmpl = RoleFormTemplate {
                 ctx,
                 form_action: format!("/roles/{id}"),
@@ -302,10 +282,7 @@ pub async fn update(
                 permissions,
                 errors: vec![msg],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
     }
 }
@@ -315,28 +292,21 @@ pub async fn delete(
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "roles.manage") {
-        return resp;
-    }
-    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let id = path.into_inner();
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     // Prevent deleting a role that has users assigned
-    let user_count = role::count_users(&conn, id).unwrap_or(0);
+    let user_count = role::count_users(&conn, id)?;
     if user_count > 0 {
         let _ = session.insert("flash", format!("Cannot delete role: {user_count} user(s) still assigned"));
-        return HttpResponse::SeeOther()
+        return Ok(HttpResponse::SeeOther()
             .insert_header(("Location", "/roles"))
-            .finish();
+            .finish());
     }
 
     // Fetch role details before deletion for audit log
@@ -356,15 +326,15 @@ pub async fn delete(
             }
 
             let _ = session.insert("flash", "Role deleted");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
-                .finish()
+                .finish())
         }
         Err(_) => {
             let _ = session.insert("flash", "Error deleting role");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/roles"))
-                .finish()
+                .finish())
         }
     }
 }
