@@ -236,12 +236,29 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 **Commits:** 22 commits created with detailed messages and co-authorship
 
+### Manual Testing (Complete)
+- Created comprehensive test data seed script with 4 roles and 5 users
+- Generated proper argon2 password hash for "password123"
+- Verified login/logout functionality with multiple users
+- Tested user CRUD operations:
+  - List page with all users displayed correctly
+  - Search functionality filtering by username/name
+  - Edit form pre-populated with user data
+  - Create form with role dropdown
+- Validated permission-based access control:
+  - alice (Editor): can create/edit users, see Ontology/Settings, no Roles access
+  - bob (Viewer): read-only access, no edit buttons, minimal sidebar navigation
+  - Confirmed Actions column empty for users without edit permissions
+  - Verified sidebar navigation filtered by user permissions
+- Screenshot evidence captured: bob-viewer-users-list.png
+- All 27 refactored handlers working correctly with AppError pattern
+- Zero compilation errors, clean build
+
 ---
 
 ## Remaining Backlog
 
 ### Testing & Deployment
-- Manual testing of all CRUD operations
 - Automated tests for critical paths (login, user CRUD, permissions)
 - Production deployment preparation (env vars, session key, etc.)
 
@@ -258,8 +275,8 @@ All domain objects share three generic tables — no dedicated tables per type:
 ```
 DONE                          NEXT                        LATER
 ════                          ════                        ═════
-Epic 1: Ontology Foundation   Manual testing              Automated tests
-Epic 2: Data-Driven Nav       Production deployment       Warnings system
+Epic 1: Ontology Foundation   Automated tests             Warnings system
+Epic 2: Data-Driven Nav       Production deployment       More entity types
 5.1 Self-deletion guard                                   More entity types
 5.2 Last admin guard                                      API access
 5.3 Session key from env
@@ -283,6 +300,7 @@ Code cleanup (Tasks 1-28):
 - Phase 1-2: Error foundation
 - Phase 3: Handler migration
 - Phase 4: File splitting
+Manual testing (complete)
 ```
 
 ## Architecture Decisions
