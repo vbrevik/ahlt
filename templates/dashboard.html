@@ -6,8 +6,12 @@
 {% include "partials/nav.html" %}
 {% endblock %}
 
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
 {% block content %}
-{% if let Some(msg) = flash %}
+{% if let Some(msg) = ctx.flash %}
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
@@ -22,5 +26,5 @@
         <div class="card-value">{{ role_label }}</div>
     </div>
 </div>
-<p>Welcome, <strong>{{ username }}</strong>. Use the navigation above to manage users.</p>
+<p>Welcome, <strong>{{ ctx.username }}</strong>. Use the navigation above to manage users.</p>
 {% endblock %}

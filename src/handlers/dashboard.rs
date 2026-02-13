@@ -4,31 +4,23 @@ use askama::Template;
 
 use crate::db::DbPool;
 use crate::models::user;
-use crate::auth::session::{take_flash, get_username, get_permissions};
-use crate::templates_structs::DashboardTemplate;
+use crate::templates_structs::{PageContext, DashboardTemplate};
 
 pub async fn index(
     pool: web::Data<DbPool>,
     session: Session,
 ) -> impl Responder {
-    let username = get_username(&session);
     let role_label = session.get::<String>("role_label").unwrap_or(None).unwrap_or_default();
-    let flash = take_flash(&session);
-    let permissions = get_permissions(&session);
 
-    let user_count = match pool.get() {
-        Ok(conn) => user::count(&conn).unwrap_or(0),
-        Err(_) => 0,
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
-    let tmpl = DashboardTemplate {
-        username,
-        role_label,
-        user_count,
-        flash,
-        permissions,
-    };
+    let ctx = PageContext::build(&session, &conn, "/dashboard");
+    let user_count = user::count(&conn).unwrap_or(0);
 
+    let tmpl = DashboardTemplate { ctx, role_label, user_count };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),

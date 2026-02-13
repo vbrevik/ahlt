@@ -294,6 +294,7 @@ dependencies = [
  "r2d2_sqlite",
  "rusqlite",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

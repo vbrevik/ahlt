@@ -1,0 +1,9 @@
+{% if !ctx.sidebar_items.is_empty() %}
+<aside class="sidebar">
+    <nav class="sidebar-nav">
+        {% for item in ctx.sidebar_items %}
+        <a href="{{ item.url }}"{% if item.is_active %} class="active"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+</aside>
+{% endif %}

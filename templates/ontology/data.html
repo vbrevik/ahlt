@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Ontology — Data — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="ontology-header">
+    <div class="page-header">
+        <h1>Ontology Explorer</h1>
+    </div>
+    <nav class="tab-bar">
+        <a href="/ontology" class="tab">Concepts</a>
+        <a href="/ontology/data" class="tab active">Data</a>
+        <a href="/ontology/reference" class="tab">Reference</a>
+    </nav>
+</div>
+
+<div class="graph-container">
+    <div class="graph-controls" id="graph-controls">
+        <div class="controls-header">
+            <span class="controls-title">Filter</span>
+            <button class="btn-icon" id="btn-reset" title="Reset zoom">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+        </div>
+        <div id="type-filters"></div>
+        <div class="controls-footer">
+            <span class="node-count" id="node-count">0 nodes</span>
+            <span class="edge-count" id="edge-count">0 edges</span>
+        </div>
+    </div>
+    <div class="graph-canvas" id="graph-canvas">
+        <div class="graph-loading" id="graph-loading">
+            <span>Loading graph data&hellip;</span>
+        </div>
+    </div>
+    <div class="graph-detail" id="graph-detail" style="display: none;">
+        <div class="detail-header">
+            <span class="detail-type" id="detail-type"></span>
+            <button class="btn-icon" id="btn-close-detail" title="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <h3 id="detail-label"></h3>
+        <p class="detail-meta" id="detail-meta"></p>
+        <div class="detail-props" id="detail-props"></div>
+        <div class="detail-connections" id="detail-connections"></div>
+        <div class="detail-actions" id="detail-actions"></div>
+    </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(function() {
+    var TYPE_COLORS = {
+        'nav_item':      '#0d9488',
+        'permission':    '#059669',
+        'relation_type': '#7c3aed',
+        'role':          '#2563eb',
+        'user':          '#d97706',
+        'setting':       '#e11d48'
+    };
+    var FALLBACK_COLOR = '#78716c';
+
+    function typeColor(t) { return TYPE_COLORS[t] || FALLBACK_COLOR; }
+
+    function createEl(tag, attrs, text) {
+        var el = document.createElement(tag);
+        if (attrs) Object.keys(attrs).forEach(function(k) {
+            if (k === 'style' && typeof attrs[k] === 'object') {
+                Object.keys(attrs[k]).forEach(function(s) { el.style[s] = attrs[k][s]; });
+            } else { el.setAttribute(k, attrs[k]); }
+        });
+        if (text) el.textContent = text;
+        return el;
+    }
+
+    var canvas = document.getElementById('graph-canvas');
+    var loading = document.getElementById('graph-loading');
+    var detail = document.getElementById('graph-detail');
+    var filtersEl = document.getElementById('type-filters');
+    var nodeCountEl = document.getElementById('node-count');
+    var edgeCountEl = document.getElementById('edge-count');
+
+    var width = canvas.clientWidth;
+    var height = canvas.clientHeight || 600;
+
+    var svg = d3.select('#graph-canvas')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', [0, 0, width, height]);
+
+    svg.append('defs').selectAll('marker')
+        .data(['arrow'])
+        .join('marker')
+        .attr('id', 'arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 22)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', 'var(--text-muted)');
+
+    var g = svg.append('g');
+
+    var zoom = d3.zoom()
+        .scaleExtent([0.2, 5])
+        .on('zoom', function(e) { g.attr('transform', e.transform); });
+    svg.call(zoom);
+
+    document.getElementById('btn-reset').addEventListener('click', function() {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+    });
+
+    var allNodes = [], allEdges = [], activeTypes = new Set();
+    var simulation, linkGroup, nodeGroup, labelGroup;
+
+    fetch('/ontology/api/graph')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            allNodes = data.nodes;
+            allEdges = data.edges;
+            activeTypes = new Set(data.entity_types);
+            buildFilters(data.entity_types);
+            render();
+        });
+
+    function buildFilters(types) {
+        types.forEach(function(t) {
+            var label = createEl('label', { 'class': 'filter-chip' });
+            var input = createEl('input', { type: 'checkbox', 'data-type': t });
+            input.checked = true;
+            var dot = createEl('span', { 'class': 'chip-dot' });
+            dot.style.background = typeColor(t);
+            var span = createEl('span', { 'class': 'chip-label' }, t);
+            label.appendChild(input);
+            label.appendChild(dot);
+            label.appendChild(span);
+            input.addEventListener('change', function() {
+                if (this.checked) activeTypes.add(t); else activeTypes.delete(t);
+                render();
+            });
+            filtersEl.appendChild(label);
+        });
+    }
+
+    function render() {
+        var nodes = allNodes.filter(function(n) { return activeTypes.has(n.entity_type); });
+        var nodeIds = new Set(nodes.map(function(n) { return n.id; }));
+        var edges = allEdges.filter(function(e) {
+            var sid = e.source.id !== undefined ? e.source.id : e.source;
+            var tid = e.target.id !== undefined ? e.target.id : e.target;
+            return nodeIds.has(sid) && nodeIds.has(tid);
+        });
+
+        var nodeMap = new Map(nodes.map(function(n) { return [n.id, n]; }));
+        var links = edges.map(function(e) {
+            var sid = e.source.id !== undefined ? e.source.id : e.source;
+            var tid = e.target.id !== undefined ? e.target.id : e.target;
+            return {
+                source: nodeMap.get(sid),
+                target: nodeMap.get(tid),
+                relation_type: e.relation_type,
+                relation_label: e.relation_label
+            };
+        }).filter(function(l) { return l.source && l.target; });
+
+        nodeCountEl.textContent = nodes.length + ' node' + (nodes.length !== 1 ? 's' : '');
+        edgeCountEl.textContent = links.length + ' edge' + (links.length !== 1 ? 's' : '');
+
+        g.selectAll('*').remove();
+
+        linkGroup = g.append('g').attr('class', 'links')
+            .selectAll('line')
+            .data(links)
+            .join('line')
+            .attr('stroke', 'var(--border-strong)')
+            .attr('stroke-width', 1.2)
+            .attr('stroke-opacity', 0.6)
+            .attr('marker-end', 'url(#arrow)');
+
+        var edgeLabelGroup = g.append('g').attr('class', 'edge-labels')
+            .selectAll('text')
+            .data(links)
+            .join('text')
+            .text(function(d) { return d.relation_type; })
+            .attr('font-size', 8)
+            .attr('fill', 'var(--text-muted)')
+            .attr('text-anchor', 'middle')
+            .attr('dy', -4)
+            .style('pointer-events', 'none')
+            .style('font-family', 'var(--font-mono)');
+
+        nodeGroup = g.append('g').attr('class', 'nodes')
+            .selectAll('circle')
+            .data(nodes)
+            .join('circle')
+            .attr('r', function(d) { return d.entity_type === 'relation_type' ? 6 : 10; })
+            .attr('fill', function(d) { return typeColor(d.entity_type); })
+            .attr('stroke', '#fff')
+            .attr('stroke-width', 2)
+            .style('cursor', 'pointer')
+            .call(d3.drag()
+                .on('start', dragStart)
+                .on('drag', dragging)
+                .on('end', dragEnd))
+            .on('mouseover', function(event, d) { highlightNode(d); })
+            .on('mouseout', function() { unhighlight(); })
+            .on('click', function(event, d) { showDetail(d, links); });
+
+        labelGroup = g.append('g').attr('class', 'labels')
+            .selectAll('text')
+            .data(nodes)
+            .join('text')
+            .text(function(d) { return d.label || d.name; })
+            .attr('font-size', 11)
+            .attr('font-weight', 500)
+            .attr('fill', 'var(--text)')
+            .attr('dx', 14)
+            .attr('dy', 4)
+            .style('pointer-events', 'none')
+            .style('font-family', 'var(--font-body)');
+
+        simulation = d3.forceSimulation(nodes)
+            .force('link', d3.forceLink(links).id(function(d) { return d.id; }).distance(100))
+            .force('charge', d3.forceManyBody().strength(-200))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide(25))
+            .on('tick', function() {
+                linkGroup
+                    .attr('x1', function(d) { return d.source.x; })
+                    .attr('y1', function(d) { return d.source.y; })
+                    .attr('x2', function(d) { return d.target.x; })
+                    .attr('y2', function(d) { return d.target.y; });
+                edgeLabelGroup
+                    .attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
+                    .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
+                nodeGroup
+                    .attr('cx', function(d) { return d.x; })
+                    .attr('cy', function(d) { return d.y; });
+                labelGroup
+                    .attr('x', function(d) { return d.x; })
+                    .attr('y', function(d) { return d.y; });
+            });
+    }
+
+    function highlightNode(d) {
+        var connected = new Set();
+        connected.add(d.id);
+        linkGroup.each(function(l) {
+            if (l.source.id === d.id || l.target.id === d.id) {
+                connected.add(l.source.id);
+                connected.add(l.target.id);
+            }
+        });
+        nodeGroup.attr('opacity', function(n) { return connected.has(n.id) ? 1 : 0.15; });
+        labelGroup.attr('opacity', function(n) { return connected.has(n.id) ? 1 : 0.1; });
+        linkGroup.attr('stroke-opacity', function(l) {
+            return (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.05;
+        });
+    }
+
+    function unhighlight() {
+        nodeGroup.attr('opacity', 1);
+        labelGroup.attr('opacity', 1);
+        linkGroup.attr('stroke-opacity', 0.6);
+    }
+
+    function showDetail(d, links) {
+        detail.style.display = '';
+        var detailType = document.getElementById('detail-type');
+        detailType.textContent = d.entity_type;
+        detailType.style.color = typeColor(d.entity_type);
+        document.getElementById('detail-label').textContent = d.label || d.name;
+        document.getElementById('detail-meta').textContent = '#' + d.id + ' \u00b7 ' + d.name;
+
+        // Show properties if available
+        var propsEl = document.getElementById('detail-props');
+        while (propsEl.firstChild) propsEl.removeChild(propsEl.firstChild);
+        if (d.properties && Object.keys(d.properties).length > 0) {
+            propsEl.appendChild(createEl('span', { 'class': 'conn-heading' }, 'Properties'));
+            Object.keys(d.properties).forEach(function(key) {
+                var val = d.properties[key];
+                if (key === 'password') { val = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'; }
+                var row = createEl('div', { 'class': 'conn-row' });
+                row.appendChild(createEl('code', null, key));
+                row.appendChild(document.createTextNode(' = '));
+                row.appendChild(createEl('span', null, val));
+                propsEl.appendChild(row);
+            });
+        }
+
+        var connEl = document.getElementById('detail-connections');
+        while (connEl.firstChild) connEl.removeChild(connEl.firstChild);
+
+        var outgoing = links.filter(function(l) { return l.source.id === d.id; });
+        var incoming = links.filter(function(l) { return l.target.id === d.id; });
+
+        if (outgoing.length) {
+            connEl.appendChild(createEl('span', { 'class': 'conn-heading' }, 'Outgoing'));
+            outgoing.forEach(function(l) {
+                var row = createEl('div', { 'class': 'conn-row' });
+                row.appendChild(createEl('code', null, l.relation_type));
+                row.appendChild(document.createTextNode(' \u2192 '));
+                var name = createEl('span', null, l.target.label || l.target.name);
+                name.style.color = typeColor(l.target.entity_type);
+                row.appendChild(name);
+                connEl.appendChild(row);
+            });
+        }
+        if (incoming.length) {
+            connEl.appendChild(createEl('span', { 'class': 'conn-heading' }, 'Incoming'));
+            incoming.forEach(function(l) {
+                var row = createEl('div', { 'class': 'conn-row' });
+                var name = createEl('span', null, l.source.label || l.source.name);
+                name.style.color = typeColor(l.source.entity_type);
+                row.appendChild(name);
+                row.appendChild(document.createTextNode(' \u2192 '));
+                row.appendChild(createEl('code', null, l.relation_type));
+                connEl.appendChild(row);
+            });
+        }
+        if (!outgoing.length && !incoming.length) {
+            connEl.appendChild(createEl('span', { 'class': 'conn-empty' }, 'No connections'));
+        }
+
+        // Link to full detail page
+        var actionsEl = document.getElementById('detail-actions');
+        while (actionsEl.firstChild) actionsEl.removeChild(actionsEl.firstChild);
+        var link = createEl('a', { 'class': 'btn btn-sm', href: '/ontology/data/' + d.id }, 'Full detail');
+        actionsEl.appendChild(link);
+    }
+
+    document.getElementById('btn-close-detail').addEventListener('click', function() {
+        detail.style.display = 'none';
+    });
+
+    function dragStart(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+    function dragging(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+    function dragEnd(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+})();
+</script>
+{% endblock %}

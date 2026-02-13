@@ -6,14 +6,18 @@
 {% include "partials/nav.html" %}
 {% endblock %}
 
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
 {% block content %}
-{% if let Some(msg) = flash %}
+{% if let Some(msg) = ctx.flash %}
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
 <div class="page-header">
     <h1>Users</h1>
-    {% if permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
+    {% if ctx.permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
 </div>
 
 <table class="table">
@@ -36,8 +40,8 @@
             <td>{{ user.email }}</td>
             <td><span class="badge badge-{{ user.role_name }}">{{ user.role_label }}</span></td>
             <td class="actions">
-                {% if permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm">Edit</a>{% endif %}
-                {% if permissions.has("users.delete") %}
+                {% if ctx.permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm">Edit</a>{% endif %}
+                {% if ctx.permissions.has("users.delete") %}
                 <form method="post" action="/users/{{ user.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete this user?')">
                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>

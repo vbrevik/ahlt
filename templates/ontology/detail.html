@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entity.label }} — Data — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="ontology-header">
+    <div class="page-header">
+        <h1>Ontology Explorer</h1>
+    </div>
+    <nav class="tab-bar">
+        <a href="/ontology" class="tab">Concepts</a>
+        <a href="/ontology/graph" class="tab">Graph</a>
+        <a href="/ontology/data" class="tab active">Data</a>
+    </nav>
+</div>
+
+<div class="detail-back">
+    <a href="/ontology/data?type={{ entity.entity_type }}" class="btn btn-sm">&larr; Back to {{ entity.entity_type }}</a>
+</div>
+
+<div class="entity-detail-card">
+    <div class="entity-detail-header">
+        <span class="type-dot" data-type="{{ entity.entity_type }}"></span>
+        <span class="entity-detail-type">{{ entity.entity_type }}</span>
+        <span class="mono-dim">#{{ entity.id }}</span>
+    </div>
+    <h2 class="entity-detail-label">{{ entity.label }}</h2>
+    <p class="entity-detail-name"><code>{{ entity.name }}</code></p>
+
+    <div class="entity-meta-grid">
+        <div class="meta-item">
+            <span class="meta-key">sort_order</span>
+            <span class="meta-val">{{ entity.sort_order }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-key">is_active</span>
+            <span class="meta-val">{% if entity.is_active %}yes{% else %}no{% endif %}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-key">created_at</span>
+            <span class="meta-val">{{ entity.created_at }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-key">updated_at</span>
+            <span class="meta-val">{{ entity.updated_at }}</span>
+        </div>
+    </div>
+</div>
+
+{% if !entity.properties.is_empty() %}
+<div class="entity-section-card">
+    <h3>Properties</h3>
+    <table class="schema-tbl">
+        {% for p in entity.properties %}
+        <tr>
+            <td><code>{{ p.key }}</code></td>
+            <td>{{ p.value }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% if !entity.outgoing.is_empty() %}
+<div class="entity-section-card">
+    <h3>Outgoing Relations</h3>
+    <p class="section-desc">This entity points to the following entities.</p>
+    <div class="relation-list">
+        {% for r in entity.outgoing %}
+        <div class="rel-row">
+            <code class="rel-type-label">{{ r.relation_type }}</code>
+            <span class="pattern-arrow">&rarr;</span>
+            <span class="type-dot" data-type="{{ r.entity_type }}"></span>
+            <a href="/ontology/data/{{ r.id }}" class="rel-target-link">{{ r.label }}</a>
+            <span class="mono-dim">#{{ r.id }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if !entity.incoming.is_empty() %}
+<div class="entity-section-card">
+    <h3>Incoming Relations</h3>
+    <p class="section-desc">The following entities point to this entity.</p>
+    <div class="relation-list">
+        {% for r in entity.incoming %}
+        <div class="rel-row">
+            <a href="/ontology/data/{{ r.id }}" class="rel-target-link">{{ r.label }}</a>
+            <span class="type-dot" data-type="{{ r.entity_type }}"></span>
+            <span class="pattern-arrow">&rarr;</span>
+            <code class="rel-type-label">{{ r.relation_type }}</code>
+            <span class="pattern-arrow">&rarr;</span>
+            <span class="rel-self-label">this</span>
+            <span class="mono-dim">#{{ r.id }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if entity.outgoing.is_empty() && entity.incoming.is_empty() %}
+<div class="entity-section-card">
+    <h3>Relations</h3>
+    <p class="conn-empty">No relations found for this entity.</p>
+</div>
+{% endif %}
+{% endblock %}

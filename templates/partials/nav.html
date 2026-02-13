@@ -3,9 +3,10 @@
         <a href="/dashboard">Ahlt</a>
     </div>
     <div class="navbar-menu">
-        <a href="/dashboard">Dashboard</a>
-        {% if permissions.has("users.list") %}<a href="/users">Users</a>{% endif %}
-        <span class="navbar-user">{{ username }}</span>
+        {% for m in ctx.nav_modules %}
+        <a href="{{ m.url }}"{% if m.is_active %} class="active"{% endif %}>{{ m.label }}</a>
+        {% endfor %}
+        <span class="navbar-user">{{ ctx.username }}</span>
         <form method="post" action="/logout" class="inline">
             <button type="submit" class="btn-link">Logout</button>
         </form>

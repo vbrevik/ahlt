@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Ontology — Reference — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="ontology-header">
+    <div class="page-header">
+        <h1>Ontology Explorer</h1>
+    </div>
+    <nav class="tab-bar">
+        <a href="/ontology" class="tab">Concepts</a>
+        <a href="/ontology/data" class="tab">Data</a>
+        <a href="/ontology/reference" class="tab active">Reference</a>
+    </nav>
+</div>
+
+<section class="onto-section">
+    <h2>Entity Types</h2>
+    <p class="section-desc">Every object in the system is an <em>entity</em> with a type discriminator. Properties are stored as key-value pairs.</p>
+    <div class="type-grid">
+        {% for et in entity_types %}
+        <div class="type-card" data-type="{{ et.entity_type }}">
+            <div class="type-card-header">
+                <span class="type-dot" data-type="{{ et.entity_type }}"></span>
+                <span class="type-name">{{ et.entity_type }}</span>
+                <span class="type-count">{{ et.count }}</span>
+            </div>
+            {% if !et.property_keys.is_empty() %}
+            <div class="type-props">
+                <span class="type-props-label">Properties</span>
+                <div class="prop-tags">
+                    {% for key in et.property_keys %}
+                    <code class="prop-tag">{{ key }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% if !et.sample_entities.is_empty() %}
+            <div class="type-samples">
+                <span class="type-props-label">Instances</span>
+                <ul class="sample-list">
+                    {% for s in et.sample_entities %}
+                    <li>
+                        <span class="sample-id">#{{ s.id }}</span>
+                        <span class="sample-name">{{ s.name }}</span>
+                        <span class="sample-label">{{ s.label }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="onto-section">
+    <h2>Relation Types</h2>
+    <p class="section-desc">Relations connect entities via typed edges. Each relation type defines a <code>source → target</code> pattern.</p>
+    <div class="relation-cards">
+        {% for rt in relation_types %}
+        <div class="relation-card">
+            <div class="relation-header">
+                <span class="relation-name">{{ rt.name }}</span>
+                <span class="relation-label">{{ rt.label }}</span>
+                <span class="type-count">{{ rt.usage_count }} link{% if rt.usage_count != 1 %}s{% endif %}</span>
+            </div>
+            {% if !rt.patterns.is_empty() %}
+            <div class="relation-patterns">
+                {% for p in rt.patterns %}
+                <div class="pattern-row">
+                    <span class="type-dot" data-type="{{ p.source_type }}"></span>
+                    <code>{{ p.source_type }}</code>
+                    <span class="pattern-arrow">→</span>
+                    <span class="type-dot" data-type="{{ p.target_type }}"></span>
+                    <code>{{ p.target_type }}</code>
+                    <span class="pattern-count">{{ p.count }}×</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="onto-section">
+    <h2>Schema</h2>
+    <p class="section-desc">Three generic tables power the entire system — no dedicated tables per domain concept.</p>
+    <div class="schema-tables">
+        <div class="schema-table-card">
+            <h3>entities</h3>
+            <table class="schema-tbl">
+                <tr><td><code>id</code></td><td>INTEGER PK</td></tr>
+                <tr><td><code>entity_type</code></td><td>TEXT — type discriminator</td></tr>
+                <tr><td><code>name</code></td><td>TEXT — unique per type</td></tr>
+                <tr><td><code>label</code></td><td>TEXT — display name</td></tr>
+                <tr><td><code>sort_order</code></td><td>INTEGER</td></tr>
+                <tr><td><code>is_active</code></td><td>INTEGER (boolean)</td></tr>
+                <tr><td><code>created_at</code></td><td>TEXT (ISO 8601)</td></tr>
+                <tr><td><code>updated_at</code></td><td>TEXT (ISO 8601)</td></tr>
+            </table>
+        </div>
+        <div class="schema-table-card">
+            <h3>entity_properties</h3>
+            <table class="schema-tbl">
+                <tr><td><code>entity_id</code></td><td>INTEGER FK → entities</td></tr>
+                <tr><td><code>key</code></td><td>TEXT</td></tr>
+                <tr><td><code>value</code></td><td>TEXT</td></tr>
+            </table>
+            <p class="schema-note">PK(entity_id, key) — EAV pattern</p>
+        </div>
+        <div class="schema-table-card">
+            <h3>relations</h3>
+            <table class="schema-tbl">
+                <tr><td><code>id</code></td><td>INTEGER PK</td></tr>
+                <tr><td><code>relation_type_id</code></td><td>INTEGER FK → entities</td></tr>
+                <tr><td><code>source_id</code></td><td>INTEGER FK → entities</td></tr>
+                <tr><td><code>target_id</code></td><td>INTEGER FK → entities</td></tr>
+                <tr><td><code>created_at</code></td><td>TEXT (ISO 8601)</td></tr>
+            </table>
+            <p class="schema-note">UNIQUE(relation_type_id, source_id, target_id)</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<h1>{{ form_title }}</h1>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="{{ form_action }}" class="form-card">
+    <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name"
+               value="{% if let Some(r) = role %}{{ r.name }}{% endif %}" required>
+        <span class="hint">Internal identifier (e.g. editor, viewer)</span>
+    </div>
+    <div class="form-group">
+        <label for="label">Label</label>
+        <input type="text" id="label" name="label"
+               value="{% if let Some(r) = role %}{{ r.label }}{% endif %}" required>
+        <span class="hint">Display name shown to users</span>
+    </div>
+    <div class="form-group">
+        <label for="description">Description</label>
+        <input type="text" id="description" name="description"
+               value="{% if let Some(r) = role %}{{ r.description }}{% endif %}">
+    </div>
+    <fieldset class="form-group">
+        <legend>Permissions</legend>
+        <div class="checkbox-grid">
+            {% for perm in permissions %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="permissions" value="{{ perm.id }}"
+                       {% if perm.checked %}checked{% endif %}>
+                <span class="checkbox-text">
+                    <strong>{{ perm.label }}</strong>
+                    <span class="hint">{{ perm.code }}</span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/roles" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

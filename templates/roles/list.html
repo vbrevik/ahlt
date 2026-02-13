@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Roles — Ahlt{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Roles</h1>
+    <a href="/roles/new" class="btn btn-primary">New Role</a>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Label</th>
+            <th>Description</th>
+            <th>Permissions</th>
+            <th>Users</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for role in roles %}
+        <tr>
+            <td>{{ role.id }}</td>
+            <td>{{ role.name }}</td>
+            <td>{{ role.label }}</td>
+            <td>{{ role.description }}</td>
+            <td>{{ role.permission_count }}</td>
+            <td>{{ role.user_count }}</td>
+            <td class="actions">
+                <a href="/roles/{{ role.id }}/edit" class="btn btn-sm">Edit</a>
+                {% if role.user_count == 0 %}
+                <form method="post" action="/roles/{{ role.id }}/delete" class="inline"
+                      onsubmit="return confirm('Delete this role?')">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

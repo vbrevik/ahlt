@@ -12,8 +12,11 @@
 </head>
 <body>
     {% block nav %}{% endblock %}
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+    <div class="app-body">
+        {% block sidebar %}{% endblock %}
+        <main class="container">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 </body>
 </html>

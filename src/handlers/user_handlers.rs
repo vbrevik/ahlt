@@ -6,8 +6,8 @@ use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
 use crate::models::role;
 use crate::auth::password;
-use crate::auth::session::{get_user_id, get_username, get_permissions, take_flash, require_permission};
-use crate::templates_structs::{UserListTemplate, UserFormTemplate};
+use crate::auth::session::{get_user_id, require_permission};
+use crate::templates_structs::{PageContext, UserListTemplate, UserFormTemplate};
 
 pub async fn list(
     pool: web::Data<DbPool>,
@@ -17,18 +17,15 @@ pub async fn list(
         return resp;
     }
 
-    let username = get_username(&session);
-    let flash = take_flash(&session);
-    let permissions = get_permissions(&session);
-
     let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
+    let ctx = PageContext::build(&session, &conn, "/users");
     let users = user::find_all_display(&conn).unwrap_or_default();
 
-    let tmpl = UserListTemplate { users, username, flash, permissions };
+    let tmpl = UserListTemplate { ctx, users };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
         Err(_) => HttpResponse::InternalServerError().body("Template error"),
@@ -43,24 +40,21 @@ pub async fn new_form(
         return resp;
     }
 
-    let username = get_username(&session);
-    let permissions = get_permissions(&session);
-
     let conn = match pool.get() {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Database error"),
     };
 
+    let ctx = PageContext::build(&session, &conn, "/users");
     let roles = role::find_all_display(&conn).unwrap_or_default();
 
     let tmpl = UserFormTemplate {
+        ctx,
         form_action: "/users".to_string(),
         form_title: "Create User".to_string(),
         user: None,
         roles,
         errors: vec![],
-        username,
-        permissions,
     };
     match tmpl.render() {
         Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
@@ -76,9 +70,6 @@ pub async fn create(
     if let Err(resp) = require_permission(&session, "users.create") {
         return resp;
     }
-
-    let username = get_username(&session);
-    let permissions = get_permissions(&session);
 
     let conn = match pool.get() {
         Ok(c) => c,
@@ -106,15 +97,15 @@ pub async fn create(
     };
 
     if !errors.is_empty() {
+        let ctx = PageContext::build(&session, &conn, "/users");
         let roles = role::find_all_display(&conn).unwrap_or_default();
         let tmpl = UserFormTemplate {
+            ctx,
             form_action: "/users".to_string(),
             form_title: "Create User".to_string(),
             user: None,
             roles,
             errors,
-            username,
-            permissions,
         };
         return match tmpl.render() {
             Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
@@ -148,15 +139,15 @@ pub async fn create(
             } else {
                 format!("Error creating user: {e}")
             };
+            let ctx = PageContext::build(&session, &conn, "/users");
             let roles = role::find_all_display(&conn).unwrap_or_default();
             let tmpl = UserFormTemplate {
+                ctx,
                 form_action: "/users".to_string(),
                 form_title: "Create User".to_string(),
                 user: None,
                 roles,
                 errors: vec![msg],
-                username,
-                permissions,
             };
             match tmpl.render() {
                 Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
@@ -175,8 +166,6 @@ pub async fn edit_form(
         return resp;
     }
 
-    let username = get_username(&session);
-    let permissions = get_permissions(&session);
     let id = path.into_inner();
 
     let conn = match pool.get() {
@@ -186,15 +175,15 @@ pub async fn edit_form(
 
     match user::find_display_by_id(&conn, id) {
         Ok(Some(u)) => {
+            let ctx = PageContext::build(&session, &conn, "/users");
             let roles = role::find_all_display(&conn).unwrap_or_default();
             let tmpl = UserFormTemplate {
+                ctx,
                 form_action: format!("/users/{id}"),
                 form_title: "Edit User".to_string(),
                 user: Some(u),
                 roles,
                 errors: vec![],
-                username,
-                permissions,
             };
             match tmpl.render() {
                 Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
@@ -215,8 +204,6 @@ pub async fn update(
         return resp;
     }
 
-    let username = get_username(&session);
-    let permissions = get_permissions(&session);
     let id = path.into_inner();
 
     let conn = match pool.get() {
@@ -271,15 +258,15 @@ pub async fn update(
                 format!("Error updating user: {e}")
             };
             let existing = user::find_display_by_id(&conn, id).ok().flatten();
+            let ctx = PageContext::build(&session, &conn, "/users");
             let roles = role::find_all_display(&conn).unwrap_or_default();
             let tmpl = UserFormTemplate {
+                ctx,
                 form_action: format!("/users/{id}"),
                 form_title: "Edit User".to_string(),
                 user: existing,
                 roles,
                 errors: vec![msg],
-                username,
-                permissions,
             };
             match tmpl.render() {
                 Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
