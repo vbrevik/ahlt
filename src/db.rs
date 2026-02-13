@@ -153,6 +153,12 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         |row| row.get(0),
     ).unwrap();
 
+    let audit_view_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='audit.view'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+
     // Get requires_permission relation type ID
     let requires_permission_rel_type_id: i64 = conn.query_row(
         "SELECT id FROM entities WHERE entity_type='relation_type' AND name='requires_permission'",
@@ -220,6 +226,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_settings_id, "url", "/settings");
     insert_prop(&conn, nav_admin_settings_id, "parent", "admin");
 
+    // Admin → Audit Log: sidebar child
+    let nav_admin_audit_id = insert_entity(&conn, "nav_item", "admin.audit", "Audit Log", 5);
+    insert_prop(&conn, nav_admin_audit_id, "url", "/audit");
+    insert_prop(&conn, nav_admin_audit_id, "parent", "admin");
+
     // --- Audit settings ---
     let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
     insert_prop(&conn, audit_enabled_id, "value", "true");
@@ -252,6 +263,9 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Admin > Settings requires settings.manage
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_settings_id, settings_manage_perm_id);
 
+    // Admin > Audit Log requires audit.view
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_audit_id, audit_view_perm_id);
+
     // Create audit directory with secure permissions
     let audit_path = "data/audit";
     if !std::path::Path::new(audit_path).exists() {
@@ -270,6 +284,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 6 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 7 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
