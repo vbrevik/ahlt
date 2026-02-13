@@ -1,6 +1,5 @@
 use actix_session::Session;
-use actix_web::{web, HttpResponse, Responder};
-use askama::Template;
+use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 
 use crate::db::DbPool;
@@ -157,22 +156,16 @@ pub async fn edit_form(
     pool: web::Data<DbPool>,
     session: Session,
     path: web::Path<i64>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.edit") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.edit")?;
 
     let id = path.into_inner();
-
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     match user::find_display_by_id(&conn, id) {
         Ok(Some(u)) => {
-            let ctx = PageContext::build(&session, &conn, "/users");
-            let roles = role::find_all_display(&conn).unwrap_or_default();
+            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
@@ -181,12 +174,9 @@ pub async fn edit_form(
                 roles,
                 errors: vec![],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
-        _ => HttpResponse::NotFound().body("User not found"),
+        _ => Err(AppError::NotFound),
     }
 }
 
@@ -195,22 +185,44 @@ pub async fn update(
     session: Session,
     path: web::Path<i64>,
     form: web::Form<UserForm>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.edit") {
-        return resp;
-    }
-    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let id = path.into_inner();
+    let conn = pool.get()?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
+    // Validate
+    let mut errors = vec![];
+    if form.username.trim().is_empty() {
+        errors.push("Username is required".to_string());
+    }
+    if form.email.trim().is_empty() {
+        errors.push("Email is required".to_string());
+    }
+
+    let new_role_id: i64 = match form.role_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            errors.push("Invalid role".to_string());
+            0
+        }
     };
 
-    let new_role_id: i64 = form.role_id.parse().unwrap_or(0);
+    if !errors.is_empty() {
+        let existing = user::find_display_by_id(&conn, id).ok().flatten();
+        let ctx = PageContext::build(&session, &conn, "/users")?;
+        let roles = role::find_all_display(&conn)?;
+        let tmpl = UserFormTemplate {
+            ctx,
+            form_action: format!("/users/{id}"),
+            form_title: "Edit User".to_string(),
+            user: existing,
+            roles,
+            errors,
+        };
+        return render(tmpl);
+    }
 
     // Last-admin protection: prevent changing the last admin's role away from admin
     if let Ok(Some(existing)) = user::find_display_by_id(&conn, id) {
@@ -218,9 +230,9 @@ pub async fn update(
             let admin_count = user::count_by_role_id(&conn, existing.role_id).unwrap_or(0);
             if admin_count <= 1 {
                 let _ = session.insert("flash", "Cannot change role: this is the last administrator");
-                return HttpResponse::SeeOther()
+                return Ok(HttpResponse::SeeOther()
                     .insert_header(("Location", "/users"))
-                    .finish();
+                    .finish());
             }
         }
     }
@@ -231,7 +243,7 @@ pub async fn update(
     } else {
         match password::hash_password(&form.password) {
             Ok(h) => Some(h),
-            Err(_) => return HttpResponse::InternalServerError().body("Password hash error"),
+            Err(_) => return Err(AppError::Hash("Password hash error".to_string())),
         }
     };
 
@@ -245,10 +257,22 @@ pub async fn update(
         new_role_id,
     ) {
         Ok(_) => {
+            // Audit log
+            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+            let details = serde_json::json!({
+                "username": form.username.trim(),
+                "email": form.email.trim(),
+                "role_id": new_role_id,
+                "password_changed": !form.password.is_empty(),
+                "summary": format!("Updated user '{}'", form.username.trim())
+            });
+            let _ = crate::audit::log(&conn, current_user_id, "user.updated",
+                                      "user", id, details);
+
             let _ = session.insert("flash", "User updated successfully");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
-                .finish()
+                .finish())
         }
         Err(e) => {
             let msg = if e.to_string().contains("UNIQUE") {
@@ -257,8 +281,8 @@ pub async fn update(
                 format!("Error updating user: {e}")
             };
             let existing = user::find_display_by_id(&conn, id).ok().flatten();
-            let ctx = PageContext::build(&session, &conn, "/users");
-            let roles = role::find_all_display(&conn).unwrap_or_default();
+            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
@@ -267,10 +291,7 @@ pub async fn update(
                 roles,
                 errors: vec![msg],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
     }
 }
@@ -280,13 +301,9 @@ pub async fn delete(
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.delete") {
-        return resp;
-    }
-    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.delete")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let id = path.into_inner();
 
@@ -294,15 +311,12 @@ pub async fn delete(
     let current_user_id = get_user_id(&session).unwrap_or(0);
     if id == current_user_id {
         let _ = session.insert("flash", "You cannot delete your own account");
-        return HttpResponse::SeeOther()
+        return Ok(HttpResponse::SeeOther()
             .insert_header(("Location", "/users"))
-            .finish();
+            .finish());
     }
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     // Last-admin protection
     if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
@@ -310,9 +324,9 @@ pub async fn delete(
             let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
             if admin_count <= 1 {
                 let _ = session.insert("flash", "Cannot delete the last administrator");
-                return HttpResponse::SeeOther()
+                return Ok(HttpResponse::SeeOther()
                     .insert_header(("Location", "/users"))
-                    .finish();
+                    .finish());
             }
         }
     }
@@ -323,7 +337,6 @@ pub async fn delete(
     match user::delete(&conn, id) {
         Ok(_) => {
             // Audit log
-            let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             if let Some(deleted_user) = user_details {
                 let details = serde_json::json!({
                     "username": deleted_user.username,
@@ -334,15 +347,15 @@ pub async fn delete(
             }
 
             let _ = session.insert("flash", "User deleted");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
-                .finish()
+                .finish())
         }
         Err(_) => {
             let _ = session.insert("flash", "Error deleting user");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
-                .finish()
+                .finish())
         }
     }
 }
