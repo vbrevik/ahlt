@@ -2,6 +2,7 @@ use actix_session::Session;
 use askama::Template;
 use rusqlite::Connection;
 
+use crate::errors::AppError;
 use crate::models::user::{UserDisplay, UserPage};
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
@@ -26,16 +27,18 @@ pub struct PageContext {
 }
 
 impl PageContext {
-    pub fn build(session: &Session, conn: &Connection, current_path: &str) -> Self {
-        let username = get_username(session);
-        let permissions = get_permissions(session);
+    pub fn build(session: &Session, conn: &Connection, current_path: &str) -> Result<Self, AppError> {
+        let username = get_username(session)
+            .map_err(|e| AppError::Session(format!("Failed to get username: {}", e)))?;
+        let permissions = get_permissions(session)
+            .map_err(|e| AppError::Session(format!("Failed to get permissions: {}", e)))?;
         let flash = take_flash(session);
         let (nav_modules, sidebar_items) = nav_item::find_navigation(conn, &permissions, current_path);
         let app_name = setting::get_value(conn, "app.name", "Ahlt");
         let csrf_token = csrf::get_or_create_token(session);
         let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
-        let warning_count = 0; // TODO: wire up when warnings feature is built
-        Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count }
+        let warning_count = 0;
+        Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count })
     }
 }
 
