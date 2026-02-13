@@ -1,45 +1,5 @@
 use rusqlite::{Connection, params};
-
-/// For use in templates (dropdowns, display).
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct RoleDisplay {
-    pub id: i64,
-    pub name: String,
-    pub label: String,
-}
-
-/// Extended display for the roles list page — includes counts and description.
-#[derive(Debug, Clone)]
-pub struct RoleListItem {
-    pub id: i64,
-    pub name: String,
-    pub label: String,
-    pub description: String,
-    pub user_count: i64,
-    pub permission_count: i64,
-}
-
-/// For role edit form — role info + list of all permissions with checked state.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct RoleDetail {
-    pub id: i64,
-    pub name: String,
-    pub label: String,
-    pub description: String,
-}
-
-/// A permission with its checked state for the role form.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct PermissionCheckbox {
-    pub id: i64,
-    pub code: String,
-    pub label: String,
-    pub group_name: String,
-    pub checked: bool,
-}
+use super::types::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 
 /// Find all roles for display (dropdowns, lists).
 pub fn find_all_display(conn: &Connection) -> rusqlite::Result<Vec<RoleDisplay>> {
@@ -233,4 +193,3 @@ fn get_has_permission_id(conn: &Connection) -> rusqlite::Result<i64> {
         |row| row.get(0),
     )
 }
-
