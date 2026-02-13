@@ -23,18 +23,31 @@
 </div>
 
 <div class="graph-container">
+    <div class="graph-toolbar" id="graph-toolbar">
+        <button class="btn-icon" id="btn-fit" title="Fit all (F)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-zoom-in" title="Zoom in (+)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-zoom-out" title="Zoom out (-)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button class="btn-icon" id="btn-reset" title="Reset zoom (0)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-lock" title="Lock positions (L)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </button>
+        <div class="toolbar-spacer"></div>
+        <span class="toolbar-stat" id="toolbar-stat"></span>
+    </div>
     <div class="graph-controls" id="graph-controls">
         <div class="controls-header">
-            <span class="controls-title">Filter</span>
-            <button class="btn-icon" id="btn-reset" title="Reset zoom">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            </button>
+            <span class="controls-title">Filter by Type</span>
         </div>
         <div id="type-filters"></div>
-        <div class="controls-footer">
-            <span class="node-count" id="node-count">0 nodes</span>
-            <span class="edge-count" id="edge-count">0 edges</span>
-        </div>
     </div>
     <div class="graph-canvas" id="graph-canvas">
         <div class="graph-loading" id="graph-loading">
@@ -86,8 +99,7 @@
     var loading = document.getElementById('graph-loading');
     var detail = document.getElementById('graph-detail');
     var filtersEl = document.getElementById('type-filters');
-    var nodeCountEl = document.getElementById('node-count');
-    var edgeCountEl = document.getElementById('edge-count');
+    var statEl = document.getElementById('toolbar-stat');
 
     var width = canvas.clientWidth;
     var height = canvas.clientHeight || 600;
@@ -119,12 +131,79 @@
         .on('zoom', function(e) { g.attr('transform', e.transform); });
     svg.call(zoom);
 
+    // Shared state
+    var allNodes = [], allEdges = [], activeTypes = new Set();
+    var simulation, linkGroup, nodeGroup, labelGroup, edgeLabelGroup;
+    var locked = false;
+
+    // Fit all nodes into view with padding
+    function fitAll(animate) {
+        var nodes = allNodes.filter(function(n) { return activeTypes.has(n.entity_type); });
+        if (!nodes.length) return;
+        var padX = 80, padTop = 60, padBottom = 80;
+        var xs = nodes.map(function(n) { return n.x; });
+        var ys = nodes.map(function(n) { return n.y; });
+        var x0 = Math.min.apply(null, xs) - padX;
+        var y0 = Math.min.apply(null, ys) - padTop;
+        var x1 = Math.max.apply(null, xs) + padX;
+        var y1 = Math.max.apply(null, ys) + padBottom;
+        var bw = x1 - x0;
+        var bh = y1 - y0;
+        if (bw < 1 || bh < 1) return;
+        var scale = Math.min(width / bw, height / bh, 1.8);
+        var tx = (width - bw * scale) / 2 - x0 * scale;
+        var ty = (height - bh * scale) / 2 - y0 * scale;
+        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+        if (animate) {
+            svg.transition().duration(500).call(zoom.transform, t);
+        } else {
+            svg.call(zoom.transform, t);
+        }
+    }
+
+    // Toolbar buttons
+    document.getElementById('btn-fit').addEventListener('click', function() { fitAll(true); });
     document.getElementById('btn-reset').addEventListener('click', function() {
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
     });
+    document.getElementById('btn-zoom-in').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
+    document.getElementById('btn-zoom-out').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+    });
 
-    var allNodes = [], allEdges = [], activeTypes = new Set();
-    var simulation, linkGroup, nodeGroup, labelGroup;
+    var lockBtn = document.getElementById('btn-lock');
+    lockBtn.addEventListener('click', function() {
+        locked = !locked;
+        lockBtn.classList.toggle('active', locked);
+        lockBtn.title = locked ? 'Unlock positions (L)' : 'Lock positions (L)';
+        var nodes = allNodes.filter(function(n) { return activeTypes.has(n.entity_type); });
+        if (locked) {
+            nodes.forEach(function(n) { n.fx = n.x; n.fy = n.y; });
+            if (simulation) simulation.alphaTarget(0).alpha(0);
+        } else {
+            nodes.forEach(function(n) { n.fx = null; n.fy = null; });
+            if (simulation) simulation.alphaTarget(0).alpha(0.3).restart();
+        }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch (e.key.toLowerCase()) {
+            case 'f': fitAll(true); break;
+            case '0': svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity); break;
+            case '=': case '+': svg.transition().duration(300).call(zoom.scaleBy, 1.5); break;
+            case '-': svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5); break;
+            case 'l':
+                lockBtn.click();
+                break;
+            case 'escape':
+                detail.style.display = 'none';
+                break;
+        }
+    });
 
     fetch('/ontology/api/graph')
         .then(function(r) { return r.json(); })
@@ -177,8 +256,7 @@
             };
         }).filter(function(l) { return l.source && l.target; });
 
-        nodeCountEl.textContent = nodes.length + ' node' + (nodes.length !== 1 ? 's' : '');
-        edgeCountEl.textContent = links.length + ' edge' + (links.length !== 1 ? 's' : '');
+        statEl.textContent = nodes.length + ' nodes \u00b7 ' + links.length + ' edges';
 
         g.selectAll('*').remove();
 
@@ -191,7 +269,7 @@
             .attr('stroke-opacity', 0.6)
             .attr('marker-end', 'url(#arrow)');
 
-        var edgeLabelGroup = g.append('g').attr('class', 'edge-labels')
+        edgeLabelGroup = g.append('g').attr('class', 'edge-labels')
             .selectAll('text')
             .data(links)
             .join('text')
@@ -233,10 +311,12 @@
             .style('pointer-events', 'none')
             .style('font-family', 'var(--font-body)');
 
+        var autoFitted = false;
         simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink(links).id(function(d) { return d.id; }).distance(100))
             .force('charge', d3.forceManyBody().strength(-200))
-            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('x', d3.forceX(width / 2).strength(0.12))
+            .force('y', d3.forceY(height / 2).strength(0.12))
             .force('collision', d3.forceCollide(25))
             .on('tick', function() {
                 linkGroup
@@ -253,6 +333,11 @@
                 labelGroup
                     .attr('x', function(d) { return d.x; })
                     .attr('y', function(d) { return d.y; });
+                // Auto-fit once simulation has mostly settled
+                if (!autoFitted && simulation.alpha() < 0.05) {
+                    autoFitted = true;
+                    fitAll(true);
+                }
             });
     }
 
@@ -270,12 +355,16 @@
         linkGroup.attr('stroke-opacity', function(l) {
             return (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.05;
         });
+        edgeLabelGroup.attr('opacity', function(l) {
+            return (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.1;
+        });
     }
 
     function unhighlight() {
         nodeGroup.attr('opacity', 1);
         labelGroup.attr('opacity', 1);
         linkGroup.attr('stroke-opacity', 0.6);
+        edgeLabelGroup.attr('opacity', 1);
     }
 
     function showDetail(d, links) {
@@ -358,8 +447,7 @@
     }
     function dragEnd(event, d) {
         if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        if (!locked) { d.fx = null; d.fy = null; }
     }
 })();
 </script>
