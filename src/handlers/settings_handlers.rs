@@ -1,11 +1,11 @@
 use actix_session::Session;
-use actix_web::{web, HttpResponse, Responder};
-use askama::Template;
+use actix_web::{web, HttpResponse};
 
 use crate::db::DbPool;
 use crate::models::setting;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
+use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, SettingsTemplate};
 
 /// Decode a URL-encoded string (form data): `+` → space, `%HH` → byte.
@@ -42,24 +42,15 @@ fn parse_form_body(body: &str) -> Vec<(String, String)> {
 pub async fn list(
     pool: web::Data<DbPool>,
     session: Session,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "settings.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "settings.manage")?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
-
-    let ctx = PageContext::build(&session, &conn, "/settings");
-    let settings = setting::find_all(&conn).unwrap_or_default();
+    let conn = pool.get()?;
+    let ctx = PageContext::build(&session, &conn, "/settings")?;
+    let settings = setting::find_all(&conn)?;
 
     let tmpl = SettingsTemplate { ctx, settings };
-    match tmpl.render() {
-        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-        Err(_) => HttpResponse::InternalServerError().body("Template error"),
-    }
+    render(tmpl)
 }
 
 fn get_field<'a>(params: &'a [(String, String)], key: &str) -> &'a str {
@@ -73,32 +64,25 @@ pub async fn save(
     pool: web::Data<DbPool>,
     session: Session,
     body: String,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "settings.manage") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "settings.manage")?;
 
     let params = parse_form_body(&body);
-    if let Err(resp) = csrf::validate_csrf(&session, get_field(&params, "csrf_token")) {
-        return resp;
-    }
+    csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     // Each setting is submitted as setting_<id>=<value>
     for (key, value) in &params {
         if let Some(id_str) = key.strip_prefix("setting_") {
             if let Ok(id) = id_str.parse::<i64>() {
-                let _ = setting::update_value(&conn, id, value.trim());
+                setting::update_value(&conn, id, value.trim())?;
             }
         }
     }
 
     let _ = session.insert("flash", "Settings saved successfully");
-    HttpResponse::SeeOther()
+    Ok(HttpResponse::SeeOther()
         .insert_header(("Location", "/settings"))
-        .finish()
+        .finish())
 }
