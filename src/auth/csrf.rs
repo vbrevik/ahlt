@@ -1,6 +1,7 @@
 use actix_session::Session;
-use actix_web::HttpResponse;
 use rand::Rng;
+
+use crate::errors::AppError;
 
 /// Get the CSRF token from the session, or generate a new one.
 pub fn get_or_create_token(session: &Session) -> String {
@@ -13,14 +14,14 @@ pub fn get_or_create_token(session: &Session) -> String {
 }
 
 /// Validate the submitted CSRF token against the session token.
-/// Returns Ok(()) if valid, or an HTTP 403 response if invalid.
-pub fn validate_csrf(session: &Session, submitted: &str) -> Result<(), HttpResponse> {
+/// Returns Ok(()) if valid, or an AppError::Csrf if invalid.
+pub fn validate_csrf(session: &Session, submitted: &str) -> Result<(), AppError> {
     let stored = session
         .get::<String>("csrf_token")
         .unwrap_or(None)
         .unwrap_or_default();
     if stored.is_empty() || !constant_time_eq(&stored, submitted) {
-        return Err(HttpResponse::Forbidden().body("Invalid or missing CSRF token"));
+        return Err(AppError::Csrf("Invalid or missing CSRF token".to_string()));
     }
     Ok(())
 }

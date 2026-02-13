@@ -11,6 +11,7 @@ pub enum AppError {
     NotFound,
     PermissionDenied(String),
     Session(String),
+    Csrf(String),
 }
 
 impl fmt::Display for AppError {
@@ -23,6 +24,7 @@ impl fmt::Display for AppError {
             AppError::NotFound => write!(f, "Not found"),
             AppError::PermissionDenied(perm) => write!(f, "Permission denied: {}", perm),
             AppError::Session(msg) => write!(f, "Session error: {}", msg),
+            AppError::Csrf(msg) => write!(f, "CSRF error: {}", msg),
         }
     }
 }
@@ -30,7 +32,7 @@ impl fmt::Display for AppError {
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            AppError::PermissionDenied(_) => {
+            AppError::PermissionDenied(_) | AppError::Csrf(_) => {
                 HttpResponse::Forbidden()
                     .content_type("text/html; charset=utf-8")
                     .body("<h1>403 Forbidden</h1><p>You don't have permission to access this resource.</p>")

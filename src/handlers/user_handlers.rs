@@ -62,18 +62,11 @@ pub async fn create(
     pool: web::Data<DbPool>,
     session: Session,
     form: web::Form<UserForm>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.create") {
-        return resp;
-    }
-    if let Err(resp) = csrf::validate_csrf(&session, &form.csrf_token) {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.create")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
+    let conn = pool.get()?;
 
     // Validate
     let mut errors = vec![];
@@ -96,8 +89,8 @@ pub async fn create(
     };
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/users");
-        let roles = role::find_all_display(&conn).unwrap_or_default();
+        let ctx = PageContext::build(&session, &conn, "/users")?;
+        let roles = role::find_all_display(&conn)?;
         let tmpl = UserFormTemplate {
             ctx,
             form_action: "/users".to_string(),
@@ -106,15 +99,12 @@ pub async fn create(
             roles,
             errors,
         };
-        return match tmpl.render() {
-            Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-            Err(_) => HttpResponse::InternalServerError().body("Template error"),
-        };
+        return render(tmpl);
     }
 
     let hashed = match password::hash_password(&form.password) {
         Ok(h) => h,
-        Err(_) => return HttpResponse::InternalServerError().body("Password hash error"),
+        Err(_) => return Err(AppError::Hash("Password hash error".to_string())),
     };
 
     let new = user::NewUser {
@@ -138,9 +128,9 @@ pub async fn create(
                                       "user", user_id, details);
 
             let _ = session.insert("flash", "User created successfully");
-            HttpResponse::SeeOther()
+            Ok(HttpResponse::SeeOther()
                 .insert_header(("Location", "/users"))
-                .finish()
+                .finish())
         }
         Err(e) => {
             let msg = if e.to_string().contains("UNIQUE") {
@@ -148,8 +138,8 @@ pub async fn create(
             } else {
                 format!("Error creating user: {e}")
             };
-            let ctx = PageContext::build(&session, &conn, "/users");
-            let roles = role::find_all_display(&conn).unwrap_or_default();
+            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: "/users".to_string(),
@@ -158,10 +148,7 @@ pub async fn create(
                 roles,
                 errors: vec![msg],
             };
-            match tmpl.render() {
-                Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-                Err(_) => HttpResponse::InternalServerError().body("Template error"),
-            }
+            render(tmpl)
         }
     }
 }
