@@ -119,15 +119,32 @@ src/
 │   ├── session.rs   # Session helpers (get_user_id, require_permission, etc.)
 │   └── csrf.rs      # CSRF token validation
 ├── models/          # Database models & queries
-│   ├── ontology.rs  # Entity, property, relation queries (EAV pattern)
-│   ├── user.rs      # User CRUD & display types
-│   ├── role.rs      # Role & permission management
+│   ├── ontology/    # EAV ontology model (Tasks 23)
+│   │   ├── mod.rs
+│   │   ├── schema.rs    # Schema metadata and graph data
+│   │   ├── instance.rs  # Instance graph visualization
+│   │   └── entities.rs  # Entity CRUD operations
+│   ├── user/        # User model (Task 24)
+│   │   ├── mod.rs
+│   │   ├── types.rs     # UserDisplay, UserListItem, etc.
+│   │   └── queries.rs   # Database query functions
+│   ├── role/        # Role model (Task 25)
+│   │   ├── mod.rs
+│   │   ├── types.rs     # RoleDisplay, PermissionCheckbox, etc.
+│   │   └── queries.rs   # Database query functions
 │   ├── audit.rs     # Audit log queries
 │   ├── nav_item.rs  # Navigation menu building
 │   └── setting.rs   # Application settings
 ├── handlers/        # HTTP request handlers (all use AppError pattern)
-│   ├── user_handlers.rs
-│   ├── role_handlers.rs
+│   ├── user_handlers/   # User CRUD handlers (Task 26)
+│   │   ├── mod.rs
+│   │   ├── list.rs      # List and search
+│   │   └── crud.rs      # Create, edit, update, delete
+│   ├── role_handlers/   # Role CRUD handlers (Task 27)
+│   │   ├── mod.rs
+│   │   ├── helpers.rs   # Form parsing utilities
+│   │   ├── list.rs      # List handler
+│   │   └── crud.rs      # Create, edit, update, delete
 │   ├── account_handlers.rs
 │   ├── settings_handlers.rs
 │   ├── ontology_handlers.rs
@@ -334,7 +351,9 @@ cargo test test_name
 cargo test -- --nocapture
 ```
 
-## Recent Refactoring (Tasks 1-21)
+## Recent Refactoring
+
+### Phase 3: Handler Migration (Tasks 1-21)
 
 **Completed**: All handlers migrated to AppError pattern
 - ✅ User handlers (6)
@@ -347,6 +366,17 @@ cargo test -- --nocapture
 - ✅ Dashboard (1)
 
 **Impact**: ~280 lines of boilerplate eliminated, consistent error handling with `?` operator
+
+### Phase 4: File Splitting (Tasks 23-28)
+
+**Completed**: Large files split into focused modules
+- ✅ Task 23: `models/ontology.rs` (471 lines) → 4 modules (schema, instance, entities)
+- ✅ Task 24: `models/user.rs` (370 lines) → 3 modules (types, queries)
+- ✅ Task 25: `models/role.rs` (323 lines) → 3 modules (types, queries)
+- ✅ Task 26: `handlers/user_handlers.rs` (236 lines) → 3 modules (list, crud)
+- ✅ Task 27: `handlers/role_handlers.rs` → 4 modules (helpers, list, crud)
+
+**Impact**: Better code organization, clearer separation of concerns, easier navigation
 
 See `docs/plans/` for detailed refactoring documentation.
 
