@@ -70,27 +70,21 @@ pub fn find_paginated(
     let mut filters = Vec::new();
     let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-    if let Some(q) = search {
-        if !q.trim().is_empty() {
-            let pattern = format!("%{}%", q.trim());
-            filters.push(format!("(u.name LIKE ?{} OR p_summary.value LIKE ?{})", params_vec.len() + 1, params_vec.len() + 2));
-            params_vec.push(Box::new(pattern.clone()));
-            params_vec.push(Box::new(pattern));
-        }
+    if let Some(q) = search.filter(|s| !s.trim().is_empty()) {
+        let pattern = format!("%{}%", q.trim());
+        filters.push(format!("(u.name LIKE ?{} OR p_summary.value LIKE ?{})", params_vec.len() + 1, params_vec.len() + 2));
+        params_vec.push(Box::new(pattern.clone()));
+        params_vec.push(Box::new(pattern));
     }
 
-    if let Some(action) = action_filter {
-        if action != "all" {
-            filters.push(format!("p_action.value LIKE ?{}", params_vec.len() + 1));
-            params_vec.push(Box::new(format!("{}%", action)));
-        }
+    if let Some(action) = action_filter.filter(|a| *a != "all") {
+        filters.push(format!("p_action.value LIKE ?{}", params_vec.len() + 1));
+        params_vec.push(Box::new(format!("{}%", action)));
     }
 
-    if let Some(target) = target_type_filter {
-        if target != "all" {
-            filters.push(format!("p_target_type.value = ?{}", params_vec.len() + 1));
-            params_vec.push(Box::new(target.to_string()));
-        }
+    if let Some(target) = target_type_filter.filter(|t| *t != "all") {
+        filters.push(format!("p_target_type.value = ?{}", params_vec.len() + 1));
+        params_vec.push(Box::new(target.to_string()));
     }
 
     let filter_clause = if filters.is_empty() {
