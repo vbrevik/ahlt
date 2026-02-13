@@ -264,6 +264,37 @@ PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
 
 ## Development Workflow
 
+### Refactoring Workflow
+
+**For large-scale changes** (e.g., migrating error patterns):
+
+1. **Phase 1**: Build infrastructure (AppError enum, helpers) - expect breaking changes
+2. **Phase 2**: Quick wins (clippy fixes, dead code removal)
+3. **Phase 3**: Migrate incrementally (file by file, handler by handler)
+   - Implement changes
+   - Spec compliance review (did it meet requirements?)
+   - Code quality review (validation, audit logging, edge cases)
+   - Fix issues, re-review
+4. **Phase 4**: File splitting and polish
+
+**Avoid**: Trying to refactor everything at once. Incremental with reviews prevents issues.
+
+### Code Review Checklist
+
+When adding/modifying handlers, verify:
+
+**CRUD Consistency:**
+- ✅ Create and Update handlers have **matching validation** (name, email, etc.)
+- ✅ Create, Update, Delete handlers have **audit logging** (if meaningful data change)
+- ✅ Update handler validates required fields (don't trust form data)
+- ✅ Delete handler captures entity details **before** deletion for audit log
+
+**Error Handling:**
+- ✅ All database queries use `?` operator (no `.unwrap_or_default()` on critical data)
+- ✅ Template rendering uses `render()` helper
+- ✅ Permission checks happen first (before any business logic)
+- ✅ CSRF validation on all mutations (POST/PUT/DELETE)
+
 ### Adding a New Handler
 
 1. Create handler function in appropriate file (e.g. `src/handlers/user_handlers.rs`)
@@ -328,3 +359,19 @@ See `docs/plans/` for detailed refactoring documentation.
 **Template not found**: Askama requires templates at compile time. Run `cargo clean` after adding new templates.
 
 **Session cookie issues**: Check browser dev tools → Application → Cookies. Clear cookies if testing login flow changes.
+
+## Verification Commands
+
+```bash
+# Check build status concisely
+cargo check 2>&1 | tail -10
+
+# Find specific compilation errors
+cargo build 2>&1 | grep -E "file_name|pattern"
+
+# Verify zero errors (should output "Finished")
+cargo build 2>&1 | tail -1
+
+# Recent commit history
+git log --oneline -20
+```
