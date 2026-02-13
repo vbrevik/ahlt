@@ -8,6 +8,7 @@ use crate::models::user::{self, UserForm};
 use crate::models::role;
 use crate::auth::{csrf, password};
 use crate::auth::session::{get_user_id, require_permission};
+use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, UserListTemplate, UserFormTemplate};
 
@@ -22,33 +23,18 @@ pub async fn list(
     pool: web::Data<DbPool>,
     session: Session,
     query: web::Query<PaginationQuery>,
-) -> impl Responder {
-    if let Err(resp) = require_permission(&session, "users.list") {
-        return resp;
-    }
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.list")?;
 
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Database error"),
-    };
-
-    let ctx = PageContext::build(&session, &conn, "/users");
+    let conn = pool.get()?;
+    let ctx = PageContext::build(&session, &conn, "/users")?;
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(25);
     let search = query.q.as_deref();
-    let user_page = user::find_paginated(&conn, page, per_page, search).unwrap_or_else(|_| user::UserPage {
-        users: vec![],
-        page: 1,
-        per_page: 25,
-        total_count: 0,
-        total_pages: 0,
-    });
+    let user_page = user::find_paginated(&conn, page, per_page, search)?;
 
     let tmpl = UserListTemplate { ctx, user_page, search_query: query.q.clone() };
-    match tmpl.render() {
-        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
-        Err(_) => HttpResponse::InternalServerError().body("Template error"),
-    }
+    render(tmpl)
 }
 
 pub async fn new_form(
