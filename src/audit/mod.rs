@@ -162,9 +162,12 @@ pub fn log(
         eprintln!("Audit filesystem write failed: {:?}", e);
     }
 
-    // If high-value event, also write to database (will implement in next task)
+    // If high-value event, also write to database
     if is_important(action) {
-        // TODO: write to database
+        let summary = format!("{} {}", action, details.get("summary").and_then(|v| v.as_str()).unwrap_or(""));
+        if let Err(e) = crate::models::audit::create(conn, user_id, action, target_type, target_id, &summary) {
+            eprintln!("Audit database write failed: {:?}", e);
+        }
     }
 
     Ok(())

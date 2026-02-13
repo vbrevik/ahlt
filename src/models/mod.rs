@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod entity;
 pub mod nav_item;
 pub mod ontology;
