@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::db::DbPool;
 use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
-use crate::models::{tor, suggestion, proposal};
+use crate::models::{tor, suggestion, proposal, agenda_point};
 use crate::templates_structs::{PageContext, WorkflowTemplate};
 
 /// GET /tor/{tor_id}/workflow
@@ -31,6 +31,7 @@ pub async fn view(
 
     let suggestions = suggestion::find_all_for_tor(&conn, tor_id)?;
     let proposals = proposal::find_all_for_tor(&conn, tor_id)?;
+    let agenda_points = agenda_point::find_all_for_tor(&conn, tor_id)?;
 
     let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
@@ -41,6 +42,7 @@ pub async fn view(
         active_tab,
         suggestions,
         proposals,
+        agenda_points,
         status_filter: None,
     };
     render(tmpl)

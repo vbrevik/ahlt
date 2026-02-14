@@ -12,6 +12,10 @@ use crate::models::audit::AuditEntryPage;
 use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem};
 use crate::models::suggestion::SuggestionListItem;
 use crate::models::proposal::{ProposalListItem, ProposalDetail};
+use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail};
+use crate::models::coa::{CoaListItem, CoaDetail};
+use crate::models::opinion::{OpinionDetail, OpinionSummary};
+use crate::models::workflow::AvailableTransition;
 use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -193,9 +197,10 @@ pub struct WorkflowTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
     pub tor_name: String,
-    pub active_tab: String,  // "suggestions" or "proposals"
+    pub active_tab: String,  // "suggestions", "proposals", or "agenda"
     pub suggestions: Vec<SuggestionListItem>,
     pub proposals: Vec<ProposalListItem>,
+    pub agenda_points: Vec<AgendaPointListItem>,
     pub status_filter: Option<String>,
 }
 
@@ -227,6 +232,81 @@ pub struct ProposalDetailTemplate {
     pub tor_id: i64,
     pub tor_name: String,
     pub proposal: ProposalDetail,
+}
+
+// --- Workflow queue view ---
+
+#[derive(Template)]
+#[template(path = "workflow/queue.html")]
+pub struct QueueTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub queued_proposals: Vec<ProposalListItem>,
+}
+
+// --- Agenda point templates ---
+
+#[derive(Template)]
+#[template(path = "agenda/form.html")]
+pub struct AgendaPointFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub form_action: String,
+    pub form_title: String,
+    pub agenda_point: Option<AgendaPointDetail>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "agenda/detail.html")]
+pub struct AgendaPointDetailTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub agenda_point: AgendaPointDetail,
+    pub coas: Vec<CoaDetail>,
+    pub opinions: Vec<OpinionSummary>,
+    pub available_transitions: Vec<AvailableTransition>,
+}
+
+// --- COA templates ---
+
+#[derive(Template)]
+#[template(path = "coa/form.html")]
+pub struct CoaFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub agenda_point_id: i64,
+    pub form_action: String,
+    pub form_title: String,
+    pub coa: Option<CoaDetail>,
+    pub errors: Vec<String>,
+}
+
+// --- Opinion templates ---
+
+#[derive(Template)]
+#[template(path = "opinion/form.html")]
+pub struct OpinionFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub agenda_point_id: i64,
+    pub coas: Vec<CoaListItem>,
+    pub existing_opinion: Option<OpinionDetail>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "agenda/decision_form.html")]
+pub struct DecisionFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub agenda_point: AgendaPointDetail,
+    pub coas: Vec<CoaDetail>,
+    pub opinions: Vec<OpinionSummary>,
+    pub errors: Vec<String>,
 }
 
 // --- Menu Builder types ---
