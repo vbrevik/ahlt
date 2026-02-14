@@ -119,6 +119,20 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _spawns_proposal_id = insert_entity(&conn, "relation_type", "spawns_proposal", "Spawns Proposal", 0);
     let _submitted_to_id = insert_entity(&conn, "relation_type", "submitted_to", "Submitted To", 0);
 
+    // --- Phase 2b: Workflow, agenda, COA, and opinion relation types ---
+    let _transition_from_id = insert_entity(&conn, "relation_type", "transition_from", "Transition From", 0);
+    let _transition_to_id = insert_entity(&conn, "relation_type", "transition_to", "Transition To", 0);
+    let _considers_coa_id = insert_entity(&conn, "relation_type", "considers_coa", "Considers COA", 0);
+    let _originates_from_id = insert_entity(&conn, "relation_type", "originates_from", "Originates From", 0);
+    let _has_section_id = insert_entity(&conn, "relation_type", "has_section", "Has Section", 0);
+    let _has_subsection_id = insert_entity(&conn, "relation_type", "has_subsection", "Has Subsection", 0);
+    let _agenda_submitted_to_id = insert_entity(&conn, "relation_type", "agenda_submitted_to", "Agenda Submitted To", 0);
+    let _spawns_agenda_point_id = insert_entity(&conn, "relation_type", "spawns_agenda_point", "Spawns Agenda Point", 0);
+    let _opinion_by_id = insert_entity(&conn, "relation_type", "opinion_by", "Opinion By", 0);
+    let _opinion_on_id = insert_entity(&conn, "relation_type", "opinion_on", "Opinion On", 0);
+    let _prefers_coa_id = insert_entity(&conn, "relation_type", "prefers_coa", "Prefers COA", 0);
+    let _presents_id = insert_entity(&conn, "relation_type", "presents", "Presents", 0);
+
     // --- Roles ---
     let admin_role_id = insert_entity(&conn, "role", "admin", "Administrator", 1);
     insert_prop(&conn, admin_role_id, "description", "Full system access");
@@ -352,6 +366,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 9 relation types, 2 roles, {} permissions, 11 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions, 11 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
