@@ -103,6 +103,23 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/delete", web::post().to(handlers::tor_handlers::delete))
                     // ToR member management
                     .route("/tor/{id}/members", web::post().to(handlers::tor_handlers::manage_members))
+                    // Pipeline view
+                    .route("/tor/{id}/pipeline", web::get().to(handlers::pipeline_handlers::view))
+                    // Suggestion workflow
+                    .route("/tor/{id}/suggestions/new", web::get().to(handlers::suggestion_handlers::new_form))
+                    .route("/tor/{id}/suggestions", web::post().to(handlers::suggestion_handlers::create))
+                    .route("/tor/{id}/suggestions/{suggestion_id}/accept", web::post().to(handlers::suggestion_handlers::accept))
+                    .route("/tor/{id}/suggestions/{suggestion_id}/reject", web::post().to(handlers::suggestion_handlers::reject))
+                    // Proposal workflow
+                    .route("/tor/{id}/proposals/new", web::get().to(handlers::proposal_handlers::new_form))
+                    .route("/tor/{id}/proposals", web::post().to(handlers::proposal_handlers::create))
+                    .route("/tor/{id}/proposals/{proposal_id}", web::get().to(handlers::proposal_handlers::detail))
+                    .route("/tor/{id}/proposals/{proposal_id}/edit", web::get().to(handlers::proposal_handlers::edit_form))
+                    .route("/tor/{id}/proposals/{proposal_id}", web::post().to(handlers::proposal_handlers::update))
+                    .route("/tor/{id}/proposals/{proposal_id}/submit", web::post().to(handlers::proposal_handlers::submit))
+                    .route("/tor/{id}/proposals/{proposal_id}/review", web::post().to(handlers::proposal_handlers::review))
+                    .route("/tor/{id}/proposals/{proposal_id}/approve", web::post().to(handlers::proposal_handlers::approve))
+                    .route("/tor/{id}/proposals/{proposal_id}/reject", web::post().to(handlers::proposal_handlers::reject))
                     // Account
                     .route("/account", web::get().to(handlers::account_handlers::form))
                     .route("/account", web::post().to(handlers::account_handlers::submit))
