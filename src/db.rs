@@ -358,6 +358,69 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     ).unwrap();
     insert_relation(&conn, requires_permission_rel_type_id, nav_gov_pipeline_id, suggestion_view_perm_id);
 
+    // --- Suggestion Workflow Definitions ---
+    let transition_from_rel_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='transition_from'",
+        [], |row| row.get(0),
+    ).unwrap();
+    let transition_to_rel_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='transition_to'",
+        [], |row| row.get(0),
+    ).unwrap();
+
+    // Suggestion workflow statuses
+    let s_open = insert_entity(&conn, "workflow_status", "suggestion.open", "Open", 1);
+    insert_prop(&conn, s_open, "entity_type_scope", "suggestion");
+    insert_prop(&conn, s_open, "status_code", "open");
+    insert_prop(&conn, s_open, "label", "Open");
+    insert_prop(&conn, s_open, "is_initial", "true");
+    insert_prop(&conn, s_open, "order", "1");
+
+    let s_accepted = insert_entity(&conn, "workflow_status", "suggestion.accepted", "Accepted", 2);
+    insert_prop(&conn, s_accepted, "entity_type_scope", "suggestion");
+    insert_prop(&conn, s_accepted, "status_code", "accepted");
+    insert_prop(&conn, s_accepted, "label", "Accepted");
+    insert_prop(&conn, s_accepted, "is_terminal", "true");
+    insert_prop(&conn, s_accepted, "order", "2");
+
+    let s_rejected = insert_entity(&conn, "workflow_status", "suggestion.rejected", "Rejected", 3);
+    insert_prop(&conn, s_rejected, "entity_type_scope", "suggestion");
+    insert_prop(&conn, s_rejected, "status_code", "rejected");
+    insert_prop(&conn, s_rejected, "label", "Rejected");
+    insert_prop(&conn, s_rejected, "is_terminal", "true");
+    insert_prop(&conn, s_rejected, "order", "3");
+
+    // Suggestion workflow transitions
+    let st_accept = insert_entity(&conn, "workflow_transition", "suggestion.open_to_accepted", "Accept", 0);
+    insert_prop(&conn, st_accept, "entity_type_scope", "suggestion");
+    insert_prop(&conn, st_accept, "from_status_code", "open");
+    insert_prop(&conn, st_accept, "to_status_code", "accepted");
+    insert_prop(&conn, st_accept, "transition_label", "Accept");
+    insert_prop(&conn, st_accept, "required_permission", "suggestion.review");
+    insert_prop(&conn, st_accept, "requires_outcome", "false");
+    insert_relation(&conn, transition_from_rel_id, st_accept, s_open);
+    insert_relation(&conn, transition_to_rel_id, st_accept, s_accepted);
+
+    let st_reject = insert_entity(&conn, "workflow_transition", "suggestion.open_to_rejected", "Reject", 0);
+    insert_prop(&conn, st_reject, "entity_type_scope", "suggestion");
+    insert_prop(&conn, st_reject, "from_status_code", "open");
+    insert_prop(&conn, st_reject, "to_status_code", "rejected");
+    insert_prop(&conn, st_reject, "transition_label", "Reject");
+    insert_prop(&conn, st_reject, "required_permission", "suggestion.review");
+    insert_prop(&conn, st_reject, "requires_outcome", "true");
+    insert_relation(&conn, transition_from_rel_id, st_reject, s_open);
+    insert_relation(&conn, transition_to_rel_id, st_reject, s_rejected);
+
+    let st_reverse = insert_entity(&conn, "workflow_transition", "suggestion.accepted_to_rejected", "Reverse", 0);
+    insert_prop(&conn, st_reverse, "entity_type_scope", "suggestion");
+    insert_prop(&conn, st_reverse, "from_status_code", "accepted");
+    insert_prop(&conn, st_reverse, "to_status_code", "rejected");
+    insert_prop(&conn, st_reverse, "transition_label", "Reverse");
+    insert_prop(&conn, st_reverse, "required_permission", "suggestion.review");
+    insert_prop(&conn, st_reverse, "requires_outcome", "false");
+    insert_relation(&conn, transition_from_rel_id, st_reverse, s_accepted);
+    insert_relation(&conn, transition_to_rel_id, st_reverse, s_rejected);
+
     // Create audit directory with secure permissions
     let audit_path = "data/audit";
     if !std::path::Path::new(audit_path).exists() {
@@ -376,6 +439,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions)", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
