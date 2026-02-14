@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS relations (
     UNIQUE(relation_type_id, source_id, target_id)
 );
 
+CREATE TABLE IF NOT EXISTS relation_properties (
+    relation_id INTEGER NOT NULL,
+    key         TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    PRIMARY KEY (relation_id, key),
+    FOREIGN KEY (relation_id) REFERENCES relations(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
 CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_id, relation_type_id);
 CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_id, relation_type_id);
