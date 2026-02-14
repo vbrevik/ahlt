@@ -164,6 +164,16 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("proposal.edit", "Edit draft proposals", "Pipeline"),
         ("proposal.review", "Move proposals to under_review status", "Pipeline"),
         ("proposal.approve", "Approve or reject proposals under review", "Pipeline"),
+        // --- Phase 2b: Agenda, workflow, and COA permissions ---
+        ("agenda.view", "View Agenda", "Governance"),
+        ("agenda.create", "Create Agenda Points", "Governance"),
+        ("agenda.queue", "Queue Proposals for Agenda", "Governance"),
+        ("agenda.manage", "Manage Agenda Status", "Governance"),
+        ("agenda.participate", "Participate in Meeting", "Governance"),
+        ("agenda.decide", "Make Final Decisions", "Governance"),
+        ("coa.create", "Create Courses of Action", "Pipeline"),
+        ("coa.edit", "Edit Courses of Action", "Pipeline"),
+        ("workflow.manage", "Manage Workflow System", "Governance"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -366,6 +376,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions, 11 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
