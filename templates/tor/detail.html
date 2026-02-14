@@ -62,13 +62,13 @@
     {% if !tor.remote_url.is_empty() %}
     <div class="detail-row">
         <span class="detail-label">Remote Meeting</span>
-        <span class="detail-value"><a href="{{ tor.remote_url }}" target="_blank">{{ tor.remote_url }}</a></span>
+        <span class="detail-value"><a href="{{ tor.remote_url }}" target="_blank" rel="noopener noreferrer">{{ tor.remote_url }}</a></span>
     </div>
     {% endif %}
     {% if !tor.background_repo_url.is_empty() %}
     <div class="detail-row">
         <span class="detail-label">Background Documents</span>
-        <span class="detail-value"><a href="{{ tor.background_repo_url }}" target="_blank">{{ tor.background_repo_url }}</a></span>
+        <span class="detail-value"><a href="{{ tor.background_repo_url }}" target="_blank" rel="noopener noreferrer">{{ tor.background_repo_url }}</a></span>
     </div>
     {% endif %}
 </div>
