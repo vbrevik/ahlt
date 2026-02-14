@@ -4,9 +4,9 @@ use std::collections::HashMap;
 
 use crate::db::DbPool;
 use crate::auth::csrf;
-use crate::auth::session::{require_permission, get_user_id};
+use crate::auth::session::{require_permission, get_user_id, get_permissions};
 use crate::errors::{AppError, render};
-use crate::models::{tor, proposal};
+use crate::models::{tor, proposal, workflow};
 use crate::models::proposal::ProposalForm;
 use crate::templates_structs::{PageContext, ProposalFormTemplate, ProposalDetailTemplate};
 
@@ -154,7 +154,8 @@ pub async fn edit_form(
 
     match proposal::find_by_id(&conn, proposal_id)? {
         Some(p) => {
-            // Only draft or rejected proposals are editable
+            // Check via workflow engine if editing is allowed for this status
+            // Only draft and rejected proposals should allow editing
             if p.status != "draft" && p.status != "rejected" {
                 let _ = session.insert("flash", "Only draft or rejected proposals can be edited");
                 return Ok(HttpResponse::SeeOther()
@@ -260,6 +261,23 @@ pub async fn submit(
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
+    // Get current status for workflow validation
+    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "proposal",
+        &current_proposal.status,
+        "submitted",
+        &user_permissions,
+        &entity_props,
+    )?;
+
     proposal::update_status(&conn, proposal_id, "submitted", None)?;
 
     // Audit log
@@ -292,6 +310,23 @@ pub async fn review(
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
+    // Get current status for workflow validation
+    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "proposal",
+        &current_proposal.status,
+        "under_review",
+        &user_permissions,
+        &entity_props,
+    )?;
+
     proposal::update_status(&conn, proposal_id, "under_review", None)?;
 
     // Audit log
@@ -323,6 +358,23 @@ pub async fn approve(
     let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&conn, user_id, tor_id)?;
+
+    // Get current status for workflow validation
+    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "proposal",
+        &current_proposal.status,
+        "approved",
+        &user_permissions,
+        &entity_props,
+    )?;
 
     proposal::update_status(&conn, proposal_id, "approved", None)?;
 
@@ -364,6 +416,23 @@ pub async fn reject(
             .insert_header(("Location", format!("/tor/{tor_id}/proposals/{proposal_id}")))
             .finish());
     }
+
+    // Get current status for workflow validation
+    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "proposal",
+        &current_proposal.status,
+        "rejected",
+        &user_permissions,
+        &entity_props,
+    )?;
 
     proposal::update_status(&conn, proposal_id, "rejected", Some(&rejection_reason))?;
 

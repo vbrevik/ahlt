@@ -421,6 +421,91 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, st_reverse, s_accepted);
     insert_relation(&conn, transition_to_rel_id, st_reverse, s_rejected);
 
+    // Proposal workflow statuses
+    let p_draft = insert_entity(&conn, "workflow_status", "proposal.draft", "Draft", 1);
+    insert_prop(&conn, p_draft, "entity_type_scope", "proposal");
+    insert_prop(&conn, p_draft, "status_code", "draft");
+    insert_prop(&conn, p_draft, "label", "Draft");
+    insert_prop(&conn, p_draft, "is_initial", "true");
+    insert_prop(&conn, p_draft, "order", "1");
+
+    let p_submitted = insert_entity(&conn, "workflow_status", "proposal.submitted", "Submitted", 2);
+    insert_prop(&conn, p_submitted, "entity_type_scope", "proposal");
+    insert_prop(&conn, p_submitted, "status_code", "submitted");
+    insert_prop(&conn, p_submitted, "label", "Submitted");
+    insert_prop(&conn, p_submitted, "order", "2");
+
+    let p_under_review = insert_entity(&conn, "workflow_status", "proposal.under_review", "Under Review", 3);
+    insert_prop(&conn, p_under_review, "entity_type_scope", "proposal");
+    insert_prop(&conn, p_under_review, "status_code", "under_review");
+    insert_prop(&conn, p_under_review, "label", "Under Review");
+    insert_prop(&conn, p_under_review, "order", "3");
+
+    let p_approved = insert_entity(&conn, "workflow_status", "proposal.approved", "Approved", 4);
+    insert_prop(&conn, p_approved, "entity_type_scope", "proposal");
+    insert_prop(&conn, p_approved, "status_code", "approved");
+    insert_prop(&conn, p_approved, "label", "Approved");
+    insert_prop(&conn, p_approved, "is_terminal", "true");
+    insert_prop(&conn, p_approved, "order", "4");
+
+    let p_rejected = insert_entity(&conn, "workflow_status", "proposal.rejected", "Rejected", 5);
+    insert_prop(&conn, p_rejected, "entity_type_scope", "proposal");
+    insert_prop(&conn, p_rejected, "status_code", "rejected");
+    insert_prop(&conn, p_rejected, "label", "Rejected");
+    insert_prop(&conn, p_rejected, "is_terminal", "true");
+    insert_prop(&conn, p_rejected, "order", "5");
+
+    // Proposal workflow transitions
+    let pt_submit = insert_entity(&conn, "workflow_transition", "proposal.draft_to_submitted", "Submit", 0);
+    insert_prop(&conn, pt_submit, "entity_type_scope", "proposal");
+    insert_prop(&conn, pt_submit, "from_status_code", "draft");
+    insert_prop(&conn, pt_submit, "to_status_code", "submitted");
+    insert_prop(&conn, pt_submit, "transition_label", "Submit");
+    insert_prop(&conn, pt_submit, "required_permission", "proposal.submit");
+    insert_prop(&conn, pt_submit, "requires_outcome", "false");
+    insert_relation(&conn, transition_from_rel_id, pt_submit, p_draft);
+    insert_relation(&conn, transition_to_rel_id, pt_submit, p_submitted);
+
+    let pt_review = insert_entity(&conn, "workflow_transition", "proposal.submitted_to_review", "Start Review", 0);
+    insert_prop(&conn, pt_review, "entity_type_scope", "proposal");
+    insert_prop(&conn, pt_review, "from_status_code", "submitted");
+    insert_prop(&conn, pt_review, "to_status_code", "under_review");
+    insert_prop(&conn, pt_review, "transition_label", "Start Review");
+    insert_prop(&conn, pt_review, "required_permission", "proposal.review");
+    insert_prop(&conn, pt_review, "requires_outcome", "false");
+    insert_relation(&conn, transition_from_rel_id, pt_review, p_submitted);
+    insert_relation(&conn, transition_to_rel_id, pt_review, p_under_review);
+
+    let pt_approve = insert_entity(&conn, "workflow_transition", "proposal.review_to_approved", "Approve", 0);
+    insert_prop(&conn, pt_approve, "entity_type_scope", "proposal");
+    insert_prop(&conn, pt_approve, "from_status_code", "under_review");
+    insert_prop(&conn, pt_approve, "to_status_code", "approved");
+    insert_prop(&conn, pt_approve, "transition_label", "Approve");
+    insert_prop(&conn, pt_approve, "required_permission", "proposal.approve");
+    insert_prop(&conn, pt_approve, "requires_outcome", "false");
+    insert_relation(&conn, transition_from_rel_id, pt_approve, p_under_review);
+    insert_relation(&conn, transition_to_rel_id, pt_approve, p_approved);
+
+    let pt_reject_draft = insert_entity(&conn, "workflow_transition", "proposal.draft_to_rejected", "Reject", 0);
+    insert_prop(&conn, pt_reject_draft, "entity_type_scope", "proposal");
+    insert_prop(&conn, pt_reject_draft, "from_status_code", "draft");
+    insert_prop(&conn, pt_reject_draft, "to_status_code", "rejected");
+    insert_prop(&conn, pt_reject_draft, "transition_label", "Reject");
+    insert_prop(&conn, pt_reject_draft, "required_permission", "proposal.approve");
+    insert_prop(&conn, pt_reject_draft, "requires_outcome", "true");
+    insert_relation(&conn, transition_from_rel_id, pt_reject_draft, p_draft);
+    insert_relation(&conn, transition_to_rel_id, pt_reject_draft, p_rejected);
+
+    let pt_reject_review = insert_entity(&conn, "workflow_transition", "proposal.review_to_rejected", "Reject", 0);
+    insert_prop(&conn, pt_reject_review, "entity_type_scope", "proposal");
+    insert_prop(&conn, pt_reject_review, "from_status_code", "under_review");
+    insert_prop(&conn, pt_reject_review, "to_status_code", "rejected");
+    insert_prop(&conn, pt_reject_review, "transition_label", "Reject");
+    insert_prop(&conn, pt_reject_review, "required_permission", "proposal.approve");
+    insert_prop(&conn, pt_reject_review, "requires_outcome", "true");
+    insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
+    insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
+
     // Create audit directory with secure permissions
     let audit_path = "data/audit";
     if !std::path::Path::new(audit_path).exists() {
@@ -439,6 +524,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions)", perms.len());
+    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions, 5 proposal statuses + 5 transitions)", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }

@@ -4,9 +4,9 @@ use std::collections::HashMap;
 
 use crate::db::DbPool;
 use crate::auth::csrf;
-use crate::auth::session::{require_permission, get_user_id};
+use crate::auth::session::{require_permission, get_user_id, get_permissions};
 use crate::errors::{AppError, render};
-use crate::models::{tor, suggestion, proposal};
+use crate::models::{tor, suggestion, proposal, workflow};
 use crate::models::suggestion::SuggestionForm;
 use crate::templates_structs::{PageContext, SuggestionFormTemplate};
 
@@ -101,6 +101,23 @@ pub async fn accept(
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
+    // Get current status for workflow validation
+    let current_suggestion = suggestion::find_by_id(&conn, suggestion_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "suggestion",
+        &current_suggestion.status,
+        "accepted",
+        &user_permissions,
+        &entity_props,
+    )?;
+
     suggestion::update_status(&conn, suggestion_id, "accepted", None)?;
     let proposal_id = proposal::auto_create_from_suggestion(&conn, suggestion_id, tor_id)?;
 
@@ -142,6 +159,23 @@ pub async fn reject(
             .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=suggestions")))
             .finish());
     }
+
+    // Get current status for workflow validation
+    let current_suggestion = suggestion::find_by_id(&conn, suggestion_id)?
+        .ok_or(AppError::NotFound)?;
+    let user_permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(e))?;
+    let entity_props = HashMap::new();
+
+    // Validate workflow transition via workflow engine
+    workflow::validate_transition(
+        &conn,
+        "suggestion",
+        &current_suggestion.status,
+        "rejected",
+        &user_permissions,
+        &entity_props,
+    )?;
 
     suggestion::update_status(&conn, suggestion_id, "rejected", Some(&rejection_reason))?;
 
