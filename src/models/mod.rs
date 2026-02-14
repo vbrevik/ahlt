@@ -1,3 +1,4 @@
+pub mod agenda_point;
 pub mod audit;
 pub mod entity;
 pub mod nav_item;
