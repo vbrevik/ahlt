@@ -32,6 +32,14 @@ pub struct OpinionForm {
     pub csrf_token: String,
 }
 
+/// Form input for recording a final decision on an agenda item.
+#[derive(Debug, Clone, Deserialize)]
+pub struct DecisionForm {
+    pub selected_coa_id: i64,
+    pub decision_rationale: String,
+    pub csrf_token: String,
+}
+
 /// Summary of opinions grouped by COA preference for an agenda point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpinionSummary {

@@ -43,6 +43,47 @@ pub fn find_all(conn: &Connection) -> Result<Vec<CoaListItem>, AppError> {
     Ok(items)
 }
 
+/// Find all COAs considered for a specific agenda point via considers_coa relation.
+pub fn find_all_for_agenda_point(conn: &Connection, agenda_point_id: i64) -> Result<Vec<CoaListItem>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT e.id, \
+                COALESCE(p_title.value, '') AS title, \
+                COALESCE(p_type.value, 'simple') AS coa_type, \
+                COALESCE(p_created_by.value, '0') AS created_by, \
+                COALESCE(p_created_date.value, '') AS created_date \
+         FROM entities e \
+         JOIN relations r ON e.id = r.target_id \
+         JOIN entities rt ON r.relation_type_id = rt.id AND rt.name = 'considers_coa' \
+         LEFT JOIN entity_properties p_title \
+             ON e.id = p_title.entity_id AND p_title.key = 'title' \
+         LEFT JOIN entity_properties p_type \
+             ON e.id = p_type.entity_id AND p_type.key = 'coa_type' \
+         LEFT JOIN entity_properties p_created_by \
+             ON e.id = p_created_by.entity_id AND p_created_by.key = 'created_by' \
+         LEFT JOIN entity_properties p_created_date \
+             ON e.id = p_created_date.entity_id AND p_created_date.key = 'created_date' \
+         WHERE e.entity_type = 'coa' AND r.source_id = ?1 \
+         ORDER BY p_created_date.value DESC",
+    )?;
+
+    let items = stmt
+        .query_map(params![agenda_point_id], |row| {
+            let created_by_str: String = row.get("created_by")?;
+            let created_by: i64 = created_by_str.parse().unwrap_or(0);
+
+            Ok(CoaListItem {
+                id: row.get("id")?,
+                title: row.get("title")?,
+                coa_type: row.get("coa_type")?,
+                created_by,
+                created_date: row.get("created_date")?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(items)
+}
+
 /// Find a single COA by its entity id, loading all sections and subsections.
 pub fn find_by_id(conn: &Connection, id: i64) -> Result<CoaDetail, AppError> {
     let mut stmt = conn.prepare(
