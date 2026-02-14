@@ -19,8 +19,7 @@
     <h1>Audit Log</h1>
 </div>
 
-<div class="filter-bar">
-    <form method="get" action="/audit" class="audit-filters">
+<form method="get" action="/audit" class="search-form">
         <input type="search" name="q" placeholder="Search by user or summary..."
                value="{% if let Some(q) = search_query %}{{ q }}{% endif %}"
                class="search-input">
@@ -43,8 +42,7 @@
         {% if search_query.is_some() || (action_filter.is_some() && action_filter.as_ref().unwrap() != "all") || (target_type_filter.is_some() && target_type_filter.as_ref().unwrap() != "all") %}
         <a href="/audit" class="btn">Clear</a>
         {% endif %}
-    </form>
-</div>
+</form>
 
 {% if audit_page.total_pages > 1 %}
 <div class="pagination-info">
@@ -65,7 +63,12 @@
     <tbody>
         {% if audit_page.entries.is_empty() %}
         <tr>
-            <td colspan="5" class="no-data">No audit entries found</td>
+            <td colspan="5">
+                <div class="empty-state">
+                    <div class="empty-state-title">No audit entries yet</div>
+                    <div class="empty-state-text">Actions like creating users, changing roles, and updating settings will appear here.</div>
+                </div>
+            </td>
         </tr>
         {% else %}
         {% for entry in audit_page.entries %}

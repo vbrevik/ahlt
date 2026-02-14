@@ -32,7 +32,7 @@
 <table class="table">
     <thead>
         <tr>
-            <th>ID</th>
+            <th class="col-id">ID</th>
             <th>Username</th>
             <th>Display Name</th>
             <th>Email</th>
@@ -43,7 +43,7 @@
     <tbody>
     {% for user in user_page.users %}
         <tr>
-            <td>{{ user.id }}</td>
+            <td class="col-id">{{ user.id }}</td>
             <td>{{ user.username }}</td>
             <td>{{ user.display_name }}</td>
             <td>{{ user.email }}</td>

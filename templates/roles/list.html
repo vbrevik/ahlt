@@ -23,7 +23,7 @@
 <table class="table">
     <thead>
         <tr>
-            <th>ID</th>
+            <th class="col-id">ID</th>
             <th>Name</th>
             <th>Label</th>
             <th>Description</th>
@@ -35,12 +35,12 @@
     <tbody>
     {% for role in roles %}
         <tr>
-            <td>{{ role.id }}</td>
-            <td>{{ role.name }}</td>
-            <td>{{ role.label }}</td>
+            <td class="col-id">{{ role.id }}</td>
+            <td><code class="mono-type">{{ role.name }}</code></td>
+            <td><strong>{{ role.label }}</strong></td>
             <td>{{ role.description }}</td>
-            <td>{{ role.permission_count }}</td>
-            <td>{{ role.user_count }}</td>
+            <td><span class="badge badge-user">{{ role.permission_count }}</span></td>
+            <td><span class="badge badge-user">{{ role.user_count }}</span></td>
             <td class="actions">
                 <a href="/roles/{{ role.id }}/edit" class="btn btn-sm">Edit</a>
                 {% if role.user_count == 0 %}

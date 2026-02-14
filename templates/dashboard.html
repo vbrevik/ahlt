@@ -6,17 +6,17 @@
 {% include "partials/nav.html" %}
 {% endblock %}
 
-{% block sidebar %}
-{% include "partials/sidebar.html" %}
-{% endblock %}
-
 {% block content %}
 {% if let Some(msg) = ctx.flash %}
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
-<h1>Dashboard</h1>
-<div class="card-grid">
+<div class="dashboard-greeting">
+    <h1>Welcome back, {{ ctx.username }}</h1>
+    <p class="text-secondary">Here's an overview of your {{ ctx.app_name }} workspace.</p>
+</div>
+
+<div class="card-grid dashboard-stats">
     <div class="card">
         <div class="card-label">Total Users</div>
         <div class="card-value">{{ user_count }}</div>
@@ -26,5 +26,32 @@
         <div class="card-value">{{ role_label }}</div>
     </div>
 </div>
-<p>Welcome, <strong>{{ ctx.username }}</strong>. Use the navigation above to manage users.</p>
+
+<h2>Quick Actions</h2>
+<div class="card-grid dashboard-actions">
+    {% if ctx.permissions.has("users.list") %}
+    <a href="/users" class="card card-action">
+        <div class="card-action-title">Manage Users</div>
+        <div class="card-action-desc">View, create, and edit user accounts</div>
+    </a>
+    {% endif %}
+    {% if ctx.permissions.has("roles.manage") %}
+    <a href="/roles" class="card card-action">
+        <div class="card-action-title">Manage Roles</div>
+        <div class="card-action-desc">Configure roles and permission assignments</div>
+    </a>
+    {% endif %}
+    {% if ctx.permissions.has("settings.manage") %}
+    <a href="/settings" class="card card-action">
+        <div class="card-action-title">Settings</div>
+        <div class="card-action-desc">Application name, audit logging, and more</div>
+    </a>
+    {% endif %}
+    {% if ctx.permissions.has("audit.view") %}
+    <a href="/audit" class="card card-action">
+        <div class="card-action-title">Audit Log</div>
+        <div class="card-action-desc">Review system activity and changes</div>
+    </a>
+    {% endif %}
+</div>
 {% endblock %}
