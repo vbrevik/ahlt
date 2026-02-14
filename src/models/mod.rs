@@ -10,3 +10,4 @@ pub mod setting;
 pub mod suggestion;
 pub mod tor;
 pub mod user;
+pub mod workflow;
