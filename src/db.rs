@@ -101,6 +101,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let has_perm_id = insert_entity(&conn, "relation_type", "has_permission", "Has Permission", 0);
     let _requires_perm_id = insert_entity(&conn, "relation_type", "requires_permission", "Requires Permission", 0);
 
+    // --- ToR relation types ---
+    let _member_of_id = insert_entity(&conn, "relation_type", "member_of", "Member Of", 0);
+    let _has_tor_role_id = insert_entity(&conn, "relation_type", "has_tor_role", "Has ToR Role", 0);
+    let _belongs_to_tor_id = insert_entity(&conn, "relation_type", "belongs_to_tor", "Belongs to ToR", 0);
+
     // --- Roles ---
     let admin_role_id = insert_entity(&conn, "role", "admin", "Administrator", 1);
     insert_prop(&conn, admin_role_id, "description", "Full system access");
@@ -119,6 +124,10 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("roles.manage", "Manage Roles", "Roles"),
         ("settings.manage", "Manage Settings", "Settings"),
         ("audit.view", "View Audit Log", "Admin"),
+        ("tor.list", "List Terms of Reference", "Governance"),
+        ("tor.create", "Create Terms of Reference", "Governance"),
+        ("tor.edit", "Edit Terms of Reference", "Governance"),
+        ("tor.manage_members", "Manage ToR Members", "Governance"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -236,6 +245,15 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_menu_builder_id, "url", "/menu-builder");
     insert_prop(&conn, nav_admin_menu_builder_id, "parent", "admin");
 
+    // Governance: module header
+    let _nav_governance_id = insert_entity(&conn, "nav_item", "governance", "Governance", 3);
+    insert_prop(&conn, _nav_governance_id, "url", "/tor");
+
+    // Governance -> Terms of Reference: sidebar child
+    let nav_gov_tor_id = insert_entity(&conn, "nav_item", "governance.tor", "Terms of Reference", 1);
+    insert_prop(&conn, nav_gov_tor_id, "url", "/tor");
+    insert_prop(&conn, nav_gov_tor_id, "parent", "governance");
+
     // --- Audit settings ---
     let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
     insert_prop(&conn, audit_enabled_id, "value", "true");
@@ -274,6 +292,14 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // Admin > Menu Builder requires roles.manage
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_menu_builder_id, roles_manage_perm_id);
 
+    // Governance > Terms of Reference requires tor.list
+    let tor_list_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='tor.list'",
+        [], |row| row.get(0),
+    ).unwrap();
+
+    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_tor_id, tor_list_perm_id);
+
     // Create audit directory with secure permissions
     let audit_path = "data/audit";
     if !std::path::Path::new(audit_path).exists() {
@@ -292,6 +318,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 3 relation types, 2 roles, {} permissions, 7 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 6 relation types, 2 roles, {} permissions, 9 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
