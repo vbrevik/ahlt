@@ -6,4 +6,5 @@ pub mod menu_builder_handlers;
 pub mod ontology_handlers;
 pub mod role_handlers;
 pub mod settings_handlers;
+pub mod tor_handlers;
 pub mod user_handlers;
