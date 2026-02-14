@@ -93,6 +93,16 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/{id}/edit", web::get().to(handlers::role_handlers::edit_form))
                     .route("/roles/{id}", web::post().to(handlers::role_handlers::update))
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
+                    // ToR CRUD — /tor/new BEFORE /tor/{id}
+                    .route("/tor", web::get().to(handlers::tor_handlers::list))
+                    .route("/tor/new", web::get().to(handlers::tor_handlers::new_form))
+                    .route("/tor", web::post().to(handlers::tor_handlers::create))
+                    .route("/tor/{id}", web::get().to(handlers::tor_handlers::detail))
+                    .route("/tor/{id}/edit", web::get().to(handlers::tor_handlers::edit_form))
+                    .route("/tor/{id}", web::post().to(handlers::tor_handlers::update))
+                    .route("/tor/{id}/delete", web::post().to(handlers::tor_handlers::delete))
+                    // ToR member management
+                    .route("/tor/{id}/members", web::post().to(handlers::tor_handlers::manage_members))
                     // Account
                     .route("/account", web::get().to(handlers::account_handlers::form))
                     .route("/account", web::post().to(handlers::account_handlers::submit))
