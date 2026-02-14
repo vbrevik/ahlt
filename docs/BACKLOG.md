@@ -300,12 +300,21 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Code Quality**: 0 new errors, integrated subagent-driven development for quality gates
 - **Production Ready**: All routes wired, permissions integrated, audit logging, CSRF protection
 
+### Phase 2a Automated Testing - Infrastructure Foundation (In Progress)
+- **Test Dependencies**: Added actix-rt, serde_urlencoded, regex to dev-dependencies
+- **Infrastructure Helpers**: Test database management (test_db_path, cleanup_test_db)
+- **CSRF Extraction**: Regex-based CSRF token extraction from HTML forms
+- **Infrastructure Tests**: 3 tests passing (compilation, CSRF extraction, error handling)
+- **Test Strategy**: Database-level testing following Phase 2b pattern (validated EAV model, permissions, auth logic)
+- **Planned Tests**: 7 more tests for authentication, user CRUD, and permission enforcement
+- **Code Quality**: 0 new errors, all 21 tests passing (3 Phase 2a + 12 Phase 2b + 3 workflow + 3 existing)
+
 ---
 
 ## Remaining Backlog
 
 ### Testing & Deployment
-- Automated tests for critical paths (login, user CRUD, permissions)
+- Phase 2a automated tests - full implementation (7 additional tests for auth, CRUD, permissions)
 - Production deployment preparation (env vars, session key, etc.)
 
 ### Future Features
@@ -319,12 +328,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 ## Implementation Order
 
 ```
-DONE                          NEXT                        LATER
-════                          ════                        ═════
-Epic 1: Ontology Foundation   Automated tests             Warnings system
-Epic 2: Data-Driven Nav       Production deployment       More entity types
-5.1 Self-deletion guard                                   More entity types
-5.2 Last admin guard                                      API access
+DONE                                NEXT                          LATER
+════                                ════                          ═════
+Epic 1: Ontology Foundation         Phase 2a tests - full impl     Warnings system
+Epic 2: Data-Driven Nav             Production deployment         More entity types
+5.1 Self-deletion guard                                           API access
+5.2 Last admin guard
 5.3 Session key from env
 5.4 CSRF protection
 4.1 Role Management UI
@@ -349,6 +358,10 @@ Code cleanup (Tasks 1-28):
 Manual testing (complete)
 6.6 Frontend design review
 4.2 Menu Builder
+Phase 2b Workflows (complete)
+Phase 2a Testing:
+- Infrastructure foundation (DONE)
+- Full test suite (7 more tests)
 ```
 
 ## Architecture Decisions
