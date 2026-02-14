@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<h1>{{ form_title }}</h1>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="{{ form_action }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name"
+               value="{% if let Some(t) = tor %}{{ t.name }}{% endif %}" required>
+        <span class="hint">Internal identifier (e.g. budget_committee)</span>
+    </div>
+
+    <div class="form-group">
+        <label for="label">Label</label>
+        <input type="text" id="label" name="label"
+               value="{% if let Some(t) = tor %}{{ t.label }}{% endif %}" required>
+        <span class="hint">Display name (e.g. Budget Committee)</span>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="3">{% if let Some(t) = tor %}{{ t.description }}{% endif %}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+            <option value="active" {% if let Some(t) = tor %}{% if t.status.as_str() == "active" %}selected{% endif %}{% else %}selected{% endif %}>Active</option>
+            <option value="archived" {% if let Some(t) = tor %}{% if t.status.as_str() == "archived" %}selected{% endif %}{% endif %}>Archived</option>
+        </select>
+    </div>
+
+    <fieldset>
+        <legend>Meeting Schedule</legend>
+
+        <div class="form-group">
+            <label for="meeting_cadence">Cadence</label>
+            <select id="meeting_cadence" name="meeting_cadence">
+                <option value="ad-hoc" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "ad-hoc" %}selected{% endif %}{% else %}selected{% endif %}>Ad-hoc</option>
+                <option value="weekly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "weekly" %}selected{% endif %}{% endif %}>Weekly</option>
+                <option value="biweekly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "biweekly" %}selected{% endif %}{% endif %}>Biweekly</option>
+                <option value="monthly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "monthly" %}selected{% endif %}{% endif %}>Monthly</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="cadence_day">Day</label>
+            <select id="cadence_day" name="cadence_day">
+                <option value="">—</option>
+                <option value="monday" {% if let Some(t) = tor %}{% if t.cadence_day.as_str() == "monday" %}selected{% endif %}{% endif %}>Monday</option>
+                <option value="tuesday" {% if let Some(t) = tor %}{% if t.cadence_day.as_str() == "tuesday" %}selected{% endif %}{% endif %}>Tuesday</option>
+                <option value="wednesday" {% if let Some(t) = tor %}{% if t.cadence_day.as_str() == "wednesday" %}selected{% endif %}{% endif %}>Wednesday</option>
+                <option value="thursday" {% if let Some(t) = tor %}{% if t.cadence_day.as_str() == "thursday" %}selected{% endif %}{% endif %}>Thursday</option>
+                <option value="friday" {% if let Some(t) = tor %}{% if t.cadence_day.as_str() == "friday" %}selected{% endif %}{% endif %}>Friday</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="cadence_time">Time</label>
+            <input type="time" id="cadence_time" name="cadence_time"
+                   value="{% if let Some(t) = tor %}{{ t.cadence_time }}{% endif %}">
+        </div>
+
+        <div class="form-group">
+            <label for="cadence_duration_minutes">Duration (minutes)</label>
+            <input type="number" id="cadence_duration_minutes" name="cadence_duration_minutes"
+                   value="{% if let Some(t) = tor %}{{ t.cadence_duration_minutes }}{% else %}60{% endif %}"
+                   min="15" step="15">
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Location & Resources</legend>
+
+        <div class="form-group">
+            <label for="default_location">Default Location</label>
+            <input type="text" id="default_location" name="default_location"
+                   value="{% if let Some(t) = tor %}{{ t.default_location }}{% endif %}">
+            <span class="hint">Physical meeting room or place</span>
+        </div>
+
+        <div class="form-group">
+            <label for="remote_url">Remote Meeting URL</label>
+            <input type="url" id="remote_url" name="remote_url"
+                   value="{% if let Some(t) = tor %}{{ t.remote_url }}{% endif %}"
+                   placeholder="https://teams.microsoft.com/...">
+            <span class="hint">Teams, Skype, Zoom, or other video conference link</span>
+        </div>
+
+        <div class="form-group">
+            <label for="background_repo_url">Background Documents URL</label>
+            <input type="url" id="background_repo_url" name="background_repo_url"
+                   value="{% if let Some(t) = tor %}{{ t.background_repo_url }}{% endif %}"
+                   placeholder="https://sharepoint.com/...">
+            <span class="hint">Link to shared repository for background documents</span>
+        </div>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/tor" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -9,6 +9,7 @@ use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDeta
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::models::audit::AuditEntryPage;
+use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem};
 use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -144,6 +145,42 @@ pub struct AuditListTemplate {
     pub search_query: Option<String>,
     pub action_filter: Option<String>,
     pub target_type_filter: Option<String>,
+}
+
+// --- ToR (Terms of Reference) templates ---
+
+#[derive(Template)]
+#[template(path = "tor/list.html")]
+pub struct TorListTemplate {
+    pub ctx: PageContext,
+    pub tors: Vec<TorListItem>,
+}
+
+#[derive(Template)]
+#[template(path = "tor/form.html")]
+pub struct TorFormTemplate {
+    pub ctx: PageContext,
+    pub form_action: String,
+    pub form_title: String,
+    pub tor: Option<TorDetail>,
+    pub errors: Vec<String>,
+}
+
+/// UserOption for the "add member" dropdown.
+pub struct UserOption {
+    pub id: i64,
+    pub name: String,
+    pub label: String,
+}
+
+#[derive(Template)]
+#[template(path = "tor/detail.html")]
+pub struct TorDetailTemplate {
+    pub ctx: PageContext,
+    pub tor: TorDetail,
+    pub members: Vec<TorMember>,
+    pub functions: Vec<TorFunctionListItem>,
+    pub available_users: Vec<UserOption>,
 }
 
 // --- Menu Builder types ---

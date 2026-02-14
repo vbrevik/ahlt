@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tor.label }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>{{ tor.label }}</h1>
+    <div class="page-actions">
+        {% if ctx.permissions.has("tor.edit") %}
+        <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
+        {% endif %}
+        <a href="/tor" class="btn btn-sm">Back to List</a>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div class="detail-row">
+        <span class="detail-label">Name</span>
+        <span class="detail-value"><code class="mono-type">{{ tor.name }}</code></span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">
+            {% if tor.status.as_str() == "active" %}
+            <span class="badge badge-success">Active</span>
+            {% else %}
+            <span class="badge badge-muted">{{ tor.status }}</span>
+            {% endif %}
+        </span>
+    </div>
+    {% if !tor.description.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value">{{ tor.description }}</span>
+    </div>
+    {% endif %}
+    <div class="detail-row">
+        <span class="detail-label">Cadence</span>
+        <span class="detail-value">{{ tor.meeting_cadence }}
+            {% if !tor.cadence_day.is_empty() %} — {{ tor.cadence_day }}{% endif %}
+            {% if !tor.cadence_time.is_empty() %} at {{ tor.cadence_time }}{% endif %}
+        </span>
+    </div>
+    {% if !tor.default_location.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{ tor.default_location }}</span>
+    </div>
+    {% endif %}
+    {% if !tor.remote_url.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Remote Meeting</span>
+        <span class="detail-value"><a href="{{ tor.remote_url }}" target="_blank">{{ tor.remote_url }}</a></span>
+    </div>
+    {% endif %}
+    {% if !tor.background_repo_url.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Background Documents</span>
+        <span class="detail-value"><a href="{{ tor.background_repo_url }}" target="_blank">{{ tor.background_repo_url }}</a></span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Members Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Members ({{ members.len() }})</h2>
+    </div>
+
+    {% if ctx.permissions.has("tor.manage_members") && !available_users.is_empty() %}
+    <form method="post" action="/tor/{{ tor.id }}/members" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <input type="hidden" name="action" value="add">
+        <select name="user_id" required>
+            <option value="">Select user to add...</option>
+            {% for u in available_users %}
+            <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Add Member</button>
+    </form>
+    {% endif %}
+
+    {% if members.is_empty() %}
+    <p class="empty-hint">No members assigned yet.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Member</th>
+                <th>Functions</th>
+                {% if ctx.permissions.has("tor.manage_members") %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for member in members %}
+            <tr>
+                <td><strong>{{ member.user_label }}</strong> <code class="mono-type">{{ member.user_name }}</code></td>
+                <td>
+                    {% if member.functions.is_empty() %}
+                    <span class="text-muted">None</span>
+                    {% else %}
+                    {% for func in member.functions %}
+                    <span class="badge badge-role">{{ func.label }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </td>
+                {% if ctx.permissions.has("tor.manage_members") %}
+                <td class="actions">
+                    <form method="post" action="/tor/{{ tor.id }}/members" class="inline"
+                          onsubmit="return confirm('Remove this member?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+<!-- Functions Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Functions ({{ functions.len() }})</h2>
+        {% if ctx.permissions.has("tor.edit") %}
+        <a href="/tor/{{ tor.id }}/functions/new" class="btn btn-sm btn-primary">New Function</a>
+        {% endif %}
+    </div>
+
+    {% if functions.is_empty() %}
+    <p class="empty-hint">No functions defined yet.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Function</th>
+                <th>Category</th>
+                <th>Assigned To</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for func in functions %}
+            <tr>
+                <td><strong>{{ func.label }}</strong> <code class="mono-type">{{ func.name }}</code></td>
+                <td>{{ func.category }}</td>
+                <td>
+                    {% if func.assigned_to.is_empty() %}
+                    <span class="text-muted">Unassigned</span>
+                    {% else %}
+                    {% for user_label in func.assigned_to %}
+                    <span class="badge badge-user">{{ user_label }}</span>
+                    {% endfor %}
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}

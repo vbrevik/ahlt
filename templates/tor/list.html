@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Reference — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Terms of Reference</h1>
+    {% if ctx.permissions.has("tor.create") %}
+    <a href="/tor/new" class="btn btn-primary">New ToR</a>
+    {% endif %}
+</div>
+
+{% if tors.is_empty() %}
+<div class="empty-state">
+    <p>No terms of reference have been created yet.</p>
+    {% if ctx.permissions.has("tor.create") %}
+    <a href="/tor/new" class="btn btn-primary">Create your first ToR</a>
+    {% endif %}
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th class="col-id">ID</th>
+            <th>Name</th>
+            <th>Label</th>
+            <th>Status</th>
+            <th>Cadence</th>
+            <th>Members</th>
+            <th>Functions</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for tor in tors %}
+        <tr>
+            <td class="col-id">{{ tor.id }}</td>
+            <td><code class="mono-type">{{ tor.name }}</code></td>
+            <td><strong>{{ tor.label }}</strong></td>
+            <td>
+                {% if tor.status.as_str() == "active" %}
+                <span class="badge badge-success">Active</span>
+                {% else %}
+                <span class="badge badge-muted">{{ tor.status }}</span>
+                {% endif %}
+            </td>
+            <td>{{ tor.meeting_cadence }}</td>
+            <td><span class="badge badge-user">{{ tor.member_count }}</span></td>
+            <td><span class="badge badge-user">{{ tor.function_count }}</span></td>
+            <td class="actions">
+                <a href="/tor/{{ tor.id }}" class="btn btn-sm">View</a>
+                {% if ctx.permissions.has("tor.edit") %}
+                <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}
