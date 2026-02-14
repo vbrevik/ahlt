@@ -121,6 +121,9 @@ pub struct TorDetail {
     pub cadence_day: String,
     pub cadence_time: String,
     pub cadence_duration_minutes: String,
+    pub default_location: String,
+    pub remote_url: String,
+    pub background_repo_url: String,
 }
 
 /// A member of a ToR with their function(s).
@@ -239,7 +242,10 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
                 COALESCE(p_cadence.value, 'ad-hoc') AS meeting_cadence, \
                 COALESCE(p_day.value, '') AS cadence_day, \
                 COALESCE(p_time.value, '') AS cadence_time, \
-                COALESCE(p_dur.value, '60') AS cadence_duration_minutes \
+                COALESCE(p_dur.value, '60') AS cadence_duration_minutes, \
+                COALESCE(p_loc.value, '') AS default_location, \
+                COALESCE(p_remote.value, '') AS remote_url, \
+                COALESCE(p_repo.value, '') AS background_repo_url \
          FROM entities e \
          LEFT JOIN entity_properties p_desc ON e.id = p_desc.entity_id AND p_desc.key = 'description' \
          LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
@@ -247,6 +253,9 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
          LEFT JOIN entity_properties p_day ON e.id = p_day.entity_id AND p_day.key = 'cadence_day' \
          LEFT JOIN entity_properties p_time ON e.id = p_time.entity_id AND p_time.key = 'cadence_time' \
          LEFT JOIN entity_properties p_dur ON e.id = p_dur.entity_id AND p_dur.key = 'cadence_duration_minutes' \
+         LEFT JOIN entity_properties p_loc ON e.id = p_loc.entity_id AND p_loc.key = 'default_location' \
+         LEFT JOIN entity_properties p_remote ON e.id = p_remote.entity_id AND p_remote.key = 'remote_url' \
+         LEFT JOIN entity_properties p_repo ON e.id = p_repo.entity_id AND p_repo.key = 'background_repo_url' \
          WHERE e.id = ?1 AND e.entity_type = 'tor'"
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
@@ -260,6 +269,9 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
             cadence_day: row.get("cadence_day")?,
             cadence_time: row.get("cadence_time")?,
             cadence_duration_minutes: row.get("cadence_duration_minutes")?,
+            default_location: row.get("default_location")?,
+            remote_url: row.get("remote_url")?,
+            background_repo_url: row.get("background_repo_url")?,
         })
     })?;
     match rows.next() {
@@ -279,6 +291,9 @@ pub fn create(
     cadence_day: &str,
     cadence_time: &str,
     cadence_duration_minutes: &str,
+    default_location: &str,
+    remote_url: &str,
+    background_repo_url: &str,
 ) -> rusqlite::Result<i64> {
     conn.execute(
         "INSERT INTO entities (entity_type, name, label) VALUES ('tor', ?1, ?2)",
@@ -293,6 +308,9 @@ pub fn create(
         ("cadence_day", cadence_day),
         ("cadence_time", cadence_time),
         ("cadence_duration_minutes", cadence_duration_minutes),
+        ("default_location", default_location),
+        ("remote_url", remote_url),
+        ("background_repo_url", background_repo_url),
     ];
     for (key, value) in props {
         if !value.is_empty() {
@@ -318,6 +336,9 @@ pub fn update(
     cadence_day: &str,
     cadence_time: &str,
     cadence_duration_minutes: &str,
+    default_location: &str,
+    remote_url: &str,
+    background_repo_url: &str,
 ) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?3",
@@ -332,6 +353,9 @@ pub fn update(
         ("cadence_day", cadence_day),
         ("cadence_time", cadence_time),
         ("cadence_duration_minutes", cadence_duration_minutes),
+        ("default_location", default_location),
+        ("remote_url", remote_url),
+        ("background_repo_url", background_repo_url),
     ];
     for (key, value) in props {
         conn.execute(
@@ -888,6 +912,33 @@ git commit -m "feat(tor): add list template"
         </div>
     </fieldset>
 
+    <fieldset>
+        <legend>Location & Resources</legend>
+
+        <div class="form-group">
+            <label for="default_location">Default Location</label>
+            <input type="text" id="default_location" name="default_location"
+                   value="{% if let Some(t) = tor %}{{ t.default_location }}{% endif %}">
+            <span class="hint">Physical meeting room or place</span>
+        </div>
+
+        <div class="form-group">
+            <label for="remote_url">Remote Meeting URL</label>
+            <input type="url" id="remote_url" name="remote_url"
+                   value="{% if let Some(t) = tor %}{{ t.remote_url }}{% endif %}"
+                   placeholder="https://teams.microsoft.com/...">
+            <span class="hint">Teams, Skype, Zoom, or other video conference link</span>
+        </div>
+
+        <div class="form-group">
+            <label for="background_repo_url">Background Documents URL</label>
+            <input type="url" id="background_repo_url" name="background_repo_url"
+                   value="{% if let Some(t) = tor %}{{ t.background_repo_url }}{% endif %}"
+                   placeholder="https://sharepoint.com/...">
+            <span class="hint">Link to shared repository for background documents</span>
+        </div>
+    </fieldset>
+
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Save</button>
         <a href="/tor" class="btn">Cancel</a>
@@ -968,6 +1019,24 @@ git commit -m "feat(tor): add form template for create/edit"
             {% if !tor.cadence_time.is_empty() %} at {{ tor.cadence_time }}{% endif %}
         </span>
     </div>
+    {% if !tor.default_location.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{ tor.default_location }}</span>
+    </div>
+    {% endif %}
+    {% if !tor.remote_url.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Remote Meeting</span>
+        <span class="detail-value"><a href="{{ tor.remote_url }}" target="_blank">{{ tor.remote_url }}</a></span>
+    </div>
+    {% endif %}
+    {% if !tor.background_repo_url.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Background Documents</span>
+        <span class="detail-value"><a href="{{ tor.background_repo_url }}" target="_blank">{{ tor.background_repo_url }}</a></span>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Members Section -->
@@ -1194,6 +1263,9 @@ pub async fn create(
     let cadence_day = form.get("cadence_day").map(|s| s.as_str()).unwrap_or("");
     let cadence_time = form.get("cadence_time").map(|s| s.as_str()).unwrap_or("");
     let cadence_duration = form.get("cadence_duration_minutes").map(|s| s.as_str()).unwrap_or("60");
+    let default_location = form.get("default_location").map(|s| s.as_str()).unwrap_or("");
+    let remote_url = form.get("remote_url").map(|s| s.as_str()).unwrap_or("");
+    let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
 
     // Validate
     let mut errors = vec![];
@@ -1217,7 +1289,8 @@ pub async fn create(
     }
 
     match tor::create(&conn, name.trim(), label.trim(), description.trim(),
-                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration) {
+                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration,
+                      default_location, remote_url, background_repo_url) {
         Ok(tor_id) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
@@ -1329,6 +1402,9 @@ pub async fn update(
     let cadence_day = form.get("cadence_day").map(|s| s.as_str()).unwrap_or("");
     let cadence_time = form.get("cadence_time").map(|s| s.as_str()).unwrap_or("");
     let cadence_duration = form.get("cadence_duration_minutes").map(|s| s.as_str()).unwrap_or("60");
+    let default_location = form.get("default_location").map(|s| s.as_str()).unwrap_or("");
+    let remote_url = form.get("remote_url").map(|s| s.as_str()).unwrap_or("");
+    let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
 
     // Validate
     let mut errors = vec![];
@@ -1353,7 +1429,8 @@ pub async fn update(
     }
 
     match tor::update(&conn, id, name.trim(), label.trim(), description.trim(),
-                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration) {
+                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration,
+                      default_location, remote_url, background_repo_url) {
         Ok(_) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({

@@ -22,12 +22,12 @@ Key capabilities:
 
 | Entity Type | Purpose | Key Properties |
 |---|---|---|
-| `tor` | Terms of Reference — a governance body | `description`, `status` (active/archived), `meeting_cadence` (weekly/biweekly/monthly/ad-hoc), `cadence_day` (monday..friday), `cadence_time` (HH:MM), `cadence_duration_minutes` |
+| `tor` | Terms of Reference — a governance body | `description`, `status` (active/archived), `meeting_cadence` (weekly/biweekly/monthly/ad-hoc), `cadence_day` (monday..friday), `cadence_time` (HH:MM), `cadence_duration_minutes`, `default_location` (physical room/place), `remote_url` (Teams/Skype/Zoom link), `background_repo_url` (link to background document repository) |
 | `tor_function` | An authority function within a ToR | `description`, `category` (governance/procedural/administrative), plus authority properties (see Authority Model) |
 | `suggestion` | Initial idea submitted for consideration | `description`, `submitted_date`, `status` (open/accepted/rejected), `submitted_by_id` |
 | `proposal` | Formalized suggestion with detail | `description`, `rationale`, `submitted_date`, `status` (draft/submitted/under_review/approved/rejected), `rejection_reason` |
 | `agenda_point` | Item scheduled for a specific meeting | `description`, `point_type` (informative/decision), `sequence_order`, `status` (pending/discussed/decided/deferred), `decision_text`, `vote_result` |
-| `meeting` | A scheduled meeting instance | `scheduled_date` (YYYY-MM-DD), `scheduled_time` (HH:MM), `status` (planned/in_progress/completed/cancelled), `location`, `minutes_text` |
+| `meeting` | A scheduled meeting instance | `scheduled_date` (YYYY-MM-DD), `scheduled_time` (HH:MM), `status` (planned/in_progress/completed/cancelled), `location` (overrides ToR default), `remote_url` (overrides ToR default), `minutes_text` |
 | `delegation` | A temporary authority transfer | `start_date`, `end_date`, `reason`, `status` (active/expired/revoked) |
 
 ### New Relation Types
