@@ -169,6 +169,24 @@ pub fn create(
     Ok(agenda_point_id)
 }
 
+/// Update basic properties of an agenda point (title, description, item_type, scheduled_date, time_allocation).
+pub fn update(
+    conn: &Connection,
+    agenda_point_id: i64,
+    title: &str,
+    description: &str,
+    item_type: &str,
+    scheduled_date: &str,
+    time_allocation_minutes: i32,
+) -> Result<(), AppError> {
+    entity::set_property(conn, agenda_point_id, "title", title)?;
+    entity::set_property(conn, agenda_point_id, "description", description)?;
+    entity::set_property(conn, agenda_point_id, "item_type", item_type)?;
+    entity::set_property(conn, agenda_point_id, "scheduled_date", scheduled_date)?;
+    entity::set_property(conn, agenda_point_id, "time_allocation_minutes", &time_allocation_minutes.to_string())?;
+    Ok(())
+}
+
 /// Update the status of an agenda point (e.g. scheduled -> in_progress -> voted -> completed).
 pub fn update_status(conn: &Connection, agenda_point_id: i64, new_status: &str) -> Result<(), AppError> {
     entity::set_property(conn, agenda_point_id, "status", new_status)?;
