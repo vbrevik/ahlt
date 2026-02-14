@@ -1,4 +1,5 @@
 use rusqlite::{Connection, params};
+use crate::errors::AppError;
 use super::types::*;
 
 pub fn find_all_list_items(conn: &Connection) -> rusqlite::Result<Vec<TorListItem>> {
@@ -474,4 +475,36 @@ pub fn find_non_members(
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(users)
+}
+
+/// Verify user is a member of the given ToR, returning AppError::PermissionDenied if not.
+pub fn require_tor_membership(
+    conn: &Connection,
+    user_id: i64,
+    tor_id: i64,
+) -> Result<(), AppError> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM relations r \
+         JOIN entities rt ON r.relation_type_id = rt.id \
+         WHERE rt.name = 'member_of' \
+           AND r.source_id = ?1 \
+           AND r.target_id = ?2",
+        params![user_id, tor_id],
+        |row| row.get(0),
+    )?;
+
+    if count == 0 {
+        return Err(AppError::PermissionDenied("Not a member of this ToR".into()));
+    }
+    Ok(())
+}
+
+/// Get a ToR's display name (label) by ID.
+pub fn get_tor_name(conn: &Connection, tor_id: i64) -> Result<String, AppError> {
+    let name: String = conn.query_row(
+        "SELECT label FROM entities WHERE id = ?1 AND entity_type = 'tor'",
+        params![tor_id],
+        |row| row.get(0),
+    )?;
+    Ok(name)
 }
