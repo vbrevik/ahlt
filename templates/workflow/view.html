@@ -32,7 +32,10 @@
        class="tab-link{% if active_tab.as_str() == "proposals" %} active{% endif %}">
         Proposals ({{ proposals.len() }})
     </a>
-    <span class="tab-link tab-disabled">Agenda Points (Phase 3)</span>
+    <a href="/tor/{{ tor_id }}/workflow?tab=agenda_points"
+       class="tab-link{% if active_tab.as_str() == "agenda_points" %} active{% endif %}">
+        Agenda Points ({{ agenda_points.len() }})
+    </a>
 </div>
 
 <!-- Suggestions Tab -->
@@ -213,6 +216,95 @@
                     <button type="submit" class="btn btn-sm btn-danger">Confirm Rejection</button>
                     <button type="button" class="btn btn-sm"
                             onclick="document.getElementById('reject-p-{{ p.id }}').style.display='none'">Cancel</button>
+                </form>
+            </td>
+        </tr>
+        {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+<!-- Agenda Points Tab -->
+{% if active_tab.as_str() == "agenda_points" %}
+<div class="tab-actions">
+    {% if ctx.permissions.has("agenda.create") %}
+    <a href="/tor/{{ tor_id }}/agenda-points/new" class="btn btn-primary">New Agenda Point</a>
+    {% endif %}
+</div>
+
+{% if agenda_points.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No agenda points yet</p>
+    <p>Agenda points are scheduled items for discussion and decision-making in the ToR.</p>
+    {% if ctx.permissions.has("agenda.create") %}
+    <a href="/tor/{{ tor_id }}/agenda-points/new" class="btn btn-primary">Create first agenda point</a>
+    {% endif %}
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th class="col-id">ID</th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Scheduled Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in agenda_points %}
+        <tr>
+            <td class="col-id">{{ item.id }}</td>
+            <td><strong>{{ item.title }}</strong></td>
+            <td>
+                {% if item.item_type.as_str() == "decision" %}
+                <span class="badge badge-warning">Decision</span>
+                {% else %}
+                <span class="badge badge-info">Informative</span>
+                {% endif %}
+            </td>
+            <td>{{ item.scheduled_date }}</td>
+            <td>
+                {% if item.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if item.status.as_str() == "scheduled" %}
+                <span class="badge badge-info">Scheduled</span>
+                {% else if item.status.as_str() == "presented" %}
+                <span class="badge badge-primary">Presented</span>
+                {% else if item.status.as_str() == "decided" %}
+                <span class="badge badge-success">Decided</span>
+                {% else %}
+                <span class="badge badge-muted">{{ item.status }}</span>
+                {% endif %}
+            </td>
+            <td class="actions">
+                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}" class="btn btn-sm">View</a>
+                {% if item.status.as_str() == "draft" && ctx.permissions.has("agenda.manage") %}
+                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/edit" class="btn btn-sm btn-warning">Edit</a>
+                {% endif %}
+                {% if ctx.permissions.has("agenda.manage") %}
+                <button type="button" class="btn btn-sm btn-danger"
+                        onclick="document.getElementById('delete-{{ item.id }}').style.display='block'">Delete</button>
+                {% endif %}
+                {% if item.item_type.as_str() == "decision" && ctx.permissions.has("agenda.participate") %}
+                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/opinions/new" class="btn btn-sm btn-secondary">Opinion</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% if ctx.permissions.has("agenda.manage") %}
+        <tr id="delete-{{ item.id }}" style="display:none">
+            <td colspan="6">
+                <form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/delete" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <div class="form-group">
+                        <strong>Delete agenda point "{{ item.title }}"?</strong> This action cannot be undone.
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-danger">Confirm Delete</button>
+                    <button type="button" class="btn btn-sm"
+                            onclick="document.getElementById('delete-{{ item.id }}').style.display='none'">Cancel</button>
                 </form>
             </td>
         </tr>
