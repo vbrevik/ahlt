@@ -112,6 +112,7 @@ version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92589714878ca59a7626ea19734f0e07a6a875197eec751bb5d3f99e64998c63"
 dependencies = [
+ "actix-macros",
  "futures-core",
  "tokio",
 ]
@@ -283,6 +284,7 @@ name = "ahlt"
 version = "0.1.0"
 dependencies = [
  "actix-files",
+ "actix-rt",
  "actix-session",
  "actix-web",
  "argon2",
@@ -294,9 +296,11 @@ dependencies = [
  "r2d2",
  "r2d2_sqlite",
  "rand 0.9.2",
+ "regex",
  "rusqlite",
  "serde",
  "serde_json",
+ "serde_urlencoded",
 ]
 
 [[package]]
