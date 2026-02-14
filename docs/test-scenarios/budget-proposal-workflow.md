@@ -13,33 +13,62 @@ Multi-department budget proposal workflow demonstrating the full ToR governance 
 ### 1. Pre-Planning Phase
 - **Finance Department** provides current budget status to IT and HR departments
 - IT and HR review financial situation and future expectations
-- Both departments work on independent budget proposals
-- **Key feature**: Departments can view each other's proposals during working phase (transparency)
 
-### 2. Proposal Submission Phase
-- **IT Department** submits budget proposal to Finance Board
-- **HR Department** submits budget proposal to Finance Board
+### 2. Departmental Working Group Phase
+
+#### IT Department
+- **IT Working Group Meeting**: Team collaborates to draft budget proposal
+  - Analysts present cost estimates
+  - Discussion of priorities and justifications
+  - Draft proposal created
+- **IT Department Board Meeting**: Reviews and approves draft
+  - Department board reviews working group's proposal
+  - Makes internal decision to approve
+  - Authorizes submission to Finance Board
+
+#### HR Department
+- **HR Working Group Meeting**: Team collaborates to draft budget proposal
+  - Analysts present staffing needs and costs
+  - Discussion of hiring priorities
+  - Draft proposal created
+- **HR Department Board Meeting**: Reviews and approves draft
+  - Department board reviews working group's proposal
+  - Makes internal decision to approve
+  - Authorizes submission to Finance Board
+
+**Key feature**: Departments can view each other's proposals during working phase (transparency)
+
+### 3. Proposal Submission Phase
+- **IT Department** submits approved budget proposal to Finance Board
+- **HR Department** submits approved budget proposal to Finance Board
 - Both proposals enter the Finance Board's item pipeline
 
-### 3. Finance Board Review
+### 4. Finance Board Review Meeting
 - Finance Board reviews both proposals in scheduled meeting
 - **IT Proposal**: Accepted
-- **HR Proposal**: Rejected, sent back for rework
+- **HR Proposal**: Rejected, sent back for rework with feedback
 
-### 4. Ad-hoc Meeting Phase
-- Finance Board schedules special ad-hoc meeting for HR budget decision
-- HR revises proposal based on feedback
+### 5. HR Rework Phase
+- HR Department receives rejection feedback
+- **HR Working Group Meeting (2nd round)**: Revises proposal based on Finance Board feedback
+- **HR Department Board Meeting (2nd round)**: Approves revised proposal
 - Resubmits to Finance Board
-- Decision made in ad-hoc meeting
+
+### 6. Finance Board Ad-hoc Meeting
+- Finance Board schedules special ad-hoc meeting for HR budget decision
+- Reviews revised HR proposal
+- Makes final decision
 
 ## Data Elements to Mock
 
 When implementing this test scenario, the following data needs to be created:
 
 ### Organizations/ToRs
-- [ ] IT Department (ToR or consultation group)
-- [ ] HR Department (ToR or consultation group)
-- [ ] Finance Board (main decision-making ToR)
+- [ ] IT Working Group (ToR for drafting IT proposals)
+- [ ] IT Department Board (ToR for internal IT decisions)
+- [ ] HR Working Group (ToR for drafting HR proposals)
+- [ ] HR Department Board (ToR for internal HR decisions)
+- [ ] Finance Board (main decision-making ToR for budget approval)
 - [ ] Finance Department (provider of current status)
 
 ### Users
@@ -64,8 +93,14 @@ When implementing this test scenario, the following data needs to be created:
 - [ ] Proposal: "HR Department Budget Proposal 2026 v2" (status: under review)
 
 ### Meetings
-- [ ] Regular Finance Board meeting (monthly/quarterly)
-- [ ] Ad-hoc HR Budget Review meeting
+- [ ] IT Working Group meeting (draft proposal creation)
+- [ ] IT Department Board meeting (internal approval)
+- [ ] HR Working Group meeting #1 (initial draft proposal)
+- [ ] HR Department Board meeting #1 (internal approval)
+- [ ] Regular Finance Board meeting (reviews IT + HR proposals)
+- [ ] HR Working Group meeting #2 (rework after rejection)
+- [ ] HR Department Board meeting #2 (approve revised proposal)
+- [ ] Ad-hoc Finance Board meeting (HR budget final decision)
 
 ### Meeting Agenda Points
 - [ ] Informative: Current Budget Status (Finance Dept)
@@ -88,6 +123,7 @@ Before implementing, clarify:
 
 This scenario tests:
 - ✅ Multiple ToRs with overlapping members
+- ✅ Hierarchical decision-making (Working Group → Dept Board → Finance Board)
 - ✅ Suggestion → Proposal → Agenda Point pipeline
 - ✅ Proposal acceptance and rejection workflows
 - ✅ Ad-hoc meeting scheduling
@@ -95,6 +131,9 @@ This scenario tests:
 - ✅ Multi-stakeholder coordination
 - ✅ Proposal visibility and transparency
 - ✅ Rework/resubmission flows
+- ✅ Internal approval before external submission
+- ✅ Parallel departmental workflows (IT and HR working simultaneously)
+- ✅ Multiple meetings per ToR (working group meetings, board meetings)
 
 ## Implementation Checklist
 
