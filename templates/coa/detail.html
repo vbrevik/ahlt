@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ coa.title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ coa.title }}</h1>
+    <div class="page-actions">
+        {% if ctx.permissions.has("coa.edit") %}
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/coas/{{ coa.id }}/edit" class="btn btn-sm">Edit</a>
+        <form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/coas/{{ coa.id }}/delete" class="inline"
+              onsubmit="return confirm('Delete this course of action? This action cannot be undone.')">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+        {% endif %}
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
+    </div>
+</div>
+
+<!-- Main Details -->
+<div class="detail-card">
+    <div class="detail-row">
+        <span class="detail-label">Type</span>
+        <span class="detail-value">
+            {% if coa.coa_type.as_str() == "complex" %}
+            <span class="badge badge-warning">Complex</span>
+            {% else %}
+            <span class="badge badge-info">Simple</span>
+            {% endif %}
+        </span>
+    </div>
+
+    {% if !coa.description.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value">{{ coa.description }}</span>
+    </div>
+    {% endif %}
+
+    <div class="detail-row">
+        <span class="detail-label">Created</span>
+        <span class="detail-value">{{ coa.created_date }}</span>
+    </div>
+</div>
+
+<!-- Complex COA Section Structure -->
+{% if coa.coa_type.as_str() == "complex" && !coa.sections.is_empty() %}
+<section class="section">
+    <div class="section-header">
+        <h2>Structure ({{ coa.sections.len() }} sections)</h2>
+    </div>
+
+    <div class="coa-structure">
+        {% for section in coa.sections %}
+        <div class="structure-section">
+            <div class="section-title">
+                <h3>{{ section.title }}</h3>
+                <span class="section-order">Section {{ section.order }}</span>
+            </div>
+
+            {% if !section.content.is_empty() %}
+            <div class="section-content">
+                {{ section.content }}
+            </div>
+            {% endif %}
+
+            {% if !section.subsections.is_empty() %}
+            <div class="subsections">
+                {% for subsection in section.subsections %}
+                <div class="subsection">
+                    <div class="subsection-title">
+                        <h4>{{ subsection.title }}</h4>
+                        <span class="subsection-order">Subsection {{ subsection.order }}</span>
+                    </div>
+                    {% if !subsection.content.is_empty() %}
+                    <div class="subsection-content">
+                        {{ subsection.content }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Simple COA Display (minimal if no sections) -->
+{% if coa.coa_type.as_str() == "simple" || coa.sections.is_empty() %}
+<section class="section">
+    <div class="section-header">
+        <h2>Overview</h2>
+    </div>
+    <p class="coa-overview">This is a straightforward course of action with the description provided above.</p>
+</section>
+{% endif %}
+{% endblock %}

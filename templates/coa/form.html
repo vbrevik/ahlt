@@ -1,1 +1,145 @@
-{# COA form template - Phase 2b #}
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ form_title }}</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}/workflow?tab=agenda_points" class="btn btn-sm">Back to Workflow</a>
+    </div>
+</div>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="{{ form_action }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="form-group">
+        <label for="title">Title *</label>
+        <input type="text" id="title" name="title"
+               value="{% if let Some(c) = coa %}{{ c.title }}{% endif %}" required>
+        <span class="hint">Name of this course of action</span>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="4" placeholder="Describe this course of action...">{% if let Some(c) = coa %}{{ c.description }}{% endif %}</textarea>
+    </div>
+
+    <fieldset class="form-group">
+        <legend>Type *</legend>
+        <div class="radio-options">
+            <label class="radio-option">
+                <input type="radio" name="coa_type" value="simple"
+                       {% if let Some(c) = coa %}{% if c.coa_type.as_str() == "simple" %}checked{% endif %}{% else %}checked{% endif %} required>
+                <span class="radio-label">Simple</span>
+                <span class="radio-hint">A straightforward course of action with basic description</span>
+            </label>
+            <label class="radio-option">
+                <input type="radio" name="coa_type" value="complex"
+                       {% if let Some(c) = coa %}{% if c.coa_type.as_str() == "complex" %}checked{% endif %}{% endif %} required>
+                <span class="radio-label">Complex</span>
+                <span class="radio-hint">A multi-section course of action with hierarchical structure</span>
+            </label>
+        </div>
+    </fieldset>
+
+    <!-- Complex COA Section Management (shown if type is complex) -->
+    <div id="complex-coa-section" style="display:none">
+        <fieldset class="coa-sections">
+            <legend>Sections</legend>
+            <p class="hint">Organize this course of action into sections and subsections</p>
+
+            <div id="sections-container">
+                <!-- Sections will be managed here -->
+            </div>
+
+            <button type="button" class="btn btn-secondary" id="add-section-btn">
+                Add Section
+            </button>
+        </fieldset>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+            {% if let Some(_) = coa %}
+            Update Course of Action
+            {% else %}
+            Create Course of Action
+            {% endif %}
+        </button>
+        <a href="/tor/{{ tor_id }}/workflow?tab=agenda_points" class="btn">Cancel</a>
+    </div>
+</form>
+
+<script>
+(function() {
+    const simpleRadio = document.querySelector('input[name="coa_type"][value="simple"]');
+    const complexRadio = document.querySelector('input[name="coa_type"][value="complex"]');
+    const complexSection = document.getElementById('complex-coa-section');
+
+    function toggleComplexSection() {
+        if (complexRadio.checked) {
+            complexSection.style.display = 'block';
+        } else {
+            complexSection.style.display = 'none';
+        }
+    }
+
+    simpleRadio.addEventListener('change', toggleComplexSection);
+    complexRadio.addEventListener('change', toggleComplexSection);
+
+    // Initialize on page load
+    toggleComplexSection();
+
+    document.getElementById('add-section-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const container = document.getElementById('sections-container');
+
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'coa-section-item';
+
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.name = 'section_titles';
+        titleInput.placeholder = 'Section title';
+        titleInput.className = 'form-control';
+
+        const contentInput = document.createElement('textarea');
+        contentInput.name = 'section_contents';
+        contentInput.rows = 3;
+        contentInput.placeholder = 'Section content...';
+        contentInput.className = 'form-control';
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-sm btn-danger remove-section-btn';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            sectionDiv.remove();
+        });
+
+        const sectionInputDiv = document.createElement('div');
+        sectionInputDiv.className = 'section-input';
+        sectionInputDiv.appendChild(titleInput);
+        sectionInputDiv.appendChild(contentInput);
+        sectionInputDiv.appendChild(removeBtn);
+
+        sectionDiv.appendChild(sectionInputDiv);
+        container.appendChild(sectionDiv);
+    });
+})();
+</script>
+{% endblock %}

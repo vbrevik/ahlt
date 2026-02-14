@@ -1,1 +1,100 @@
-{# Agenda point form template - Phase 2b #}
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ form_title }}</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}/workflow?tab=agenda_points" class="btn btn-sm">Back to Workflow</a>
+    </div>
+</div>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="{{ form_action }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="form-group">
+        <label for="title">Title *</label>
+        <input type="text" id="title" name="title"
+               value="{% if let Some(ap) = agenda_point %}{{ ap.title }}{% endif %}" required>
+        <span class="hint">Brief title for this agenda point</span>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="4" placeholder="Provide context and details for this agenda point...">{% if let Some(ap) = agenda_point %}{{ ap.description }}{% endif %}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="item_type">Type *</label>
+        <select id="item_type" name="item_type" required>
+            <option value="">Select a type...</option>
+            <option value="informative" {% if let Some(ap) = agenda_point %}{% if ap.item_type.as_str() == "informative" %}selected{% endif %}{% endif %}>Informative (FYI, no decision required)</option>
+            <option value="decision" {% if let Some(ap) = agenda_point %}{% if ap.item_type.as_str() == "decision" %}selected{% endif %}{% endif %}>Decision (requires choice between options)</option>
+        </select>
+        <span class="hint">Informative items are for information only. Decision items require selecting a Course of Action.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="scheduled_date">Scheduled Date *</label>
+        <input type="date" id="scheduled_date" name="scheduled_date"
+               value="{% if let Some(ap) = agenda_point %}{{ ap.scheduled_date }}{% endif %}" required>
+        <span class="hint">When this agenda point should be discussed</span>
+    </div>
+
+    <div class="form-group">
+        <label for="time_allocation_minutes">Time Allocation (minutes) *</label>
+        <input type="number" id="time_allocation_minutes" name="time_allocation_minutes" min="1" max="480"
+               value="{% if let Some(ap) = agenda_point %}{{ ap.time_allocation_minutes }}{% else %}15{% endif %}" required>
+        <span class="hint">How many minutes to allocate for discussion</span>
+    </div>
+
+    {% if let Some(ap) = agenda_point %}
+    <div class="detail-card">
+        <div class="detail-row">
+            <span class="detail-label">Current Status</span>
+            <span class="detail-value">
+                {% if ap.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if ap.status.as_str() == "scheduled" %}
+                <span class="badge badge-info">Scheduled</span>
+                {% else if ap.status.as_str() == "presented" %}
+                <span class="badge badge-primary">Presented</span>
+                {% else if ap.status.as_str() == "decided" %}
+                <span class="badge badge-success">Decided</span>
+                {% else %}
+                <span class="badge badge-muted">{{ ap.status }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Created</span>
+            <span class="detail-value">{{ ap.created_date }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+            {% if let Some(_) = agenda_point %}
+            Update Agenda Point
+            {% else %}
+            Create Agenda Point
+            {% endif %}
+        </button>
+        <a href="/tor/{{ tor_id }}/workflow?tab=agenda_points" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

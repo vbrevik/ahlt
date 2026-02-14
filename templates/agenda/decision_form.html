@@ -1,1 +1,107 @@
-{# Decision form template - Phase 2b #}
+{% extends "base.html" %}
+
+{% block title %}Record Decision — {{ agenda_point.title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Record Final Decision</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}" class="btn btn-sm">Back to Agenda Point</a>
+    </div>
+</div>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<!-- Agenda Point Context -->
+<div class="detail-card">
+    <div class="detail-row">
+        <span class="detail-label">Agenda Point</span>
+        <span class="detail-value"><strong>{{ agenda_point.title }}</strong></span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Type</span>
+        <span class="detail-value">
+            {% if agenda_point.item_type.as_str() == "decision" %}
+            <span class="badge badge-warning">Decision</span>
+            {% else %}
+            <span class="badge badge-info">Informative</span>
+            {% endif %}
+        </span>
+    </div>
+    {% if !agenda_point.description.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value">{{ agenda_point.description }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Opinions Summary Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Member Opinions Summary</h2>
+    </div>
+    {% if opinions.is_empty() %}
+    <p class="empty-hint">No opinions have been recorded yet.</p>
+    {% else %}
+    <div class="opinions-summary-detail">
+        {% for summary in opinions %}
+        <div class="opinion-summary-card">
+            <div class="summary-header">
+                <h3>{{ summary.coa_title }}</h3>
+                <span class="preference-count">{{ summary.preference_count }} prefer</span>
+            </div>
+            <ul class="opinion-list">
+                {% for opinion in summary.opinions %}
+                <li class="opinion-item">
+                    <span class="member-name">{{ opinion.recorded_by_name }}</span>
+                    {% if !opinion.commentary.is_empty() %}
+                    <div class="opinion-commentary">{{ opinion.commentary }}</div>
+                    {% endif %}
+                    <span class="opinion-date">{{ opinion.created_date }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+
+<!-- Decision Recording Form -->
+<form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/decision" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="form-group">
+        <label for="selected_coa_id">Selected Course of Action *</label>
+        <select id="selected_coa_id" name="selected_coa_id" required>
+            <option value="">Select the chosen course of action...</option>
+            {% for coa in coas %}
+            <option value="{{ coa.id }}">{{ coa.title }}</option>
+            {% endfor %}
+        </select>
+        <span class="hint">This is the course of action chosen as the final decision</span>
+    </div>
+
+    <div class="form-group">
+        <label for="decision_rationale">Rationale</label>
+        <textarea id="decision_rationale" name="decision_rationale" rows="4" placeholder="Optional: Explain the reasoning behind this decision..."></textarea>
+        <span class="hint">Optional: Provide context or reasoning for the decision</span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Record Decision</button>
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,1 +1,79 @@
-{# Opinion form template - Phase 2b #}
+{% extends "base.html" %}
+
+{% block title %}Record Opinion — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Record Opinion on Decision Item</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
+    </div>
+</div>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/opinions" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <!-- Agenda Point Context -->
+    <div class="context-info">
+        <p class="context-label">You are recording your opinion on:</p>
+        <p class="context-value"><strong>Decision Item (Agenda Point)</strong></p>
+    </div>
+
+    <!-- COA Selection -->
+    <fieldset class="form-group">
+        <legend>Which Course of Action Do You Prefer? *</legend>
+        <p class="hint">Select the course of action you believe is best</p>
+
+        <div class="coa-options">
+            {% for coa in coas %}
+            <label class="coa-radio-option">
+                <input type="radio" name="preferred_coa_id" value="{{ coa.id }}"
+                       {% if let Some(existing) = existing_opinion %}
+                           {% if existing.preferred_coa_id == coa.id %}checked{% endif %}
+                       {% endif %} required>
+                <span class="option-content">
+                    <span class="option-title">{{ coa.title }}</span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <div class="form-group">
+        <label for="commentary">Your Commentary</label>
+        <textarea id="commentary" name="commentary" rows="4" placeholder="Optional: Share your reasoning or concerns...">{% if let Some(existing) = existing_opinion %}{{ existing.commentary }}{% endif %}</textarea>
+        <span class="hint">Optional: Explain your preference and any relevant context</span>
+    </div>
+
+    <!-- If Updating Existing Opinion -->
+    {% if let Some(existing) = existing_opinion %}
+    <div class="info-box">
+        <strong>You already recorded an opinion on {{ existing.created_date }}</strong>
+        <p>Submitting this form will update your previously recorded preference.</p>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+            {% if let Some(_) = existing_opinion %}
+            Update Opinion
+            {% else %}
+            Record Opinion
+            {% endif %}
+        </button>
+        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}
