@@ -10,6 +10,8 @@ use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::models::audit::AuditEntryPage;
 use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem};
+use crate::models::suggestion::SuggestionListItem;
+use crate::models::proposal::{ProposalListItem, ProposalDetail};
 use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -181,6 +183,50 @@ pub struct TorDetailTemplate {
     pub members: Vec<TorMember>,
     pub functions: Vec<TorFunctionListItem>,
     pub available_users: Vec<UserOption>,
+}
+
+// --- Pipeline templates ---
+
+#[derive(Template)]
+#[template(path = "pipeline/view.html")]
+pub struct PipelineTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub active_tab: String,  // "suggestions" or "proposals"
+    pub suggestions: Vec<SuggestionListItem>,
+    pub proposals: Vec<ProposalListItem>,
+    pub status_filter: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "suggestions/form.html")]
+pub struct SuggestionFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub errors: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "proposals/form.html")]
+pub struct ProposalFormTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub form_action: String,
+    pub form_title: String,
+    pub proposal: Option<ProposalDetail>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Template)]
+#[template(path = "proposals/detail.html")]
+pub struct ProposalDetailTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub proposal: ProposalDetail,
 }
 
 // --- Menu Builder types ---

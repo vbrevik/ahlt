@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Item Pipeline — {{ tor_name }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Item Pipeline — {{ tor_name }}</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}" class="btn btn-sm">Back to ToR</a>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav">
+    <a href="/tor/{{ tor_id }}/pipeline?tab=suggestions"
+       class="tab-link{% if active_tab.as_str() == "suggestions" %} active{% endif %}">
+        Suggestions ({{ suggestions.len() }})
+    </a>
+    <a href="/tor/{{ tor_id }}/pipeline?tab=proposals"
+       class="tab-link{% if active_tab.as_str() == "proposals" %} active{% endif %}">
+        Proposals ({{ proposals.len() }})
+    </a>
+    <span class="tab-link tab-disabled">Agenda Points (Phase 3)</span>
+</div>
+
+<!-- Suggestions Tab -->
+{% if active_tab.as_str() == "suggestions" %}
+<div class="tab-actions">
+    {% if ctx.permissions.has("suggestion.create") %}
+    <a href="/tor/{{ tor_id }}/suggestions/new" class="btn btn-primary">New Suggestion</a>
+    {% endif %}
+</div>
+
+{% if suggestions.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No suggestions yet</p>
+    <p>Suggestions are initial ideas submitted for consideration by the ToR.</p>
+    {% if ctx.permissions.has("suggestion.create") %}
+    <a href="/tor/{{ tor_id }}/suggestions/new" class="btn btn-primary">Submit a suggestion</a>
+    {% endif %}
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th class="col-id">ID</th>
+            <th>Description</th>
+            <th>Submitted By</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for s in suggestions %}
+        <tr>
+            <td class="col-id">{{ s.id }}</td>
+            <td>{{ s.description_preview }}</td>
+            <td>{{ s.submitted_by_name }}</td>
+            <td>{{ s.submitted_date }}</td>
+            <td>
+                {% if s.status.as_str() == "open" %}
+                <span class="badge badge-info">Open</span>
+                {% else if s.status.as_str() == "accepted" %}
+                <span class="badge badge-success">Accepted</span>
+                {% else %}
+                <span class="badge badge-danger">Rejected</span>
+                {% endif %}
+            </td>
+            <td class="actions">
+                {% if s.status.as_str() == "open" && ctx.permissions.has("suggestion.review") %}
+                <form method="post" action="/tor/{{ tor_id }}/suggestions/{{ s.id }}/accept" class="inline"
+                      onsubmit="return confirm('Accept this suggestion? A draft proposal will be created.')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-primary">Accept</button>
+                </form>
+                <button type="button" class="btn btn-sm btn-danger"
+                        onclick="document.getElementById('reject-{{ s.id }}').style.display='block'">Reject</button>
+                {% endif %}
+                {% if s.status.as_str() == "accepted" %}
+                {% if let Some(pid) = s.spawned_proposal_id %}
+                <a href="/tor/{{ tor_id }}/pipeline?tab=proposals" class="btn btn-sm">View Proposal</a>
+                {% endif %}
+                {% endif %}
+                {% if s.status.as_str() == "rejected" %}
+                {% if let Some(reason) = s.rejection_reason %}
+                <span class="text-muted" title="{{ reason }}">Reason: {{ reason }}</span>
+                {% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        {% if s.status.as_str() == "open" && ctx.permissions.has("suggestion.review") %}
+        <tr id="reject-{{ s.id }}" style="display:none">
+            <td colspan="6">
+                <form method="post" action="/tor/{{ tor_id }}/suggestions/{{ s.id }}/reject" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <div class="form-group">
+                        <label>Rejection reason (required):</label>
+                        <textarea name="rejection_reason" required rows="2" style="width:100%"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-danger">Confirm Rejection</button>
+                    <button type="button" class="btn btn-sm"
+                            onclick="document.getElementById('reject-{{ s.id }}').style.display='none'">Cancel</button>
+                </form>
+            </td>
+        </tr>
+        {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+<!-- Proposals Tab -->
+{% if active_tab.as_str() == "proposals" %}
+<div class="tab-actions">
+    {% if ctx.permissions.has("proposal.create") %}
+    <a href="/tor/{{ tor_id }}/proposals/new" class="btn btn-primary">New Proposal</a>
+    {% endif %}
+</div>
+
+{% if proposals.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No proposals yet</p>
+    <p>Proposals are formalized suggestions with detailed rationale for ToR decisions.</p>
+    {% if ctx.permissions.has("proposal.create") %}
+    <a href="/tor/{{ tor_id }}/proposals/new" class="btn btn-primary">Create a proposal</a>
+    {% endif %}
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th class="col-id">ID</th>
+            <th>Title</th>
+            <th>Submitted By</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in proposals %}
+        <tr>
+            <td class="col-id">{{ p.id }}</td>
+            <td><strong>{{ p.title }}</strong></td>
+            <td>{{ p.submitted_by_name }}</td>
+            <td>{{ p.submitted_date }}</td>
+            <td>
+                {% if p.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if p.status.as_str() == "submitted" %}
+                <span class="badge badge-info">Submitted</span>
+                {% else if p.status.as_str() == "under_review" %}
+                <span class="badge badge-warning">Under Review</span>
+                {% else if p.status.as_str() == "approved" %}
+                <span class="badge badge-success">Approved</span>
+                {% else if p.status.as_str() == "rejected" %}
+                <span class="badge badge-danger">Rejected</span>
+                {% endif %}
+            </td>
+            <td class="actions">
+                <a href="/tor/{{ tor_id }}/proposals/{{ p.id }}" class="btn btn-sm">View</a>
+                {% if p.status.as_str() == "draft" && ctx.permissions.has("proposal.edit") %}
+                <a href="/tor/{{ tor_id }}/proposals/{{ p.id }}/edit" class="btn btn-sm">Edit</a>
+                {% endif %}
+                {% if p.status.as_str() == "draft" && ctx.permissions.has("proposal.submit") %}
+                <form method="post" action="/tor/{{ tor_id }}/proposals/{{ p.id }}/submit" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                </form>
+                {% endif %}
+                {% if p.status.as_str() == "submitted" && ctx.permissions.has("proposal.review") %}
+                <form method="post" action="/tor/{{ tor_id }}/proposals/{{ p.id }}/review" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm">Start Review</button>
+                </form>
+                {% endif %}
+                {% if p.status.as_str() == "under_review" && ctx.permissions.has("proposal.approve") %}
+                <form method="post" action="/tor/{{ tor_id }}/proposals/{{ p.id }}/approve" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+                </form>
+                <button type="button" class="btn btn-sm btn-danger"
+                        onclick="document.getElementById('reject-p-{{ p.id }}').style.display='block'">Reject</button>
+                {% endif %}
+                {% if p.status.as_str() == "rejected" && ctx.permissions.has("proposal.submit") %}
+                <a href="/tor/{{ tor_id }}/proposals/{{ p.id }}/edit" class="btn btn-sm">Edit &amp; Resubmit</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% if p.status.as_str() == "under_review" && ctx.permissions.has("proposal.approve") %}
+        <tr id="reject-p-{{ p.id }}" style="display:none">
+            <td colspan="6">
+                <form method="post" action="/tor/{{ tor_id }}/proposals/{{ p.id }}/reject" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <div class="form-group">
+                        <label>Rejection reason (required):</label>
+                        <textarea name="rejection_reason" required rows="2" style="width:100%"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-danger">Confirm Rejection</button>
+                    <button type="button" class="btn btn-sm"
+                            onclick="document.getElementById('reject-p-{{ p.id }}').style.display='none'">Cancel</button>
+                </form>
+            </td>
+        </tr>
+        {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}New Suggestion — {{ tor_name }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<h1>New Suggestion for {{ tor_name }}</h1>
+
+{% for err in errors %}
+<div class="alert alert-error">{{ err }}</div>
+{% endfor %}
+
+<form method="post" action="/tor/{{ tor_id }}/suggestions" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="5" required
+                  maxlength="2000"
+                  placeholder="Describe your suggestion..."></textarea>
+        <span class="hint">What would you like to suggest to this ToR? (max 2000 characters)</span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Submit Suggestion</button>
+        <a href="/tor/{{ tor_id }}/pipeline?tab=suggestions" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

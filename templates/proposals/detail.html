@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ proposal.title }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>{{ proposal.title }}</h1>
+    <div class="page-actions">
+        {% if proposal.status.as_str() == "draft" && ctx.permissions.has("proposal.edit") %}
+        <a href="/tor/{{ tor_id }}/proposals/{{ proposal.id }}/edit" class="btn btn-sm">Edit</a>
+        {% endif %}
+        <a href="/tor/{{ tor_id }}/pipeline?tab=proposals" class="btn btn-sm">Back to Pipeline</a>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">
+            {% if proposal.status.as_str() == "draft" %}
+            <span class="badge badge-muted">Draft</span>
+            {% else if proposal.status.as_str() == "submitted" %}
+            <span class="badge badge-info">Submitted</span>
+            {% else if proposal.status.as_str() == "under_review" %}
+            <span class="badge badge-warning">Under Review</span>
+            {% else if proposal.status.as_str() == "approved" %}
+            <span class="badge badge-success">Approved</span>
+            {% else if proposal.status.as_str() == "rejected" %}
+            <span class="badge badge-danger">Rejected</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Submitted By</span>
+        <span class="detail-value">{{ proposal.submitted_by_name }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Date</span>
+        <span class="detail-value">{{ proposal.submitted_date }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Description</span>
+        <span class="detail-value">{{ proposal.description }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Rationale</span>
+        <span class="detail-value">{{ proposal.rationale }}</span>
+    </div>
+    {% if let Some(reason) = proposal.rejection_reason %}
+    <div class="detail-row">
+        <span class="detail-label">Rejection Reason</span>
+        <span class="detail-value" style="color: var(--danger)">{{ reason }}</span>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
