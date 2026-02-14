@@ -120,6 +120,28 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/proposals/{proposal_id}/review", web::post().to(handlers::proposal_handlers::review))
                     .route("/tor/{id}/proposals/{proposal_id}/approve", web::post().to(handlers::proposal_handlers::approve))
                     .route("/tor/{id}/proposals/{proposal_id}/reject", web::post().to(handlers::proposal_handlers::reject))
+                    // Workflow queue
+                    .route("/tor/{id}/workflow/queue", web::get().to(handlers::queue_handlers::view_queue))
+                    .route("/tor/{id}/workflow/queue/schedule-form", web::get().to(handlers::queue_handlers::schedule_form))
+                    .route("/tor/{id}/proposals/{proposal_id}/ready-for-agenda", web::post().to(handlers::queue_handlers::mark_ready))
+                    .route("/tor/{id}/proposals/{proposal_id}/unqueue", web::post().to(handlers::queue_handlers::unqueue_proposal))
+                    .route("/tor/{id}/workflow/queue/schedule", web::post().to(handlers::queue_handlers::bulk_schedule))
+                    // Agenda points — /new BEFORE /{agenda_id}
+                    .route("/tor/{id}/workflow/agenda/new", web::get().to(handlers::agenda_handlers::new_form))
+                    .route("/tor/{id}/workflow/agenda", web::post().to(handlers::agenda_handlers::create))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}", web::get().to(handlers::agenda_handlers::detail))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/edit", web::get().to(handlers::agenda_handlers::edit_form))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}", web::post().to(handlers::agenda_handlers::update))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/transition", web::post().to(handlers::agenda_handlers::transition))
+                    // COAs — /new BEFORE /{coa_id}
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/new", web::get().to(handlers::coa_handlers::new_form))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa", web::post().to(handlers::coa_handlers::create))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/edit", web::get().to(handlers::coa_handlers::edit_form))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}", web::post().to(handlers::coa_handlers::update))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/delete", web::post().to(handlers::coa_handlers::delete))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections", web::post().to(handlers::coa_handlers::add_section))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections/{section_id}", web::post().to(handlers::coa_handlers::update_section))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections/{section_id}/delete", web::post().to(handlers::coa_handlers::delete_section))
                     // Opinions + Decisions
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/input", web::get().to(handlers::opinion_handlers::form))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/input", web::post().to(handlers::opinion_handlers::submit))
