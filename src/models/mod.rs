@@ -6,5 +6,6 @@ pub mod relation;
 pub mod permission;
 pub mod role;
 pub mod setting;
+pub mod suggestion;
 pub mod tor;
 pub mod user;
