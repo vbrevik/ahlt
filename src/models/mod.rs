@@ -4,6 +4,7 @@ pub mod nav_item;
 pub mod ontology;
 pub mod relation;
 pub mod permission;
+pub mod proposal;
 pub mod role;
 pub mod setting;
 pub mod suggestion;
