@@ -145,3 +145,42 @@ pub struct AuditListTemplate {
     pub action_filter: Option<String>,
     pub target_type_filter: Option<String>,
 }
+
+// --- Menu Builder types ---
+
+/// A single cell in the permission matrix (one role x one permission).
+pub struct MatrixCell {
+    pub role_id: i64,
+    pub permission_id: i64,
+    pub checked: bool,
+}
+
+/// One row in the matrix (one permission, with cells for each role).
+pub struct PermissionRow {
+    pub permission_id: i64,
+    pub code: String,
+    pub label: String,
+    pub cells: Vec<MatrixCell>,
+}
+
+/// A group of permission rows under a page section header.
+pub struct PageGroup {
+    pub group_name: String,
+    pub permissions: Vec<PermissionRow>,
+}
+
+/// Column header data for a role.
+pub struct RoleColumn {
+    pub id: i64,
+    pub label: String,
+    pub name: String,
+}
+
+#[derive(Template)]
+#[template(path = "menu_builder.html")]
+pub struct MenuBuilderTemplate {
+    pub ctx: PageContext,
+    pub roles: Vec<RoleColumn>,
+    pub page_groups: Vec<PageGroup>,
+    pub col_count: usize,
+}

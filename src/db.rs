@@ -231,6 +231,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_audit_id, "url", "/audit");
     insert_prop(&conn, nav_admin_audit_id, "parent", "admin");
 
+    // Admin → Menu Builder: sidebar child
+    let nav_admin_menu_builder_id = insert_entity(&conn, "nav_item", "admin.menu_builder", "Menu Builder", 6);
+    insert_prop(&conn, nav_admin_menu_builder_id, "url", "/menu-builder");
+    insert_prop(&conn, nav_admin_menu_builder_id, "parent", "admin");
+
     // --- Audit settings ---
     let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
     insert_prop(&conn, audit_enabled_id, "value", "true");
@@ -265,6 +270,9 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
 
     // Admin > Audit Log requires audit.view
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_audit_id, audit_view_perm_id);
+
+    // Admin > Menu Builder requires roles.manage
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_menu_builder_id, roles_manage_perm_id);
 
     // Create audit directory with secure permissions
     let audit_path = "data/audit";

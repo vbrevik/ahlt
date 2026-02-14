@@ -247,6 +247,19 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Enhanced audit log: unified search form, styled filter dropdowns, proper empty state
 - All pages visually verified via Playwright screenshots
 
+### Menu Builder / Permission Matrix (4.2)
+- Visual permission matrix: roles as columns, permissions as rows grouped by section (Admin, Dashboard, Roles, Settings, Users)
+- `src/models/permission.rs`: `find_all_with_groups()`, `find_all_role_grants()`, `grant_permission()`, `revoke_permission()`
+- `src/templates_structs.rs`: `MatrixCell`, `PermissionRow`, `PageGroup`, `RoleColumn`, `MenuBuilderTemplate`
+- `src/handlers/menu_builder_handlers.rs`: GET `index()` builds matrix, POST `save()` diffs and applies changes
+- Pre-computed matrix cells (Askama can't call `.contains()` in templates)
+- Diff-based save: compare submitted checkboxes vs DB state, only INSERT/DELETE changes
+- Unique checkbox names `perm_{role_id}_{permission_id}` avoid serde_urlencoded duplicate key issue
+- JavaScript: change tracking with asterisk indicator, unsaved-changes warning (beforeunload), column toggle
+- Audit logging with descriptive summary ("N granted, M revoked via Menu Builder")
+- Nav item: `admin.menu_builder` under Admin module, gated by `roles.manage`
+- CSS: sticky left column, grouped section headers, hover states, accent-colored checkboxes
+
 ### Manual Testing (Complete)
 - Created comprehensive test data seed script with 4 roles and 5 users
 - Generated proper argon2 password hash for "password123"
@@ -313,6 +326,7 @@ Code cleanup (Tasks 1-28):
 - Phase 4: File splitting
 Manual testing (complete)
 6.6 Frontend design review
+4.2 Menu Builder
 ```
 
 ## Architecture Decisions

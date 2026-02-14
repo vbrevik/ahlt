@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Builder — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Menu Builder</h1>
+</div>
+
+<p class="page-hint">Configure what each role can see and do. Check a box to grant a permission to a role.</p>
+
+<form method="post" action="/menu-builder" class="matrix-form">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <div class="matrix-wrapper">
+        <table class="matrix-table">
+            <thead>
+                <tr>
+                    <th class="matrix-label-col">Permission</th>
+                    {% for role in roles %}
+                    <th class="matrix-role-col">
+                        <div class="role-header">
+                            <span class="role-name">{{ role.label }}</span>
+                            <code class="role-code">{{ role.name }}</code>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in page_groups %}
+                <tr class="matrix-group-row">
+                    <th colspan="{{ col_count }}" class="matrix-group-header">{{ group.group_name }}</th>
+                </tr>
+                {% for perm in group.permissions %}
+                <tr class="matrix-perm-row">
+                    <td class="matrix-perm-label">
+                        <span class="perm-label">{{ perm.label }}</span>
+                        <code class="perm-code">{{ perm.code }}</code>
+                    </td>
+                    {% for cell in perm.cells %}
+                    <td class="matrix-cell">
+                        <label class="matrix-checkbox">
+                            <input type="checkbox"
+                                   name="perm_{{ cell.role_id }}_{{ cell.permission_id }}"
+                                   value="1"
+                                   {% if cell.checked %}checked{% endif %}>
+                            <span class="checkmark"></span>
+                        </label>
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-actions matrix-actions">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="/menu-builder" class="btn">Reset</a>
+    </div>
+</form>
+
+<script>
+(function() {
+    const form = document.querySelector('.matrix-form');
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    const saveBtn = form.querySelector('.btn-primary');
+    let hasChanges = false;
+
+    // Store initial state
+    const initialState = {};
+    checkboxes.forEach(cb => {
+        initialState[cb.name] = cb.checked;
+    });
+
+    // Detect changes
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            hasChanges = false;
+            checkboxes.forEach(c => {
+                if (c.checked !== initialState[c.name]) {
+                    hasChanges = true;
+                }
+            });
+            saveBtn.textContent = hasChanges ? 'Save Changes *' : 'Save Changes';
+            saveBtn.classList.toggle('has-changes', hasChanges);
+        });
+    });
+
+    // Clear changes flag on form submit so beforeunload doesn't fire
+    form.addEventListener('submit', () => { hasChanges = false; });
+
+    // Warn on navigate away with unsaved changes
+    window.addEventListener('beforeunload', (e) => {
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // Column toggle: click role header to toggle all in column
+    const roleHeaders = document.querySelectorAll('.role-header');
+    roleHeaders.forEach((header, colIndex) => {
+        header.style.cursor = 'pointer';
+        header.title = 'Click to toggle all permissions for this role';
+        header.addEventListener('click', () => {
+            const colCheckboxes = [];
+            document.querySelectorAll('.matrix-perm-row').forEach(row => {
+                const cells = row.querySelectorAll('.matrix-cell input[type="checkbox"]');
+                if (cells[colIndex]) colCheckboxes.push(cells[colIndex]);
+            });
+            const allChecked = colCheckboxes.every(cb => cb.checked);
+            colCheckboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                cb.dispatchEvent(new Event('change'));
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
