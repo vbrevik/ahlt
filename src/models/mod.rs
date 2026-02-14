@@ -4,6 +4,7 @@ pub mod coa;
 pub mod entity;
 pub mod nav_item;
 pub mod ontology;
+pub mod opinion;
 pub mod relation;
 pub mod permission;
 pub mod proposal;
