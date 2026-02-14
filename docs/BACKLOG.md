@@ -278,6 +278,28 @@ All domain objects share three generic tables — no dedicated tables per type:
 - All 27 refactored handlers working correctly with AppError pattern
 - Zero compilation errors, clean build
 
+### Phase 2a: Item Pipeline (Complete)
+- Created complete suggestion→proposal workflow
+- Suggestion creation with form validation
+- Auto-proposal creation when suggestion accepted
+- Proposal CRUD with status transitions (draft→submitted→under_review→approved→rejected)
+- Pipeline view with tabs for suggestions/proposals
+- Integration tests validating complete workflow
+- E2E testing with Playwright
+
+### Phase 2b: Agenda Points, COAs & Data-Driven Workflows (Complete)
+- **Data-Driven Workflow Engine**: WorkflowStatus + WorkflowTransition entities replace all hardcoded transitions
+- **Agenda Points**: Meeting items (informative or decision) with scheduling from proposal queue
+- **Courses of Action (COAs)**: Decision options with nested section support (simple or complex)
+- **Opinion Recording**: Advisory input from participants (separate from decisions)
+- **Decision Making**: Authority makes final decisions with veto power
+- **Proposal Queue**: Mark proposals ready, bulk-schedule into agenda points
+- **Terminology Rename**: Systematic pipeline→workflow rename (40+ files)
+- **19 Tasks Delivered**: Infrastructure, models, handlers, templates, routes, E2E tests
+- **Test Coverage**: 12 new Phase 2b tests all passing, plus existing Phase 2a tests still passing
+- **Code Quality**: 0 new errors, integrated subagent-driven development for quality gates
+- **Production Ready**: All routes wired, permissions integrated, audit logging, CSRF protection
+
 ---
 
 ## Remaining Backlog
