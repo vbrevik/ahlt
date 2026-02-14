@@ -2,6 +2,7 @@ pub mod account_handlers;
 pub mod agenda_handlers;
 pub mod audit_handlers;
 pub mod auth_handlers;
+pub mod coa_handlers;
 pub mod dashboard;
 pub mod menu_builder_handlers;
 pub mod ontology_handlers;
