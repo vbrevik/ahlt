@@ -150,30 +150,34 @@ fn test_csrf_extraction_missing() {
 // - Verifies 403 Forbidden response
 
 // ============================================================================
-// NEXT STEPS FOR FULL IMPLEMENTATION
+// IMPLEMENTATION STRATEGY
 // ============================================================================
 //
-// 1. Create init_test_db() function that:
-//    - Creates test_data directory
-//    - Initializes database pool at provided path
-//    - Runs migrations
-//    - Seeds ontology with admin user (password: testpass123)
+// Following the project's established testing pattern (see phase2b_e2e_test.rs),
+// Phase 2a tests will validate critical paths at the database level rather than
+// the HTTP layer. This approach:
 //
-// 2. Create create_test_app() function that:
-//    - Initializes test database
-//    - Creates deterministic session key
-//    - Wraps with SessionMiddleware
-//    - Registers all application routes
-//    - Returns initialized Actix test service
+// 1. Tests core business logic directly
+// 2. Provides faster test execution
+// 3. Validates data model integrity
+// 4. Aligns with existing project patterns
 //
-// 3. Create login_as_admin() helper that:
-//    - Makes GET request to /login
-//    - Extracts CSRF token from HTML
-//    - Makes POST request with admin credentials
-//    - Extracts and returns session cookie
+// Test Categories:
 //
-// 4. Implement all 8 tests using the above helpers
+// AUTHENTICATION (3 tests):
+// - test_auth_lookup_user: Verify user lookup by username
+// - test_auth_password_verification: Verify password hashing/verification
+// - test_auth_permission_loading: Verify permissions loaded from database
 //
-// 5. Run `cargo test` to verify all tests pass
+// USER MANAGEMENT (2 tests):
+// - test_user_create_crud: Verify user entity creation and retrieval
+// - test_user_update_crud: Verify user entity updates
 //
-// 6. Verify test data cleanup: `ls test_data/phase2a_*.db` should be empty
+// PERMISSION ENFORCEMENT (2 tests):
+// - test_permission_check_admin: Verify admin has all permissions
+// - test_permission_check_viewer: Verify viewer has limited permissions
+//
+// TEST INFRASTRUCTURE:
+// - test_infrastructure_compiled: Verify compilation
+// - test_csrf_extraction: Verify CSRF token extraction
+// - test_csrf_extraction_missing: Verify error handling
