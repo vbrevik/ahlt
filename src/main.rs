@@ -103,8 +103,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/delete", web::post().to(handlers::tor_handlers::delete))
                     // ToR member management
                     .route("/tor/{id}/members", web::post().to(handlers::tor_handlers::manage_members))
-                    // Pipeline view
-                    .route("/tor/{id}/pipeline", web::get().to(handlers::pipeline_handlers::view))
+                    // Workflow view
+                    .route("/tor/{id}/workflow", web::get().to(handlers::workflow_handlers::view))
                     // Suggestion workflow
                     .route("/tor/{id}/suggestions/new", web::get().to(handlers::suggestion_handlers::new_form))
                     .route("/tor/{id}/suggestions", web::post().to(handlers::suggestion_handlers::create))

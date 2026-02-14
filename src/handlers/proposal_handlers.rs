@@ -31,7 +31,7 @@ pub async fn detail(
     match proposal::find_by_id(&conn, proposal_id)? {
         Some(p) => {
             let tor_name = tor::get_tor_name(&conn, tor_id)?;
-            let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+            let ctx = PageContext::build(&session, &conn, "/workflow")?;
             let tmpl = ProposalDetailTemplate {
                 ctx,
                 tor_id,
@@ -59,7 +59,7 @@ pub async fn new_form(
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
     let tor_name = tor::get_tor_name(&conn, tor_id)?;
-    let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+    let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
     let tmpl = ProposalFormTemplate {
         ctx,
@@ -104,7 +104,7 @@ pub async fn create(
 
     if !errors.is_empty() {
         let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+        let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = ProposalFormTemplate {
             ctx,
             tor_id,
@@ -163,7 +163,7 @@ pub async fn edit_form(
             }
 
             let tor_name = tor::get_tor_name(&conn, tor_id)?;
-            let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+            let ctx = PageContext::build(&session, &conn, "/workflow")?;
             let tmpl = ProposalFormTemplate {
                 ctx,
                 tor_id,
@@ -211,7 +211,7 @@ pub async fn update(
     if !errors.is_empty() {
         let existing = proposal::find_by_id(&conn, proposal_id).ok().flatten();
         let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+        let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = ProposalFormTemplate {
             ctx,
             tor_id,

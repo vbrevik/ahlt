@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// Proposal as shown in the pipeline list view.
+/// Proposal as shown in the workflow list view.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProposalListItem {
     pub id: i64,

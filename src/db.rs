@@ -114,7 +114,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _has_tor_role_id = insert_entity(&conn, "relation_type", "has_tor_role", "Has ToR Role", 0);
     let _belongs_to_tor_id = insert_entity(&conn, "relation_type", "belongs_to_tor", "Belongs to ToR", 0);
 
-    // --- Item pipeline relation types ---
+    // --- Item workflow relation types ---
     let _suggested_to_id = insert_entity(&conn, "relation_type", "suggested_to", "Suggested To", 0);
     let _spawns_proposal_id = insert_entity(&conn, "relation_type", "spawns_proposal", "Spawns Proposal", 0);
     let _submitted_to_id = insert_entity(&conn, "relation_type", "submitted_to", "Submitted To", 0);
@@ -155,15 +155,15 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("tor.create", "Create Terms of Reference", "Governance"),
         ("tor.edit", "Edit Terms of Reference", "Governance"),
         ("tor.manage_members", "Manage ToR Members", "Governance"),
-        ("suggestion.view", "View suggestions in member ToRs", "Pipeline"),
-        ("suggestion.create", "Submit new suggestions", "Pipeline"),
-        ("suggestion.review", "Accept or reject suggestions", "Pipeline"),
-        ("proposal.view", "View proposals in member ToRs", "Pipeline"),
-        ("proposal.create", "Create new proposals", "Pipeline"),
-        ("proposal.submit", "Submit draft proposals for review", "Pipeline"),
-        ("proposal.edit", "Edit draft proposals", "Pipeline"),
-        ("proposal.review", "Move proposals to under_review status", "Pipeline"),
-        ("proposal.approve", "Approve or reject proposals under review", "Pipeline"),
+        ("suggestion.view", "View suggestions in member ToRs", "Workflow"),
+        ("suggestion.create", "Submit new suggestions", "Workflow"),
+        ("suggestion.review", "Accept or reject suggestions", "Workflow"),
+        ("proposal.view", "View proposals in member ToRs", "Workflow"),
+        ("proposal.create", "Create new proposals", "Workflow"),
+        ("proposal.submit", "Submit draft proposals for review", "Workflow"),
+        ("proposal.edit", "Edit draft proposals", "Workflow"),
+        ("proposal.review", "Move proposals to under_review status", "Workflow"),
+        ("proposal.approve", "Approve or reject proposals under review", "Workflow"),
         // --- Phase 2b: Agenda, workflow, and COA permissions ---
         ("agenda.view", "View Agenda", "Governance"),
         ("agenda.create", "Create Agenda Points", "Governance"),
@@ -171,8 +171,8 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("agenda.manage", "Manage Agenda Status", "Governance"),
         ("agenda.participate", "Participate in Meeting", "Governance"),
         ("agenda.decide", "Make Final Decisions", "Governance"),
-        ("coa.create", "Create Courses of Action", "Pipeline"),
-        ("coa.edit", "Edit Courses of Action", "Pipeline"),
+        ("coa.create", "Create Courses of Action", "Workflow"),
+        ("coa.edit", "Edit Courses of Action", "Workflow"),
         ("workflow.manage", "Manage Workflow System", "Governance"),
     ];
 
@@ -346,17 +346,17 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
 
     insert_relation(&conn, requires_permission_rel_type_id, nav_gov_tor_id, tor_list_perm_id);
 
-    // Governance -> Item Pipeline: sidebar child
-    let nav_gov_pipeline_id = insert_entity(&conn, "nav_item", "governance.pipeline", "Item Pipeline", 2);
-    insert_prop(&conn, nav_gov_pipeline_id, "url", "/pipeline");
-    insert_prop(&conn, nav_gov_pipeline_id, "parent", "governance");
+    // Governance -> Item Workflow: sidebar child
+    let nav_gov_workflow_id = insert_entity(&conn, "nav_item", "governance.workflow", "Item Workflow", 2);
+    insert_prop(&conn, nav_gov_workflow_id, "url", "/workflow");
+    insert_prop(&conn, nav_gov_workflow_id, "parent", "governance");
 
-    // Pipeline requires suggestion.view permission
+    // Workflow requires suggestion.view permission
     let suggestion_view_perm_id: i64 = conn.query_row(
         "SELECT id FROM entities WHERE entity_type='permission' AND name='suggestion.view'",
         [], |row| row.get(0),
     ).unwrap();
-    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_pipeline_id, suggestion_view_perm_id);
+    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_workflow_id, suggestion_view_perm_id);
 
     // --- Suggestion Workflow Definitions ---
     let transition_from_rel_id: i64 = conn.query_row(

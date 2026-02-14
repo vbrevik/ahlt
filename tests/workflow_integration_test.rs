@@ -1,5 +1,5 @@
-// Integration tests for pipeline functionality
-// Run with: cargo test --test pipeline_integration_test
+// Integration tests for workflow functionality
+// Run with: cargo test --test workflow_integration_test
 
 use std::sync::Once;
 
@@ -14,14 +14,14 @@ fn setup() {
 }
 
 #[test]
-fn test_pipeline_routes_exist() {
+fn test_workflow_routes_exist() {
     setup();
 
     // This is a basic test to verify routes compile
     // More comprehensive testing would require setting up a test app
     // and making actual HTTP requests
 
-    println!("✅ Pipeline routes compilation test passed");
+    println!("✅ Workflow routes compilation test passed");
 }
 
 #[test]

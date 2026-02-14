@@ -21,7 +21,7 @@
         {% if proposal.status.as_str() == "draft" && ctx.permissions.has("proposal.edit") %}
         <a href="/tor/{{ tor_id }}/proposals/{{ proposal.id }}/edit" class="btn btn-sm">Edit</a>
         {% endif %}
-        <a href="/tor/{{ tor_id }}/pipeline?tab=proposals" class="btn btn-sm">Back to Pipeline</a>
+        <a href="/tor/{{ tor_id }}/workflow?tab=proposals" class="btn btn-sm">Back to Workflow</a>
     </div>
 </div>
 

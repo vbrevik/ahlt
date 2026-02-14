@@ -6,10 +6,10 @@ use crate::db::DbPool;
 use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
 use crate::models::{tor, suggestion, proposal};
-use crate::templates_structs::{PageContext, PipelineTemplate};
+use crate::templates_structs::{PageContext, WorkflowTemplate};
 
-/// GET /tor/{tor_id}/pipeline
-/// Renders the pipeline view with suggestions and proposals tabs.
+/// GET /tor/{tor_id}/workflow
+/// Renders the workflow view with suggestions and proposals tabs.
 pub async fn view(
     pool: web::Data<DbPool>,
     session: Session,
@@ -32,9 +32,9 @@ pub async fn view(
     let suggestions = suggestion::find_all_for_tor(&conn, tor_id)?;
     let proposals = proposal::find_all_for_tor(&conn, tor_id)?;
 
-    let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+    let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
-    let tmpl = PipelineTemplate {
+    let tmpl = WorkflowTemplate {
         ctx,
         tor_id,
         tor_name,

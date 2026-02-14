@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Item Pipeline — {{ tor_name }} — {{ ctx.app_name }}{% endblock %}
+{% block title %}Item Workflow — {{ tor_name }} — {{ ctx.app_name }}{% endblock %}
 
 {% block nav %}
 {% include "partials/nav.html" %}
@@ -16,7 +16,7 @@
 {% endif %}
 
 <div class="page-header">
-    <h1>Item Pipeline — {{ tor_name }}</h1>
+    <h1>Item Workflow — {{ tor_name }}</h1>
     <div class="page-actions">
         <a href="/tor/{{ tor_id }}" class="btn btn-sm">Back to ToR</a>
     </div>
@@ -24,11 +24,11 @@
 
 <!-- Tab Navigation -->
 <div class="tab-nav">
-    <a href="/tor/{{ tor_id }}/pipeline?tab=suggestions"
+    <a href="/tor/{{ tor_id }}/workflow?tab=suggestions"
        class="tab-link{% if active_tab.as_str() == "suggestions" %} active{% endif %}">
         Suggestions ({{ suggestions.len() }})
     </a>
-    <a href="/tor/{{ tor_id }}/pipeline?tab=proposals"
+    <a href="/tor/{{ tor_id }}/workflow?tab=proposals"
        class="tab-link{% if active_tab.as_str() == "proposals" %} active{% endif %}">
         Proposals ({{ proposals.len() }})
     </a>
@@ -91,7 +91,7 @@
                 {% endif %}
                 {% if s.status.as_str() == "accepted" %}
                 {% if let Some(pid) = s.spawned_proposal_id %}
-                <a href="/tor/{{ tor_id }}/pipeline?tab=proposals" class="btn btn-sm">View Proposal</a>
+                <a href="/tor/{{ tor_id }}/workflow?tab=proposals" class="btn btn-sm">View Proposal</a>
                 {% endif %}
                 {% endif %}
                 {% if s.status.as_str() == "rejected" %}

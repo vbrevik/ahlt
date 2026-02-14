@@ -185,11 +185,11 @@ pub struct TorDetailTemplate {
     pub available_users: Vec<UserOption>,
 }
 
-// --- Pipeline templates ---
+// --- Workflow templates ---
 
 #[derive(Template)]
-#[template(path = "pipeline/view.html")]
-pub struct PipelineTemplate {
+#[template(path = "workflow/view.html")]
+pub struct WorkflowTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
     pub tor_name: String,

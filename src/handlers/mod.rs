@@ -4,7 +4,7 @@ pub mod auth_handlers;
 pub mod dashboard;
 pub mod menu_builder_handlers;
 pub mod ontology_handlers;
-pub mod pipeline_handlers;
+pub mod workflow_handlers;
 pub mod proposal_handlers;
 pub mod role_handlers;
 pub mod settings_handlers;

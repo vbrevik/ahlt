@@ -25,7 +25,7 @@ pub async fn new_form(
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
     let tor_name = tor::get_tor_name(&conn, tor_id)?;
-    let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+    let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
     let tmpl = SuggestionFormTemplate {
         ctx,
@@ -56,7 +56,7 @@ pub async fn create(
     let description = form.description.trim();
     if description.is_empty() {
         let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/pipeline")?;
+        let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = SuggestionFormTemplate {
             ctx,
             tor_id,
@@ -81,7 +81,7 @@ pub async fn create(
 
     let _ = session.insert("flash", "Suggestion submitted successfully");
     Ok(HttpResponse::SeeOther()
-        .insert_header(("Location", format!("/tor/{tor_id}/pipeline?tab=suggestions")))
+        .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=suggestions")))
         .finish())
 }
 
@@ -114,7 +114,7 @@ pub async fn accept(
 
     let _ = session.insert("flash", "Suggestion accepted and draft proposal created");
     Ok(HttpResponse::SeeOther()
-        .insert_header(("Location", format!("/tor/{tor_id}/pipeline?tab=suggestions")))
+        .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=suggestions")))
         .finish())
 }
 
@@ -139,7 +139,7 @@ pub async fn reject(
     if rejection_reason.is_empty() {
         let _ = session.insert("flash", "Rejection reason is required");
         return Ok(HttpResponse::SeeOther()
-            .insert_header(("Location", format!("/tor/{tor_id}/pipeline?tab=suggestions")))
+            .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=suggestions")))
             .finish());
     }
 
@@ -155,6 +155,6 @@ pub async fn reject(
 
     let _ = session.insert("flash", "Suggestion rejected");
     Ok(HttpResponse::SeeOther()
-        .insert_header(("Location", format!("/tor/{tor_id}/pipeline?tab=suggestions")))
+        .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=suggestions")))
         .finish())
 }
