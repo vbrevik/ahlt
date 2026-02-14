@@ -106,6 +106,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _has_tor_role_id = insert_entity(&conn, "relation_type", "has_tor_role", "Has ToR Role", 0);
     let _belongs_to_tor_id = insert_entity(&conn, "relation_type", "belongs_to_tor", "Belongs to ToR", 0);
 
+    // --- Item pipeline relation types ---
+    let _suggested_to_id = insert_entity(&conn, "relation_type", "suggested_to", "Suggested To", 0);
+    let _spawns_proposal_id = insert_entity(&conn, "relation_type", "spawns_proposal", "Spawns Proposal", 0);
+    let _submitted_to_id = insert_entity(&conn, "relation_type", "submitted_to", "Submitted To", 0);
+
     // --- Roles ---
     let admin_role_id = insert_entity(&conn, "role", "admin", "Administrator", 1);
     insert_prop(&conn, admin_role_id, "description", "Full system access");
@@ -128,6 +133,15 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("tor.create", "Create Terms of Reference", "Governance"),
         ("tor.edit", "Edit Terms of Reference", "Governance"),
         ("tor.manage_members", "Manage ToR Members", "Governance"),
+        ("suggestion.view", "View suggestions in member ToRs", "Pipeline"),
+        ("suggestion.create", "Submit new suggestions", "Pipeline"),
+        ("suggestion.review", "Accept or reject suggestions", "Pipeline"),
+        ("proposal.view", "View proposals in member ToRs", "Pipeline"),
+        ("proposal.create", "Create new proposals", "Pipeline"),
+        ("proposal.submit", "Submit draft proposals for review", "Pipeline"),
+        ("proposal.edit", "Edit draft proposals", "Pipeline"),
+        ("proposal.review", "Move proposals to under_review status", "Pipeline"),
+        ("proposal.approve", "Approve or reject proposals under review", "Pipeline"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -300,6 +314,18 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
 
     insert_relation(&conn, requires_permission_rel_type_id, nav_gov_tor_id, tor_list_perm_id);
 
+    // Governance -> Item Pipeline: sidebar child
+    let nav_gov_pipeline_id = insert_entity(&conn, "nav_item", "governance.pipeline", "Item Pipeline", 2);
+    insert_prop(&conn, nav_gov_pipeline_id, "url", "/pipeline");
+    insert_prop(&conn, nav_gov_pipeline_id, "parent", "governance");
+
+    // Pipeline requires suggestion.view permission
+    let suggestion_view_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='suggestion.view'",
+        [], |row| row.get(0),
+    ).unwrap();
+    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_pipeline_id, suggestion_view_perm_id);
+
     // Create audit directory with secure permissions
     let audit_path = "data/audit";
     if !std::path::Path::new(audit_path).exists() {
@@ -318,6 +344,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         }
     }
 
-    log::info!("Seeded ontology: 6 relation types, 2 roles, {} permissions, 9 nav items, 5 settings, 1 admin user", perms.len());
+    log::info!("Seeded ontology: 9 relation types, 2 roles, {} permissions, 11 nav items, 5 settings, 1 admin user", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
