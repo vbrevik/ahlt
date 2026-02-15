@@ -28,3 +28,5 @@ hex = "0.4"
 actix-rt = "2.11"
 serde_urlencoded = "0.7"
 regex = "1"
+tempfile = "3"
+rusqlite = { version = "0.32", features = ["bundled"] }
