@@ -4,79 +4,34 @@
 //
 // Run with: cargo test --test phase2b_e2e_test -- --nocapture
 
-use std::path::Path;
+use tempfile::TempDir;
 
-/// Test database path for isolation
-fn test_db_path() -> String {
-    format!("test_data/phase2b_e2e.db")
-}
+const MIGRATIONS: &str = include_str!("../src/schema.sql");
 
-/// Clean up test database
-fn cleanup_test_db() {
-    let path = test_db_path();
-    if Path::new(&path).exists() {
-        let _ = std::fs::remove_file(&path);
-    }
-}
-
-/// Initialize test database with schema and seed data
-fn init_test_db(db_path: &str) -> rusqlite::Result<rusqlite::Connection> {
-    // Create parent directory
-    std::fs::create_dir_all("test_data").ok();
-
-    let conn = rusqlite::Connection::open(db_path)?;
-
-    // Enable pragmas
-    let _ = conn.execute_batch(
-        "PRAGMA foreign_keys = ON;
-         PRAGMA journal_mode = WAL;",
+/// Supplemental schema not in schema.sql but needed by tests
+const TEST_EXTRAS: &str = "
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+";
 
-    // Create schema (entities, properties, relations)
-    // This is a minimal schema for testing
-    let _ = conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS entities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entity_type TEXT NOT NULL,
-            name TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            sort_order INTEGER DEFAULT 0,
-            label TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS entity_properties (
-            entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (entity_id, key)
-        );
-
-        CREATE TABLE IF NOT EXISTS relations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            relation_type_id INTEGER NOT NULL,
-            source_id INTEGER NOT NULL,
-            target_id INTEGER NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS relation_properties (
-            relation_id INTEGER NOT NULL REFERENCES relations(id) ON DELETE CASCADE,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (relation_id, key)
-        );
-
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
-            target_type TEXT NOT NULL,
-            target_id INTEGER NOT NULL,
-            details TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );",
-    );
-
-    Ok(conn)
+fn setup_test_db() -> (TempDir, rusqlite::Connection) {
+    let dir = TempDir::new().expect("Failed to create temp dir");
+    let db_path = dir.path().join("test.db");
+    let conn = rusqlite::Connection::open(&db_path).expect("Failed to open test DB");
+    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;")
+        .expect("Failed to set pragmas");
+    conn.execute_batch(MIGRATIONS)
+        .expect("Failed to run migrations");
+    conn.execute_batch(TEST_EXTRAS)
+        .expect("Failed to run test extras");
+    (dir, conn)
 }
 
 /// Helper to insert an entity into test database
@@ -123,10 +78,7 @@ fn insert_relation(
 
 #[test]
 fn test_phase2b_database_schema() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Verify tables exist
     let mut stmt = conn
@@ -157,15 +109,11 @@ fn test_phase2b_database_schema() {
     );
 
     println!("✅ Database schema initialized successfully");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_entity_crud() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create a user entity
     let user_id = insert_entity(&conn, "user", "test_user", "Test User")
@@ -193,18 +141,11 @@ fn test_phase2b_entity_crud() {
     assert_eq!(desc, "Test governance committee", "Property value mismatch");
 
     println!("✅ Entity CRUD operations working correctly");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_relation_types() {
-    cleanup_test_db();
-    let db_path = format!("test_data/phase2b_relation_types.db");
-    if Path::new(&db_path).exists() {
-        let _ = std::fs::remove_file(&db_path);
-    }
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create relation types
     let _rel_member_of = insert_entity(&conn, "relation_type", "member_of", "Member Of")
@@ -227,15 +168,11 @@ fn test_phase2b_relation_types() {
     assert_eq!(count, 3, "Should have 3 relation types");
 
     println!("✅ Relation types created successfully");
-    let _ = std::fs::remove_file(&db_path);
 }
 
 #[test]
 fn test_phase2b_workflow_statuses() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create workflow statuses for suggestion
     let s_open = insert_entity(&conn, "workflow_status", "suggestion.open", "Open")
@@ -270,15 +207,11 @@ fn test_phase2b_workflow_statuses() {
     assert_eq!(count, 2, "Should have 2 suggestion statuses");
 
     println!("✅ Workflow statuses created successfully");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_proposal_workflow_data() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create proposal workflow statuses
     let p_draft = insert_entity(&conn, "workflow_status", "proposal.draft", "Draft")
@@ -325,15 +258,11 @@ fn test_phase2b_proposal_workflow_data() {
     assert_eq!(ready, "false", "Proposal should not be ready for agenda initially");
 
     println!("✅ Proposal workflow data structure valid");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_agenda_point_creation() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create relation types needed for agenda points
     let rel_type_agenda = insert_entity(&conn, "relation_type", "agenda_submitted_to", "Submitted To")
@@ -385,15 +314,11 @@ fn test_phase2b_agenda_point_creation() {
     assert_eq!(rel_count, 1, "Relation should exist");
 
     println!("✅ Agenda point creation and relations working");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_coa_with_sections() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create relation type for COA sections
     let rel_has_section =
@@ -460,15 +385,11 @@ fn test_phase2b_coa_with_sections() {
     assert_eq!(section_count, 2, "Both sections should be linked to COA");
 
     println!("✅ COA with sections structure valid");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_opinion_recording() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create relation types
     let rel_opinion_by =
@@ -547,15 +468,11 @@ fn test_phase2b_opinion_recording() {
     assert!(rel_count >= 3, "All three opinion relations should exist");
 
     println!("✅ Opinion recording with relations valid");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_decision_recording() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create user (authority making decision)
     let authority_id = insert_entity(&conn, "user", "authority_001", "Admin User")
@@ -611,15 +528,11 @@ fn test_phase2b_decision_recording() {
     assert_eq!(status, "completed", "Status should be completed");
 
     println!("✅ Decision recording valid");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_audit_logging() {
-    cleanup_test_db();
-    let db_path = test_db_path();
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create user
     let user_id = insert_entity(&conn, "user", "user_001", "Test User")
@@ -657,17 +570,11 @@ fn test_phase2b_audit_logging() {
     assert_eq!(log_count, 1, "Audit log should exist");
 
     println!("✅ Audit logging working");
-    cleanup_test_db();
 }
 
 #[test]
 fn test_phase2b_complete_workflow_data_model() {
-    let db_path = format!("test_data/phase2b_complete_workflow.db");
-    if Path::new(&db_path).exists() {
-        let _ = std::fs::remove_file(&db_path);
-    }
-
-    let conn = init_test_db(&db_path).expect("Failed to initialize test database");
+    let (_dir, conn) = setup_test_db();
 
     // Create relation types
     let rel_member_of = insert_entity(&conn, "relation_type", "member_of", "Member Of")
@@ -841,7 +748,6 @@ fn test_phase2b_complete_workflow_data_model() {
     println!("  ✓ Admin recorded final decision");
     println!("  ✓ All entities and relations correct");
 
-    let _ = std::fs::remove_file(&db_path);
 }
 
 #[test]
