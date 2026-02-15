@@ -465,24 +465,6 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
     insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
 
-    // Create audit directory with secure permissions
-    let audit_path = "data/audit";
-    if !std::path::Path::new(audit_path).exists() {
-        std::fs::create_dir_all(audit_path)
-            .expect("Failed to create audit directory");
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut file_perms = std::fs::metadata(audit_path)
-                .expect("Failed to get audit dir metadata")
-                .permissions();
-            file_perms.set_mode(0o700); // Owner read/write/execute only
-            std::fs::set_permissions(audit_path, file_perms)
-                .expect("Failed to set audit dir permissions");
-        }
-    }
-
     log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions, 5 proposal statuses + 5 transitions)", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
