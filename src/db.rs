@@ -486,3 +486,114 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions, 5 proposal statuses + 5 transitions)", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
+
+/// Extended seed for staging environment with realistic test data.
+/// Calls seed_ontology() first, then adds additional users, roles, and sample data.
+/// Safe to call repeatedly — checks for existing staging data before inserting.
+pub fn seed_staging(pool: &DbPool, admin_password_hash: &str) {
+    seed_ontology(pool, admin_password_hash);
+
+    let conn = pool.get().expect("Failed to get DB connection for staging seed");
+
+    let staging_marker: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities WHERE entity_type='user' AND name='alice'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    if staging_marker > 0 {
+        log::info!("Staging data already seeded, skipping");
+        return;
+    }
+
+    log::info!("Seeding staging data...");
+
+    let has_role_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_role'",
+        [], |row| row.get(0),
+    ).unwrap();
+    let has_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_permission'",
+        [], |row| row.get(0),
+    ).unwrap();
+
+    // Additional roles
+    let editor_role_id = insert_entity(&conn, "role", "editor", "Editor", 3);
+    insert_prop(&conn, editor_role_id, "description", "Can create and edit content");
+
+    let viewer_role_id = insert_entity(&conn, "role", "viewer", "Viewer", 4);
+    insert_prop(&conn, viewer_role_id, "description", "Read-only access");
+
+    let manager_role_id = insert_entity(&conn, "role", "manager", "Manager", 5);
+    insert_prop(&conn, manager_role_id, "description", "Can manage governance workflows");
+
+    // Editor permissions
+    let editor_perms = [
+        "dashboard.view", "users.list", "users.create", "users.edit",
+        "suggestion.view", "suggestion.create", "proposal.view", "proposal.create",
+        "proposal.edit", "proposal.submit", "settings.manage",
+    ];
+    for perm_code in &editor_perms {
+        let perm_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+            [perm_code], |row| row.get(0),
+        ).unwrap();
+        insert_relation(&conn, has_perm_id, editor_role_id, perm_id);
+    }
+
+    // Viewer permissions
+    let viewer_perms = ["dashboard.view", "users.list"];
+    for perm_code in &viewer_perms {
+        let perm_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+            [perm_code], |row| row.get(0),
+        ).unwrap();
+        insert_relation(&conn, has_perm_id, viewer_role_id, perm_id);
+    }
+
+    // Manager permissions
+    let manager_perms = [
+        "dashboard.view", "users.list", "users.create", "users.edit",
+        "tor.list", "tor.create", "tor.edit", "tor.manage_members",
+        "suggestion.view", "suggestion.create", "suggestion.review",
+        "proposal.view", "proposal.create", "proposal.edit", "proposal.submit",
+        "proposal.review", "proposal.approve",
+        "agenda.view", "agenda.create", "agenda.queue", "agenda.manage",
+        "agenda.participate", "agenda.decide",
+        "coa.create", "coa.edit",
+    ];
+    for perm_code in &manager_perms {
+        let perm_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+            [perm_code], |row| row.get(0),
+        ).unwrap();
+        insert_relation(&conn, has_perm_id, manager_role_id, perm_id);
+    }
+
+    // Additional users
+    let alice_id = insert_entity(&conn, "user", "alice", "Alice Editor", 0);
+    insert_prop(&conn, alice_id, "password", admin_password_hash);
+    insert_prop(&conn, alice_id, "email", "alice@example.com");
+    insert_relation(&conn, has_role_id, alice_id, editor_role_id);
+
+    let bob_id = insert_entity(&conn, "user", "bob", "Bob Viewer", 0);
+    insert_prop(&conn, bob_id, "password", admin_password_hash);
+    insert_prop(&conn, bob_id, "email", "bob@example.com");
+    insert_relation(&conn, has_role_id, bob_id, viewer_role_id);
+
+    let charlie_id = insert_entity(&conn, "user", "charlie", "Charlie Manager", 0);
+    insert_prop(&conn, charlie_id, "password", admin_password_hash);
+    insert_prop(&conn, charlie_id, "email", "charlie@example.com");
+    insert_relation(&conn, has_role_id, charlie_id, manager_role_id);
+
+    let diana_id = insert_entity(&conn, "user", "diana", "Diana Admin", 0);
+    insert_prop(&conn, diana_id, "password", admin_password_hash);
+    insert_prop(&conn, diana_id, "email", "diana@example.com");
+    let admin_role_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='role' AND name='admin'",
+        [], |row| row.get(0),
+    ).unwrap();
+    insert_relation(&conn, has_role_id, diana_id, admin_role_id);
+
+    log::info!("Staging data seeded: 3 additional roles (editor, viewer, manager), 4 additional users (alice, bob, charlie, diana)");
+}

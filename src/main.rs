@@ -13,17 +13,26 @@ mod templates_structs;
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
+    // Determine environment and data directory
+    let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "dev".to_string());
+    let data_dir = format!("data/{}", app_env);
+    log::info!("Environment: {} | Data directory: {}", app_env, data_dir);
+
     // Ensure data directory exists
-    std::fs::create_dir_all("data").expect("Failed to create data directory");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
     // Initialize database
-    let pool = db::init_pool("data/app.db");
+    let db_path = format!("{}/app.db", data_dir);
+    let pool = db::init_pool(&db_path);
     db::run_migrations(&pool);
 
-    // Seed ontology (relation types, roles, permissions, admin user) if empty
+    // Seed data based on environment
     let admin_hash = auth::password::hash_password("admin123")
         .expect("Failed to hash default password");
-    db::seed_ontology(&pool, &admin_hash);
+    match app_env.as_str() {
+        "staging" => db::seed_staging(&pool, &admin_hash),
+        _ => db::seed_ontology(&pool, &admin_hash),
+    }
 
     // Clean up old audit entries based on retention policy
     {
