@@ -8,6 +8,7 @@ mod errors;
 mod handlers;
 mod models;
 mod templates_structs;
+mod warnings;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
