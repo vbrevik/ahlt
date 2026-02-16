@@ -74,6 +74,9 @@ async fn main() -> std::io::Result<()> {
 
     let bind_addr = format!("{}:{}", host, port);
 
+    // WebSocket connection map for real-time warning notifications
+    let conn_map = handlers::warning_handlers::ws::new_connection_map();
+
     HttpServer::new(move || {
         let session_mw = SessionMiddleware::builder(
             CookieSessionStore::default(),
@@ -87,8 +90,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(session_mw)
             .wrap(middleware::Logger::default())
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(conn_map.clone()))
             // Static files
             .service(actix_files::Files::new("/static", "./static"))
+            // WebSocket route (before auth middleware scope)
+            .route("/ws/notifications", web::get().to(handlers::warning_handlers::ws::ws_connect))
             // Public routes
             .route("/login", web::get().to(handlers::auth_handlers::login_page))
             .route("/login", web::post().to(handlers::auth_handlers::login_submit))

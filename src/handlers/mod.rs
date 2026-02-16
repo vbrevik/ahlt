@@ -15,3 +15,4 @@ pub mod settings_handlers;
 pub mod suggestion_handlers;
 pub mod tor_handlers;
 pub mod user_handlers;
+pub mod warning_handlers;
