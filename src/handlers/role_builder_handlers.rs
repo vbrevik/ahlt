@@ -47,15 +47,13 @@ pub async fn wizard_form(
 
     let csrf_token = ctx.csrf_token.clone();
 
-    let _tmpl = RoleBuilderTemplate {
+    let tmpl = RoleBuilderTemplate {
         ctx,
         permission_groups,
         csrf_token,
     };
 
-    // Placeholder until template is created in Task 4
-    Ok(HttpResponse::Ok().body("Role builder wizard (template pending)"))
-    // Will be replaced with: render(tmpl)
+    render(tmpl)
 }
 
 pub async fn preview_menu(

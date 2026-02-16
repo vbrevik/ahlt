@@ -378,9 +378,8 @@ pub struct PermissionGroup {
     pub permissions: Vec<PermissionCheckbox>,
 }
 
-// Template derive will be uncommented in Task 4 when template is created
-// #[derive(Template)]
-// #[template(path = "roles/builder.html")]
+#[derive(Template)]
+#[template(path = "roles/builder.html")]
 pub struct RoleBuilderTemplate {
     pub ctx: PageContext,
     pub permission_groups: Vec<PermissionGroup>,
