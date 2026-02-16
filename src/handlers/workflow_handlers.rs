@@ -43,7 +43,6 @@ pub async fn view(
         suggestions,
         proposals,
         agenda_points,
-        status_filter: None,
     };
     render(tmpl)
 }

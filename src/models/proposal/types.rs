@@ -34,6 +34,7 @@ pub struct ProposalForm {
     pub title: String,
     pub description: String,
     pub rationale: String,
+    #[allow(dead_code)]
     pub related_suggestion_id: Option<String>,
     pub csrf_token: String,
 }

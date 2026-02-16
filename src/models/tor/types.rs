@@ -4,6 +4,7 @@ pub struct TorListItem {
     pub id: i64,
     pub name: String,
     pub label: String,
+    #[allow(dead_code)]
     pub description: String,
     pub status: String,
     pub meeting_cadence: String,
@@ -40,12 +41,15 @@ pub struct TorMember {
 /// A function assigned to a member (lightweight reference).
 #[derive(Debug, Clone)]
 pub struct TorFunctionRef {
+    #[allow(dead_code)]
     pub id: i64,
+    #[allow(dead_code)]
     pub name: String,
     pub label: String,
 }
 
 /// A tor_function entity with its authority properties.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TorFunctionDetail {
     pub id: i64,
@@ -64,6 +68,7 @@ pub struct TorFunctionDetail {
 /// For the function list on the ToR detail page.
 #[derive(Debug, Clone)]
 pub struct TorFunctionListItem {
+    #[allow(dead_code)]
     pub id: i64,
     pub name: String,
     pub label: String,

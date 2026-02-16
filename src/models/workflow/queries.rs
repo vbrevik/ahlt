@@ -3,60 +3,6 @@ use crate::errors::AppError;
 use crate::auth::session::Permissions;
 use super::types::*;
 
-/// Find all workflow statuses for a given entity type scope.
-pub fn find_statuses_for_type(conn: &Connection, entity_type_scope: &str) -> Result<Vec<WorkflowStatus>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT e.id, e.label, \
-                COALESCE(p_scope.value, '') AS entity_type_scope, \
-                COALESCE(p_code.value, '') AS status_code, \
-                COALESCE(p_initial.value, 'false') AS is_initial, \
-                COALESCE(p_terminal.value, 'false') AS is_terminal \
-         FROM entities e \
-         LEFT JOIN entity_properties p_scope ON e.id = p_scope.entity_id AND p_scope.key = 'entity_type_scope' \
-         LEFT JOIN entity_properties p_code ON e.id = p_code.entity_id AND p_code.key = 'status_code' \
-         LEFT JOIN entity_properties p_initial ON e.id = p_initial.entity_id AND p_initial.key = 'is_initial' \
-         LEFT JOIN entity_properties p_terminal ON e.id = p_terminal.entity_id AND p_terminal.key = 'is_terminal' \
-         WHERE e.entity_type = 'workflow_status' \
-           AND p_scope.value = ?1 \
-         ORDER BY e.sort_order, e.id"
-    ).map_err(AppError::Db)?;
-
-    let items = stmt.query_map(params![entity_type_scope], |row| {
-        let is_initial_str: String = row.get("is_initial")?;
-        let is_terminal_str: String = row.get("is_terminal")?;
-        Ok(WorkflowStatus {
-            id: row.get("id")?,
-            entity_type_scope: row.get("entity_type_scope")?,
-            status_code: row.get("status_code")?,
-            label: row.get("label")?,
-            is_initial: is_initial_str == "true",
-            is_terminal: is_terminal_str == "true",
-        })
-    }).map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
-
-    Ok(items)
-}
-
-/// Get the initial status code for an entity type.
-pub fn get_initial_status(conn: &Connection, entity_type_scope: &str) -> Result<String, AppError> {
-    let statuses = find_statuses_for_type(conn, entity_type_scope)?;
-    statuses.into_iter()
-        .find(|s| s.is_initial)
-        .map(|s| s.status_code)
-        .ok_or_else(|| AppError::Session(format!("No initial workflow status for {}", entity_type_scope)))
-}
-
-/// Get the label for a status code of a given entity type.
-pub fn get_status_label(conn: &Connection, entity_type_scope: &str, status_code: &str) -> Result<String, AppError> {
-    let statuses = find_statuses_for_type(conn, entity_type_scope)?;
-    statuses.into_iter()
-        .find(|s| s.status_code == status_code)
-        .map(|s| s.label)
-        .ok_or_else(|| AppError::Session(format!("Unknown status '{}' for {}", status_code, entity_type_scope)))
-}
-
 /// Find all available transitions from the current status,
 /// filtered by user permissions and entity properties (conditions).
 pub fn find_available_transitions(

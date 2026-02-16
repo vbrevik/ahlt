@@ -4,45 +4,6 @@ use crate::models::{entity, relation};
 use super::types::*;
 use super::sections;
 
-/// Find all COAs (simple and complex).
-pub fn find_all(conn: &Connection) -> Result<Vec<CoaListItem>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT e.id, \
-                COALESCE(p_title.value, '') AS title, \
-                COALESCE(p_type.value, 'simple') AS coa_type, \
-                COALESCE(p_created_by.value, '0') AS created_by, \
-                COALESCE(p_created_date.value, '') AS created_date \
-         FROM entities e \
-         LEFT JOIN entity_properties p_title \
-             ON e.id = p_title.entity_id AND p_title.key = 'title' \
-         LEFT JOIN entity_properties p_type \
-             ON e.id = p_type.entity_id AND p_type.key = 'coa_type' \
-         LEFT JOIN entity_properties p_created_by \
-             ON e.id = p_created_by.entity_id AND p_created_by.key = 'created_by' \
-         LEFT JOIN entity_properties p_created_date \
-             ON e.id = p_created_date.entity_id AND p_created_date.key = 'created_date' \
-         WHERE e.entity_type = 'coa' \
-         ORDER BY created_date DESC",
-    )?;
-
-    let items = stmt
-        .query_map([], |row| {
-            let created_by_str: String = row.get("created_by")?;
-            let created_by: i64 = created_by_str.parse().unwrap_or(0);
-
-            Ok(CoaListItem {
-                id: row.get("id")?,
-                title: row.get("title")?,
-                coa_type: row.get("coa_type")?,
-                created_by,
-                created_date: row.get("created_date")?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(items)
-}
-
 /// Find all COAs considered for a specific agenda point via considers_coa relation.
 pub fn find_all_for_agenda_point(conn: &Connection, agenda_point_id: i64) -> Result<Vec<CoaListItem>, AppError> {
     let mut stmt = conn.prepare(
@@ -198,25 +159,3 @@ pub fn add_section(
     Ok(section_id)
 }
 
-/// Add a subsection to a section via has_subsection relation.
-/// Returns the new subsection entity id.
-pub fn add_subsection(
-    conn: &Connection,
-    section_id: i64,
-    title: &str,
-    content: &str,
-    order: i32,
-) -> Result<i64, AppError> {
-    let name = format!("coa_subsection_{}_{}_{}", section_id, order, title.replace(' ', "_").to_lowercase());
-    let label = title.to_string();
-
-    let subsection_id = entity::create(conn, "coa_section", &name, &label).map_err(AppError::Db)?;
-
-    entity::set_property(conn, subsection_id, "title", title).map_err(AppError::Db)?;
-    entity::set_property(conn, subsection_id, "content", content).map_err(AppError::Db)?;
-    entity::set_property(conn, subsection_id, "order", &order.to_string()).map_err(AppError::Db)?;
-
-    relation::create(conn, "has_subsection", section_id, subsection_id).map_err(AppError::Db)?;
-
-    Ok(subsection_id)
-}

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// A workflow status (state) for a given entity type.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStatus {
     pub id: i64,
@@ -12,6 +13,7 @@ pub struct WorkflowStatus {
 }
 
 /// A valid transition between two statuses.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowTransition {
     pub id: i64,

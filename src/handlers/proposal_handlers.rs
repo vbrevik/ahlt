@@ -30,12 +30,10 @@ pub async fn detail(
 
     match proposal::find_by_id(&conn, proposal_id)? {
         Some(p) => {
-            let tor_name = tor::get_tor_name(&conn, tor_id)?;
             let ctx = PageContext::build(&session, &conn, "/workflow")?;
             let tmpl = ProposalDetailTemplate {
                 ctx,
                 tor_id,
-                tor_name,
                 proposal: p,
             };
             render(tmpl)

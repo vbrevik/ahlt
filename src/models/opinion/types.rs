@@ -50,6 +50,7 @@ pub struct OpinionSummary {
 }
 
 /// Decision record - the final decision made by decision authority on an agenda item.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecisionRecord {
     pub id: i64,

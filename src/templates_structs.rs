@@ -201,7 +201,6 @@ pub struct WorkflowTemplate {
     pub suggestions: Vec<SuggestionListItem>,
     pub proposals: Vec<ProposalListItem>,
     pub agenda_points: Vec<AgendaPointListItem>,
-    pub status_filter: Option<String>,
 }
 
 #[derive(Template)]
@@ -230,7 +229,6 @@ pub struct ProposalFormTemplate {
 pub struct ProposalDetailTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
-    pub tor_name: String,
     pub proposal: ProposalDetail,
 }
 
@@ -238,6 +236,7 @@ pub struct ProposalDetailTemplate {
 
 #[derive(Template)]
 #[template(path = "workflow/queue.html")]
+#[allow(dead_code)]
 pub struct QueueTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
@@ -252,7 +251,6 @@ pub struct QueueTemplate {
 pub struct AgendaPointFormTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
-    pub tor_name: String,
     pub form_action: String,
     pub form_title: String,
     pub agenda_point: Option<AgendaPointDetail>,
@@ -264,7 +262,6 @@ pub struct AgendaPointFormTemplate {
 pub struct AgendaPointDetailTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
-    pub tor_name: String,
     pub agenda_point: AgendaPointDetail,
     pub coas: Vec<CoaDetail>,
     pub opinions: Vec<OpinionSummary>,
@@ -278,7 +275,6 @@ pub struct AgendaPointDetailTemplate {
 pub struct CoaFormTemplate {
     pub ctx: PageContext,
     pub tor_id: i64,
-    pub agenda_point_id: i64,
     pub form_action: String,
     pub form_title: String,
     pub coa: Option<CoaDetail>,
@@ -320,7 +316,6 @@ pub struct MatrixCell {
 
 /// One row in the matrix (one permission, with cells for each role).
 pub struct PermissionRow {
-    pub permission_id: i64,
     pub code: String,
     pub label: String,
     pub cells: Vec<MatrixCell>,

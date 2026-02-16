@@ -187,14 +187,3 @@ pub fn update(
     Ok(())
 }
 
-/// Update the status of an agenda point (e.g. scheduled -> in_progress -> voted -> completed).
-pub fn update_status(conn: &Connection, agenda_point_id: i64, new_status: &str) -> Result<(), AppError> {
-    entity::set_property(conn, agenda_point_id, "status", new_status)?;
-    Ok(())
-}
-
-/// Link an agenda point to a COA via the `considers_coa` relation.
-pub fn link_coa(conn: &Connection, agenda_point_id: i64, coa_id: i64) -> Result<(), AppError> {
-    relation::create(conn, "considers_coa", agenda_point_id, coa_id)?;
-    Ok(())
-}

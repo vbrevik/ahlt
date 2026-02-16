@@ -264,12 +264,3 @@ pub fn get_opinions_summary(
     Ok(results)
 }
 
-/// Delete an opinion by id.
-pub fn delete_opinion(
-    conn: &Connection,
-    id: i64,
-) -> Result<(), AppError> {
-    entity::delete(conn, id)
-        .map_err(|e| AppError::Db(e))?;
-    Ok(())
-}

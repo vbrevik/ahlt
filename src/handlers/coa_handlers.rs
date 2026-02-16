@@ -30,13 +30,11 @@ pub async fn new_form(
     // Verify agenda point exists in this ToR
     match agenda_point::find_by_id(&conn, agenda_point_id) {
         Ok(_) => {
-            let _tor_name = tor::get_tor_name(&conn, tor_id)?;
             let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
             let tmpl = CoaFormTemplate {
                 ctx,
                 tor_id,
-                agenda_point_id,
                 form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}/coa"),
                 form_title: "New Course of Action".to_string(),
                 coa: None,
@@ -89,12 +87,10 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let _tor_name = tor::get_tor_name(&conn, tor_id)?;
         let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,
-            agenda_point_id,
             form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}/coa"),
             form_title: "New Course of Action".to_string(),
             coa: None,
@@ -146,13 +142,11 @@ pub async fn edit_form(
 
     match coa::find_by_id(&conn, coa_id) {
         Ok(coa_detail) => {
-            let _tor_name = tor::get_tor_name(&conn, tor_id)?;
             let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
             let tmpl = CoaFormTemplate {
                 ctx,
                 tor_id,
-                agenda_point_id,
                 form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}/coa/{coa_id}"),
                 form_title: format!("Edit: {}", &coa_detail.title),
                 coa: Some(coa_detail),
@@ -201,13 +195,11 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let _tor_name = tor::get_tor_name(&conn, tor_id)?;
         let coa_detail = coa::find_by_id(&conn, coa_id).ok();
         let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,
-            agenda_point_id,
             form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}/coa/{coa_id}"),
             form_title: format!("Edit: {}", &coa_detail.as_ref().map(|c| &c.title).unwrap_or(&"COA".to_string())),
             coa: coa_detail,

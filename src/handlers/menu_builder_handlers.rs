@@ -66,7 +66,6 @@ pub async fn index(
             .collect();
 
         current_perms.push(PermissionRow {
-            permission_id: perm.id,
             code: perm.code.clone(),
             label: perm.label.clone(),
             cells,

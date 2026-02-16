@@ -27,13 +27,11 @@ pub async fn new_form(
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&conn, user_id, tor_id)?;
 
-    let tor_name = tor::get_tor_name(&conn, tor_id)?;
     let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
     let tmpl = AgendaPointFormTemplate {
         ctx,
         tor_id,
-        tor_name,
         form_action: format!("/tor/{tor_id}/workflow/agenda"),
         form_title: "New Agenda Point".to_string(),
         agenda_point: None,
@@ -85,12 +83,10 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let tor_name = tor::get_tor_name(&conn, tor_id)?;
         let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,
-            tor_name,
             form_action: format!("/tor/{tor_id}/workflow/agenda"),
             form_title: "New Agenda Point".to_string(),
             agenda_point: None,
@@ -133,7 +129,6 @@ pub async fn detail(
 
     match agenda_point::find_by_id(&conn, agenda_point_id)? {
         Some(ap) => {
-            let tor_name = tor::get_tor_name(&conn, tor_id)?;
             let ctx = PageContext::build(&session, &conn, "/workflow")?;
 
             // Fetch related COAs
@@ -184,7 +179,6 @@ pub async fn detail(
             let tmpl = AgendaPointDetailTemplate {
                 ctx,
                 tor_id,
-                tor_name,
                 agenda_point: ap,
                 coas,
                 opinions,
@@ -212,12 +206,10 @@ pub async fn edit_form(
 
     match agenda_point::find_by_id(&conn, agenda_point_id)? {
         Some(ap) => {
-            let tor_name = tor::get_tor_name(&conn, tor_id)?;
             let ctx = PageContext::build(&session, &conn, "/workflow")?;
             let tmpl = AgendaPointFormTemplate {
                 ctx,
                 tor_id,
-                tor_name,
                 form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}"),
                 form_title: "Edit Agenda Point".to_string(),
                 agenda_point: Some(ap),
@@ -273,12 +265,10 @@ pub async fn update(
 
     if !errors.is_empty() {
         let existing = agenda_point::find_by_id(&conn, agenda_point_id).ok().flatten();
-        let tor_name = tor::get_tor_name(&conn, tor_id)?;
         let ctx = PageContext::build(&session, &conn, "/workflow")?;
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,
-            tor_name,
             form_action: format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}"),
             form_title: "Edit Agenda Point".to_string(),
             agenda_point: existing,
