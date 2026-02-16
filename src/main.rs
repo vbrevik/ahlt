@@ -181,6 +181,8 @@ async fn main() -> std::io::Result<()> {
                     // Warnings — /warnings before /warnings/{id}
                     .route("/warnings", web::get().to(handlers::warning_handlers::list::list))
                     .route("/warnings/{id}", web::get().to(handlers::warning_handlers::detail::detail))
+                    .route("/warnings/{id}/delete", web::post().to(handlers::warning_handlers::actions::mark_deleted))
+                    .route("/warnings/{id}/forward", web::post().to(handlers::warning_handlers::actions::forward))
                     // Account
                     .route("/account", web::get().to(handlers::account_handlers::form))
                     .route("/account", web::post().to(handlers::account_handlers::submit))
