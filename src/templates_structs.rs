@@ -44,7 +44,8 @@ impl PageContext {
         let app_name = setting::get_value(conn, "app.name", "Ahlt");
         let csrf_token = csrf::get_or_create_token(session);
         let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
-        let warning_count = 0;
+        let user_id = crate::auth::session::get_user_id(session).unwrap_or(0);
+        let warning_count = crate::warnings::queries::count_unread(conn, user_id);
         Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count })
     }
 }
