@@ -300,21 +300,25 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Code Quality**: 0 new errors, integrated subagent-driven development for quality gates
 - **Production Ready**: All routes wired, permissions integrated, audit logging, CSRF protection
 
-### Phase 2a Automated Testing - Infrastructure Foundation (In Progress)
-- **Test Dependencies**: Added actix-rt, serde_urlencoded, regex to dev-dependencies
-- **Infrastructure Helpers**: Test database management (test_db_path, cleanup_test_db)
-- **CSRF Extraction**: Regex-based CSRF token extraction from HTML forms
-- **Infrastructure Tests**: 3 tests passing (compilation, CSRF extraction, error handling)
-- **Test Strategy**: Database-level testing following Phase 2b pattern (validated EAV model, permissions, auth logic)
-- **Planned Tests**: 7 more tests for authentication, user CRUD, and permission enforcement
-- **Code Quality**: 0 new errors, all 21 tests passing (3 Phase 2a + 12 Phase 2b + 3 workflow + 3 existing)
+### Phase 2a Automated Testing (Complete)
+- **Test Dependencies**: Added tempfile, rusqlite, regex, serde_json to dev-dependencies
+- **Infrastructure**: Shared `setup_test_db()` with TempDir, `insert_entity/prop/relation` helpers, `get_permissions_for_user` query, CSRF extraction
+- **17 Tests Covering**:
+  - Infrastructure (3): schema compilation, CSRF extraction, missing token handling
+  - Authentication (3): user lookup, nonexistent user, permission assignment through role chain
+  - User CRUD (3): create+retrieve with properties, update via upsert, delete with CASCADE verification
+  - User Search (1): LIKE search on name/label, LIMIT/OFFSET pagination, entity type filtering
+  - Data Integrity (2): UNIQUE(entity_type, name) constraint, UNIQUE relation constraint preventing duplicates
+  - Permission Enforcement (3): admin has all permissions, viewer has limited permissions, no-role user has zero permissions
+  - Role Lifecycle (1): grant permissions, inherit through role, revoke permission, verify loss
+  - Nav Gating (1): requires_permission relation filtering nav items by user permissions
+- **Code Quality**: 0 errors, 0 warnings, all 32 tests passing (17 Phase 2a + 12 Phase 2b + 3 workflow)
 
 ---
 
 ## Remaining Backlog
 
 ### Testing & Deployment
-- Phase 2a automated tests - full implementation (7 additional tests for auth, CRUD, permissions)
 - Production deployment preparation (env vars, session key, etc.)
 
 ### Future Features
@@ -330,9 +334,9 @@ All domain objects share three generic tables — no dedicated tables per type:
 ```
 DONE                                NEXT                          LATER
 ════                                ════                          ═════
-Epic 1: Ontology Foundation         Phase 2a tests - full impl     Warnings system
-Epic 2: Data-Driven Nav             Production deployment         More entity types
-5.1 Self-deletion guard                                           API access
+Epic 1: Ontology Foundation         Production deployment          Warnings system
+Epic 2: Data-Driven Nav                                            More entity types
+5.1 Self-deletion guard                                            API access
 5.2 Last admin guard
 5.3 Session key from env
 5.4 CSRF protection
@@ -359,9 +363,9 @@ Manual testing (complete)
 6.6 Frontend design review
 4.2 Menu Builder
 Phase 2b Workflows (complete)
-Phase 2a Testing:
-- Infrastructure foundation (DONE)
-- Full test suite (7 more tests)
+Phase 2a Testing (complete):
+- Infrastructure foundation
+- Full test suite (17 tests)
 ```
 
 ## Architecture Decisions
