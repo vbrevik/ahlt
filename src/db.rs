@@ -92,6 +92,13 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _prefers_coa_id = insert_entity(&conn, "relation_type", "prefers_coa", "Prefers COA", 0);
     let _presents_id = insert_entity(&conn, "relation_type", "presents", "Presents", 0);
 
+    // --- Warning system relation types ---
+    let _targets_user_id = insert_entity(&conn, "relation_type", "targets_user", "Targets User", 0);
+    let _for_warning_id = insert_entity(&conn, "relation_type", "for_warning", "For Warning", 0);
+    let _for_user_id = insert_entity(&conn, "relation_type", "for_user", "For User", 0);
+    let _on_receipt_id = insert_entity(&conn, "relation_type", "on_receipt", "On Receipt", 0);
+    let _forwarded_to_user_id = insert_entity(&conn, "relation_type", "forwarded_to_user", "Forwarded To User", 0);
+
     // --- Roles ---
     let admin_role_id = insert_entity(&conn, "role", "admin", "Administrator", 1);
     insert_prop(&conn, admin_role_id, "description", "Full system access");
@@ -274,6 +281,22 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, audit_retention_id, "value", "90");
     insert_prop(&conn, audit_retention_id, "setting_type", "number");
     insert_prop(&conn, audit_retention_id, "description", "Days to keep audit entries in database (0 = forever)");
+
+    // --- Warning retention settings ---
+    let warn_ret_resolved = insert_entity(&conn, "setting", "warnings.retention_resolved_days", "Warning Retention (Resolved)", 6);
+    insert_prop(&conn, warn_ret_resolved, "value", "30");
+    insert_prop(&conn, warn_ret_resolved, "description", "Days to keep resolved warnings before deletion");
+    insert_prop(&conn, warn_ret_resolved, "setting_type", "number");
+
+    let warn_ret_info = insert_entity(&conn, "setting", "warnings.retention_info_days", "Warning Auto-Resolve (Info)", 7);
+    insert_prop(&conn, warn_ret_info, "value", "90");
+    insert_prop(&conn, warn_ret_info, "description", "Days before info-severity warnings are auto-resolved");
+    insert_prop(&conn, warn_ret_info, "setting_type", "number");
+
+    let warn_ret_deleted = insert_entity(&conn, "setting", "warnings.retention_deleted_days", "Warning Retention (Deleted)", 8);
+    insert_prop(&conn, warn_ret_deleted, "value", "7");
+    insert_prop(&conn, warn_ret_deleted, "description", "Days to keep fully-dismissed warnings before deletion");
+    insert_prop(&conn, warn_ret_deleted, "setting_type", "number");
 
     // --- Nav→permission relations ---
     // Dashboard requires dashboard.view
