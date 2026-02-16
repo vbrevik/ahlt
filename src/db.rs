@@ -140,6 +140,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("coa.create", "Create Courses of Action", "Workflow"),
         ("coa.edit", "Edit Courses of Action", "Workflow"),
         ("workflow.manage", "Manage Workflow System", "Governance"),
+        ("warnings.view", "View Warnings", "Admin"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -257,6 +258,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_menu_builder_id, "url", "/menu-builder");
     insert_prop(&conn, nav_admin_menu_builder_id, "parent", "admin");
 
+    // Admin → Warnings: sidebar child
+    let nav_admin_warnings_id = insert_entity(&conn, "nav_item", "admin.warnings", "Warnings", 7);
+    insert_prop(&conn, nav_admin_warnings_id, "url", "/warnings");
+    insert_prop(&conn, nav_admin_warnings_id, "parent", "admin");
+
     // Governance: module header
     let _nav_governance_id = insert_entity(&conn, "nav_item", "governance", "Governance", 3);
     insert_prop(&conn, _nav_governance_id, "url", "/tor");
@@ -319,6 +325,13 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
 
     // Admin > Menu Builder requires roles.manage
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_menu_builder_id, roles_manage_perm_id);
+
+    // Admin > Warnings requires warnings.view
+    let warnings_view_perm_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='permission' AND name='warnings.view'",
+        [], |row| row.get(0),
+    ).unwrap();
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_warnings_id, warnings_view_perm_id);
 
     // Governance > Terms of Reference requires tor.list
     let tor_list_perm_id: i64 = conn.query_row(
@@ -488,7 +501,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
     insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
 
-    log::info!("Seeded ontology: 21 relation types, 2 roles, {} permissions (21 base + 9 Phase 2b), 11 nav items, 5 settings, 1 admin user, workflow entities (3 suggestion statuses + 3 transitions, 5 proposal statuses + 5 transitions)", perms.len());
+    log::info!("Seeded ontology: 26 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
 
