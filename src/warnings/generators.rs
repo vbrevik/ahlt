@@ -36,7 +36,7 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
     }
 
     let message = format!("{} user(s) have no role assigned", user_ids.len());
-    let details = serde_json::json!({ "user_ids": user_ids }).to_string();
+    let details = serde_json::json!({ "dedup": "users_without_role", "user_ids": user_ids }).to_string();
 
     let warning_id = match super::create_warning(
         conn, "medium", "data_integrity", source_action,
@@ -87,9 +87,10 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
     let message = format!("Database size is {} MB (threshold: {} MB)", size_mb, threshold_mb);
     let severity = if size_mb > threshold_mb * 2 { "high" } else { "medium" };
 
+    let details = serde_json::json!({ "dedup": "database_size", "size_mb": size_mb }).to_string();
     let warning_id = match super::create_warning(
         conn, severity, "system", source_action,
-        &message, "", "system",
+        &message, &details, "system",
     ) {
         Ok(id) => id,
         Err(e) => {
@@ -104,7 +105,7 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
         return;
     }
 
-    if let Ok(_) = super::create_receipts(conn, warning_id, &admin_ids) {
+    if super::create_receipts(conn, warning_id, &admin_ids).is_ok() {
         crate::handlers::warning_handlers::ws::notify_users(
             conn_map, pool, &admin_ids, warning_id, severity, &message,
         );

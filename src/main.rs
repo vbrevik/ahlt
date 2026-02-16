@@ -1,14 +1,7 @@
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, cookie::Key, middleware, web};
 
-mod audit;
-mod auth;
-mod db;
-mod errors;
-mod handlers;
-mod models;
-mod templates_structs;
-mod warnings;
+use ahlt::{audit, auth, db, handlers, warnings};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

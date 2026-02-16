@@ -323,12 +323,29 @@ All domain objects share three generic tables — no dedicated tables per type:
   - Nav Gating (1): requires_permission relation filtering nav items by user permissions
 - **Code Quality**: 0 errors, 0 warnings, all 32 tests passing (17 Phase 2a + 12 Phase 2b + 3 workflow)
 
+### Warnings System (Complete)
+- **Architecture**: Three-layer EAV model (warning→warning_receipt→warning_event) with per-user receipt tracking
+- **Crate Split**: Created `src/lib.rs` to enable integration test imports (`ahlt::warnings::*`)
+- **Core Module** (`src/warnings/`): create_warning, create_receipts, update_receipt_status, resolve_warning, warning_exists (dedup), get_users_with_permission
+- **Query Layer** (`src/warnings/queries.rs`): count_unread, find_for_user (paginated+filtered), get_warning_detail, get_recipients, get_receipt_timeline, find_receipt_for_user
+- **WebSocket Notifications** (`src/handlers/warning_handlers/ws.rs`): Real-time push via ConnectionMap, auto-reconnecting client JS, toast notifications with severity colors
+- **UI**: Warning list page with category/severity/status filters + pagination; detail page with auto-mark-as-read, forward dropdown, event timeline, recipients sidebar
+- **Actions**: Mark-as-deleted (soft delete), forward to another user (creates new receipt + WS notification)
+- **Background Scheduler**: 5-minute interval running generators (users without roles, DB size) + retention cleanup
+- **Event-Driven Generators**: Inline warnings on user create/delete, role permission changes
+- **Relation Types**: targets_user, for_warning, for_user, on_receipt, forwarded_to_user
+- **Settings**: warnings.retention_resolved_days (30), warnings.retention_deleted_days (7)
+- **Permission**: `warnings.view` permission, `admin.warnings` nav item
+- **Badge**: Live unread count in navbar avatar dropdown, WebSocket-updated
+- **Integration Tests**: 7 tests covering create, receipts, count_unread, mark_read, deduplication, pagination, detail, timeline
+- **Bug Fix**: Dedup function `warning_exists()` requires dedup key in `details` field — fixed generators to include it
+- **Code Quality**: 0 errors, all 39 tests passing (17+12+7+3)
+
 ---
 
 ## Remaining Backlog
 
 ### Future Features
-- Warnings system (already has navbar badge placeholder)
 - More entity types (projects, tasks, documents, etc.)
 - Configurable workflows
 - API access for external integrations
@@ -373,6 +390,13 @@ Phase 2a Testing (complete):
 - Infrastructure foundation
 - Full test suite (17 tests)
 Production deployment (complete)
+Warnings system (complete):
+- Core module + queries
+- WebSocket real-time push
+- List/detail UI + actions
+- Background scheduler
+- Event-driven generators
+- Integration tests (7)
 ```
 
 ## Architecture Decisions
