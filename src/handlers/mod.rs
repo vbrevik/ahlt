@@ -11,6 +11,7 @@ pub mod workflow_handlers;
 pub mod proposal_handlers;
 pub mod queue_handlers;
 pub mod role_handlers;
+pub mod role_builder_handlers;
 pub mod settings_handlers;
 pub mod suggestion_handlers;
 pub mod tor_handlers;
