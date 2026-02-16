@@ -77,6 +77,9 @@ async fn main() -> std::io::Result<()> {
     // WebSocket connection map for real-time warning notifications
     let conn_map = handlers::warning_handlers::ws::new_connection_map();
 
+    // Spawn background scheduler for warning generators and cleanup
+    warnings::scheduler::spawn_scheduler(pool.clone(), conn_map.clone(), data_dir.clone());
+
     HttpServer::new(move || {
         let session_mw = SessionMiddleware::builder(
             CookieSessionStore::default(),
