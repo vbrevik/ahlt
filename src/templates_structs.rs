@@ -5,6 +5,7 @@ use rusqlite::Connection;
 use crate::errors::AppError;
 use crate::models::user::{UserDisplay, UserPage};
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
+use crate::models::role::builder::NavItemPreview;
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
@@ -367,4 +368,41 @@ pub struct WarningDetailTemplate {
     pub timeline: Vec<WarningTimelineEvent>,
     pub user_receipt_id: i64,
     pub users: Vec<UserOption>,
+}
+
+// Role Builder Template and Types
+
+/// A group of permissions for the role builder.
+pub struct PermissionGroup {
+    pub group_name: String,
+    pub permissions: Vec<PermissionCheckbox>,
+}
+
+// Template derive will be uncommented in Task 4 when template is created
+// #[derive(Template)]
+// #[template(path = "roles/builder.html")]
+pub struct RoleBuilderTemplate {
+    pub ctx: PageContext,
+    pub permission_groups: Vec<PermissionGroup>,
+    pub csrf_token: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PreviewRequest {
+    pub permission_ids: Vec<i64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PreviewResponse {
+    pub items: Vec<NavItemPreview>,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RoleBuilderForm {
+    pub name: String,
+    pub label: String,
+    pub description: String,
+    pub permission_ids: String, // JSON array
+    pub csrf_token: String,
 }
