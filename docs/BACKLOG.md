@@ -397,6 +397,17 @@ Warnings system (complete):
 - Background scheduler
 - Event-driven generators
 - Integration tests (7)
+
+### Roles Builder (4.3)
+- Three-step wizard: role details → permission selection → menu preview
+- Menu preview: real-time calculation of accessible nav items based on selected permissions
+- Permission grouping by group_name with "Select All" toggles per section
+- Safe DOM manipulation (createElement/textContent) preventing XSS vulnerabilities
+- Form validation: alphanumeric role names, uniqueness checks, required fields
+- Audit logging: role creation tracked with permission count
+- Routes: `/roles/builder` (wizard), `/roles/builder/preview` (AJAX), `/roles/builder/create` (submit)
+- Integration tests (5): role creation, uniqueness, menu preview, empty roles, permission checks
+- SQL script for adding nav item to admin module
 ```
 
 ## Architecture Decisions
