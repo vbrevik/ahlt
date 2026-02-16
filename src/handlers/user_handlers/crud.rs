@@ -8,6 +8,7 @@ use crate::auth::{csrf, password};
 use crate::auth::session::{get_user_id, require_permission};
 use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
+use crate::handlers::warning_handlers::ws::ConnectionMap;
 use crate::templates_structs::{PageContext, UserFormTemplate};
 
 pub async fn new_form(
@@ -35,6 +36,7 @@ pub async fn create(
     pool: web::Data<DbPool>,
     session: Session,
     form: web::Form<UserForm>,
+    conn_map: web::Data<ConnectionMap>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.create")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
@@ -99,6 +101,20 @@ pub async fn create(
             });
             let _ = crate::audit::log(&conn, current_user_id, "user.created",
                                       "user", user_id, details);
+
+            // Generate info warning for admins
+            let msg = format!("User '{}' was created", new.username);
+            if let Ok(wid) = crate::warnings::create_warning(
+                &conn, "info", "governance", "event.user.created", &msg, "", "system"
+            ) {
+                let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                if !admins.is_empty() {
+                    let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                    crate::handlers::warning_handlers::ws::notify_users(
+                        &conn_map, &pool, &admins, wid, "info", &msg,
+                    );
+                }
+            }
 
             let _ = session.insert("flash", "User created successfully");
             Ok(HttpResponse::SeeOther()
@@ -275,6 +291,7 @@ pub async fn delete(
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
+    conn_map: web::Data<ConnectionMap>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.delete")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
@@ -318,6 +335,20 @@ pub async fn delete(
                 });
                 let _ = crate::audit::log(&conn, current_user_id, "user.deleted",
                                           "user", id, details);
+
+                // Generate warning for admins
+                let msg = format!("User '{}' was deleted", deleted_user.username);
+                if let Ok(wid) = crate::warnings::create_warning(
+                    &conn, "medium", "governance", "event.user.deleted", &msg, "", "system"
+                ) {
+                    let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                    if !admins.is_empty() {
+                        let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                        crate::handlers::warning_handlers::ws::notify_users(
+                            &conn_map, &pool, &admins, wid, "medium", &msg,
+                        );
+                    }
+                }
             }
 
             let _ = session.insert("flash", "User deleted");

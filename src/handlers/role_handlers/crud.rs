@@ -7,6 +7,7 @@ use crate::auth::csrf;
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
+use crate::handlers::warning_handlers::ws::ConnectionMap;
 use crate::templates_structs::{PageContext, RoleFormTemplate};
 
 use super::helpers::*;
@@ -148,6 +149,7 @@ pub async fn update(
     session: Session,
     path: web::Path<i64>,
     body: String,
+    conn_map: web::Data<ConnectionMap>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "roles.manage")?;
 
@@ -201,6 +203,20 @@ pub async fn update(
             });
             let _ = crate::audit::log(&conn, current_user_id, "role.permissions_changed",
                                       "role", id, details);
+
+            // Generate info warning for admins about permission change
+            let msg = format!("Permissions updated for role '{}'", label.trim());
+            if let Ok(wid) = crate::warnings::create_warning(
+                &conn, "info", "security", "event.role.permissions_changed", &msg, "", "system"
+            ) {
+                let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                if !admins.is_empty() {
+                    let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                    crate::handlers::warning_handlers::ws::notify_users(
+                        &conn_map, &pool, &admins, wid, "info", &msg,
+                    );
+                }
+            }
 
             let _ = session.insert("flash", "Role updated successfully");
             Ok(HttpResponse::SeeOther()
