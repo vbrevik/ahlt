@@ -16,6 +16,7 @@ use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail};
 use crate::models::coa::{CoaListItem, CoaDetail};
 use crate::models::opinion::{OpinionDetail, OpinionSummary};
 use crate::models::workflow::AvailableTransition;
+use crate::warnings::queries::{WarningPage, WarningDetail, WarningRecipient, WarningTimelineEvent};
 use crate::auth::csrf;
 use crate::auth::session::{Permissions, get_username, get_permissions, take_flash};
 
@@ -342,4 +343,28 @@ pub struct MenuBuilderTemplate {
     pub roles: Vec<RoleColumn>,
     pub page_groups: Vec<PageGroup>,
     pub col_count: usize,
+}
+
+// --- Warning templates ---
+
+#[derive(Template)]
+#[template(path = "warnings/list.html")]
+pub struct WarningListTemplate {
+    pub ctx: PageContext,
+    pub warning_page: WarningPage,
+    pub category_filter: Option<String>,
+    pub severity_filter: Option<String>,
+    pub show_read: bool,
+    pub show_deleted: bool,
+}
+
+#[derive(Template)]
+#[template(path = "warnings/detail.html")]
+pub struct WarningDetailTemplate {
+    pub ctx: PageContext,
+    pub warning: WarningDetail,
+    pub recipients: Vec<WarningRecipient>,
+    pub timeline: Vec<WarningTimelineEvent>,
+    pub user_receipt_id: i64,
+    pub users: Vec<UserOption>,
 }

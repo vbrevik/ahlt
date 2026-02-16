@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Warning — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <div>
+        <a href="/warnings" class="btn btn-sm">Back to Warnings</a>
+    </div>
+    <h1>
+        <span class="severity-dot severity-{{ warning.severity }}"></span>
+        {{ warning.message }}
+    </h1>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-main">
+        <div class="card">
+            <div class="card-header">Warning Details</div>
+            <div class="card-body">
+                <dl class="detail-list">
+                    <dt>Severity</dt>
+                    <dd><span class="badge badge-severity-{{ warning.severity }}">{{ warning.severity }}</span></dd>
+
+                    <dt>Category</dt>
+                    <dd><span class="badge badge-{{ warning.category }}">{{ warning.category }}</span></dd>
+
+                    <dt>Status</dt>
+                    <dd>{{ warning.status }}</dd>
+
+                    <dt>Scope</dt>
+                    <dd>{{ warning.scope }}</dd>
+
+                    <dt>Source Action</dt>
+                    <dd><code>{{ warning.source_action }}</code></dd>
+
+                    <dt>Created</dt>
+                    <dd>{{ warning.created_at }}</dd>
+                </dl>
+
+                {% if !warning.details.is_empty() %}
+                <h3>Details</h3>
+                <pre class="detail-json">{{ warning.details }}</pre>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if user_receipt_id > 0 %}
+        <div class="card">
+            <div class="card-header">Actions</div>
+            <div class="card-body">
+                <div class="action-bar">
+                    <form method="post" action="/warnings/{{ warning.id }}/delete" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="receipt_id" value="{{ user_receipt_id }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Dismiss</button>
+                    </form>
+
+                    <form method="post" action="/warnings/{{ warning.id }}/forward" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <select name="target_user_id" class="filter-select" required>
+                            <option value="">Forward to...</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm">Forward</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if !timeline.is_empty() %}
+        <div class="card">
+            <div class="card-header">Timeline</div>
+            <div class="card-body">
+                <ul class="timeline">
+                    {% for evt in timeline %}
+                    <li class="timeline-item">
+                        <span class="timeline-action">{{ evt.action }}</span>
+                        by <strong>{{ evt.actor_username }}</strong>
+                        <span class="timeline-time">{{ evt.created_at }}</span>
+                        {% if !evt.note.is_empty() %}
+                        <div class="timeline-note">{{ evt.note }}</div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="detail-sidebar">
+        <div class="card">
+            <div class="card-header">Recipients</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in recipients %}
+                        <tr>
+                            <td>{{ r.user_label }} <small>({{ r.username }})</small></td>
+                            <td><span class="status-{{ r.status }}">{{ r.status }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

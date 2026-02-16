@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Warnings — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Warnings</h1>
+</div>
+
+<form method="get" action="/warnings" class="search-form">
+    <select name="category" class="filter-select">
+        <option value="all" {% if category_filter.is_none() %}selected{% endif %}{% if let Some(c) = category_filter %}{% if c == "all" %}selected{% endif %}{% endif %}>All Categories</option>
+        <option value="governance" {% if let Some(c) = category_filter %}{% if c == "governance" %}selected{% endif %}{% endif %}>Governance</option>
+        <option value="security" {% if let Some(c) = category_filter %}{% if c == "security" %}selected{% endif %}{% endif %}>Security</option>
+        <option value="data_integrity" {% if let Some(c) = category_filter %}{% if c == "data_integrity" %}selected{% endif %}{% endif %}>Data Integrity</option>
+        <option value="system" {% if let Some(c) = category_filter %}{% if c == "system" %}selected{% endif %}{% endif %}>System</option>
+    </select>
+
+    <select name="severity" class="filter-select">
+        <option value="all" {% if severity_filter.is_none() %}selected{% endif %}{% if let Some(s) = severity_filter %}{% if s == "all" %}selected{% endif %}{% endif %}>All Severities</option>
+        <option value="critical" {% if let Some(s) = severity_filter %}{% if s == "critical" %}selected{% endif %}{% endif %}>Critical</option>
+        <option value="high" {% if let Some(s) = severity_filter %}{% if s == "high" %}selected{% endif %}{% endif %}>High</option>
+        <option value="medium" {% if let Some(s) = severity_filter %}{% if s == "medium" %}selected{% endif %}{% endif %}>Medium</option>
+        <option value="low" {% if let Some(s) = severity_filter %}{% if s == "low" %}selected{% endif %}{% endif %}>Low</option>
+        <option value="info" {% if let Some(s) = severity_filter %}{% if s == "info" %}selected{% endif %}{% endif %}>Info</option>
+    </select>
+
+    <label class="filter-checkbox">
+        <input type="checkbox" name="show_read" value="true" {% if show_read %}checked{% endif %}> Show Read
+    </label>
+    <label class="filter-checkbox">
+        <input type="checkbox" name="show_deleted" value="true" {% if show_deleted %}checked{% endif %}> Show Deleted
+    </label>
+
+    <button type="submit" class="btn">Filter</button>
+    {% if category_filter.is_some() || severity_filter.is_some() || show_read || show_deleted %}
+    <a href="/warnings" class="btn">Clear</a>
+    {% endif %}
+</form>
+
+{% if warning_page.total_pages > 1 %}
+<div class="pagination-info">
+    Page {{ warning_page.page }} of {{ warning_page.total_pages }} ({{ warning_page.total_count }} total)
+</div>
+{% endif %}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th></th>
+            <th>Message</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if warning_page.items.is_empty() %}
+        <tr>
+            <td colspan="5">
+                <div class="empty-state">
+                    <div class="empty-state-title">No warnings</div>
+                    <div class="empty-state-text">You have no warnings matching these filters.</div>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        {% for item in warning_page.items %}
+        <tr>
+            <td><span class="severity-dot severity-{{ item.severity }}" title="{{ item.severity }}"></span></td>
+            <td><a href="/warnings/{{ item.warning_id }}">{{ item.message }}</a></td>
+            <td><span class="badge badge-{{ item.category }}">{{ item.category }}</span></td>
+            <td><span class="status-{{ item.status }}">{{ item.status }}</span></td>
+            <td>{{ item.created_at }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+    </tbody>
+</table>
+
+{% if warning_page.total_pages > 1 %}
+<div class="pagination">
+    <div class="pagination-controls">
+        {% if warning_page.page > 1 %}
+        <a href="/warnings?page={{ warning_page.page - 1 }}&per_page={{ warning_page.per_page }}{% if let Some(c) = category_filter %}&category={{ c|urlencode }}{% endif %}{% if let Some(s) = severity_filter %}&severity={{ s|urlencode }}{% endif %}{% if show_read %}&show_read=true{% endif %}{% if show_deleted %}&show_deleted=true{% endif %}" class="btn btn-sm">Previous</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>Previous</span>
+        {% endif %}
+
+        <span class="pagination-current">Page {{ warning_page.page }} of {{ warning_page.total_pages }}</span>
+
+        {% if warning_page.page < warning_page.total_pages %}
+        <a href="/warnings?page={{ warning_page.page + 1 }}&per_page={{ warning_page.per_page }}{% if let Some(c) = category_filter %}&category={{ c|urlencode }}{% endif %}{% if let Some(s) = severity_filter %}&severity={{ s|urlencode }}{% endif %}{% if show_read %}&show_read=true{% endif %}{% if show_deleted %}&show_deleted=true{% endif %}" class="btn btn-sm">Next</a>
+        {% else %}
+        <span class="btn btn-sm" disabled>Next</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

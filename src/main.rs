@@ -178,6 +178,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/input", web::post().to(handlers::opinion_handlers::submit))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/decide", web::get().to(handlers::opinion_handlers::decision_form))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/decide", web::post().to(handlers::opinion_handlers::record_decision))
+                    // Warnings — /warnings before /warnings/{id}
+                    .route("/warnings", web::get().to(handlers::warning_handlers::list::list))
+                    .route("/warnings/{id}", web::get().to(handlers::warning_handlers::detail::detail))
                     // Account
                     .route("/account", web::get().to(handlers::account_handlers::form))
                     .route("/account", web::post().to(handlers::account_handlers::submit))
