@@ -56,14 +56,29 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    log::info!("Starting server at http://127.0.0.1:8080");
+    // Server binding configuration
+    let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8080);
+    let cookie_secure = std::env::var("COOKIE_SECURE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
+    log::info!("Starting server at http://{}:{}", host, port);
+    if cookie_secure {
+        log::info!("Cookie secure flag enabled (requires HTTPS)");
+    }
+
+    let bind_addr = format!("{}:{}", host, port);
 
     HttpServer::new(move || {
         let session_mw = SessionMiddleware::builder(
             CookieSessionStore::default(),
             secret_key.clone(),
         )
-        .cookie_secure(false)
+        .cookie_secure(cookie_secure)
         .cookie_http_only(true)
         .build();
 
@@ -184,7 +199,7 @@ async fn main() -> std::io::Result<()> {
                     .body(html)
             }))
     })
-    .bind("127.0.0.1:8080")?
+    .bind(&bind_addr)?
     .run()
     .await
 }

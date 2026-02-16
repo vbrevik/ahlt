@@ -300,6 +300,15 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Code Quality**: 0 new errors, integrated subagent-driven development for quality gates
 - **Production Ready**: All routes wired, permissions integrated, audit logging, CSRF protection
 
+### Production Deployment Preparation (Complete)
+- **Environment Variables**: HOST, PORT, COOKIE_SECURE added to main.rs with backward-compatible defaults (127.0.0.1:8080, cookie_secure=false)
+- **Release Profile**: Cargo.toml `[profile.release]` with LTO, single codegen unit, binary stripping
+- **Configuration Documentation**: `.env.example` documenting all 6 env vars (APP_ENV, HOST, PORT, SESSION_KEY, COOKIE_SECURE, RUST_LOG)
+- **Containerization**: Multi-stage Dockerfile (rust:1.84 builder → debian:bookworm-slim runtime) with dependency caching
+- **Docker Ignore**: `.dockerignore` excludes target/, data/, .git/, tests/
+- **No New Dependencies**: All config via `std::env::var` only
+- **Backward Compatible**: Zero env vars = identical dev behavior as before
+
 ### Phase 2a Automated Testing (Complete)
 - **Test Dependencies**: Added tempfile, rusqlite, regex, serde_json to dev-dependencies
 - **Infrastructure**: Shared `setup_test_db()` with TempDir, `insert_entity/prop/relation` helpers, `get_permissions_for_user` query, CSRF extraction
@@ -318,9 +327,6 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 ## Remaining Backlog
 
-### Testing & Deployment
-- Production deployment preparation (env vars, session key, etc.)
-
 ### Future Features
 - Warnings system (already has navbar badge placeholder)
 - More entity types (projects, tasks, documents, etc.)
@@ -334,9 +340,9 @@ All domain objects share three generic tables — no dedicated tables per type:
 ```
 DONE                                NEXT                          LATER
 ════                                ════                          ═════
-Epic 1: Ontology Foundation         Production deployment          Warnings system
-Epic 2: Data-Driven Nav                                            More entity types
-5.1 Self-deletion guard                                            API access
+Epic 1: Ontology Foundation         Warnings system                More entity types
+Epic 2: Data-Driven Nav             API access                     Configurable workflows
+5.1 Self-deletion guard
 5.2 Last admin guard
 5.3 Session key from env
 5.4 CSRF protection
@@ -366,6 +372,7 @@ Phase 2b Workflows (complete)
 Phase 2a Testing (complete):
 - Infrastructure foundation
 - Full test suite (17 tests)
+Production deployment (complete)
 ```
 
 ## Architecture Decisions
