@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use rusqlite::Connection;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct NavItemPreview {
@@ -16,12 +16,12 @@ pub fn find_accessible_nav_items(
         return Ok(Vec::new());
     }
 
-    // Build permission code lookup
+    // Convert permission IDs to permission codes (entity names)
     let mut stmt = conn.prepare(
         "SELECT name FROM entities WHERE id IN (SELECT value FROM json_each(?1))"
     )?;
     let permission_codes: Vec<String> = stmt.query_map(
-        params![serde_json::to_string(&permission_ids).unwrap()],
+        [serde_json::to_string(&permission_ids).unwrap()],
         |row| row.get(0),
     )?.collect::<Result<Vec<_>, _>>()?;
 
@@ -29,41 +29,88 @@ pub fn find_accessible_nav_items(
         return Ok(Vec::new());
     }
 
-    // Find nav items where permission_required matches any permission code
-    let placeholders = permission_codes.iter()
-        .map(|_| "?")
-        .collect::<Vec<_>>()
-        .join(",");
+    // Query all active nav items with permission and parent info
+    // Same join pattern as nav_item.rs find_navigation
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name, e.label,
+                COALESCE(p_url.value, '') AS url,
+                COALESCE(perm.name, '') AS permission_code,
+                COALESCE(p_parent.value, '') AS parent
+         FROM entities e
+         LEFT JOIN entity_properties p_url
+             ON e.id = p_url.entity_id AND p_url.key = 'url'
+         LEFT JOIN entity_properties p_parent
+             ON e.id = p_parent.entity_id AND p_parent.key = 'parent'
+         LEFT JOIN relations r_perm
+             ON e.id = r_perm.source_id
+             AND r_perm.relation_type_id = (
+                 SELECT id FROM entities
+                 WHERE entity_type = 'relation_type' AND name = 'requires_permission'
+             )
+         LEFT JOIN entities perm
+             ON r_perm.target_id = perm.id AND perm.entity_type = 'permission'
+         WHERE e.entity_type = 'nav_item' AND e.is_active = 1
+         ORDER BY e.sort_order, e.id"
+    )?;
 
-    let query = format!(
-        "SELECT DISTINCT ni.id, ni.label,
-                COALESCE(p_path.value, '') as path,
-                COALESCE(m.label, 'General') as module_name
-         FROM entities ni
-         LEFT JOIN entity_properties p_path ON p_path.entity_id = ni.id AND p_path.key = 'path'
-         LEFT JOIN entity_properties p_perm ON p_perm.entity_id = ni.id AND p_perm.key = 'permission_required'
-         LEFT JOIN relations r_mod ON r_mod.source_id = ni.id
-         LEFT JOIN entities rt_mod ON rt_mod.id = r_mod.relation_type_id AND rt_mod.name = 'in_module'
-         LEFT JOIN entities m ON m.id = r_mod.target_id
-         WHERE ni.entity_type = 'nav_item'
-           AND (p_perm.value IS NULL OR p_perm.value IN ({}))
-         ORDER BY m.label, ni.label",
-        placeholders
-    );
+    struct RawItem {
+        id: i64,
+        name: String,
+        label: String,
+        url: String,
+        permission_code: String,
+        parent: String,
+    }
 
-    let mut stmt = conn.prepare(&query)?;
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> = permission_codes.iter()
-        .map(|s| s as &dyn rusqlite::types::ToSql)
-        .collect();
-
-    let items = stmt.query_map(params_refs.as_slice(), |row| {
-        Ok(NavItemPreview {
-            id: row.get("id")?,
-            label: row.get("label")?,
-            path: row.get("path")?,
-            module_name: row.get("module_name")?,
+    let all_items: Vec<RawItem> = stmt.query_map([], |row| {
+        Ok(RawItem {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            label: row.get(2)?,
+            url: row.get(3)?,
+            permission_code: row.get(4)?,
+            parent: row.get(5)?,
         })
     })?.collect::<Result<Vec<_>, _>>()?;
 
-    Ok(items)
+    let top_level: Vec<&RawItem> = all_items.iter().filter(|i| i.parent.is_empty()).collect();
+    let children: Vec<&RawItem> = all_items.iter().filter(|i| !i.parent.is_empty()).collect();
+
+    let has_permission = |code: &str| -> bool {
+        code.is_empty() || permission_codes.iter().any(|c| c == code)
+    };
+
+    let mut results: Vec<NavItemPreview> = Vec::new();
+
+    for module in &top_level {
+        let module_children: Vec<&&RawItem> = children.iter()
+            .filter(|c| c.parent == module.name)
+            .collect();
+
+        if module_children.is_empty() {
+            // Standalone module (e.g. Dashboard) — show as own item if permitted
+            if has_permission(&module.permission_code) {
+                results.push(NavItemPreview {
+                    id: module.id,
+                    label: module.label.clone(),
+                    path: module.url.clone(),
+                    module_name: module.label.clone(),
+                });
+            }
+        } else {
+            // Module with children — include accessible children
+            for child in &module_children {
+                if has_permission(&child.permission_code) {
+                    results.push(NavItemPreview {
+                        id: child.id,
+                        label: child.label.clone(),
+                        path: child.url.clone(),
+                        module_name: module.label.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(results)
 }

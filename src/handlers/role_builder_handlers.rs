@@ -17,7 +17,7 @@ pub async fn wizard_form(
     pool: web::Data<DbPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "admin.roles")?;
+    require_permission(&session, "roles.manage")?;
 
     let conn = pool.get()?;
     let ctx = PageContext::build(&session, &conn, "/roles/builder")?;
@@ -61,7 +61,7 @@ pub async fn preview_menu(
     session: Session,
     body: web::Json<PreviewRequest>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "admin.roles")?;
+    require_permission(&session, "roles.manage")?;
 
     let conn = pool.get()?;
     let items = role::builder::find_accessible_nav_items(&conn, &body.permission_ids)?;
@@ -75,7 +75,7 @@ pub async fn create_role(
     session: Session,
     form: web::Form<RoleBuilderForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "admin.roles")?;
+    require_permission(&session, "roles.manage")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let conn = pool.get()?;

@@ -202,10 +202,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 - JavaScript change tracking with unsaved-changes warning
 
 ### Roles Builder (4.3)
-- Three-step wizard: role details → permission selection → menu preview
-- Real-time menu preview based on selected permissions
+- Two-step wizard: role details → permissions & live sidebar preview (side-by-side)
+- Live preview uses `requires_permission` relations (matches real nav system logic)
+- Vertical preview grouped by module with accurate permission filtering
+- Permission check fix: uses `roles.manage` (correct) instead of `admin.roles`
 - Form validation, XSS-safe DOM manipulation, audit logging
-- 5 integration tests
+- 7 integration tests (5 original + 2 new: standalone module, unpermitted exclusion)
 
 ### Phase 2a: Item Pipeline
 - Suggestion→proposal workflow with form validation and auto-proposal creation
@@ -236,7 +238,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Phase 4: 5 large files split into 17 focused modules (1,680 lines reorganized)
 
 ### Automated Testing
-- 45 tests across 6 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder
+- 47 tests across 6 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder
 
 ### Hardening: Input Validation (H.2)
 - Centralized `src/auth/validate.rs` with 5 reusable functions: username, email, password, required field, optional field
@@ -293,7 +295,7 @@ Phase 2b: Workflows + Governance
 Warnings System
 Production Deployment
 Code Cleanup (Tasks 1-28)
-Automated Testing (45 tests)
+Automated Testing (47 tests)
 H.1 Rate Limiting
 H.2 Input Validation
 ```

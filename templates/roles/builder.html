@@ -14,11 +14,7 @@
         </div>
         <div class="step" data-step="2">
             <span class="step-number">2</span>
-            <span class="step-label">Permissions</span>
-        </div>
-        <div class="step" data-step="3">
-            <span class="step-number">3</span>
-            <span class="step-label">Preview</span>
+            <span class="step-label">Permissions &amp; Preview</span>
         </div>
     </div>
 
@@ -47,52 +43,57 @@
             <button type="button" class="btn btn-primary" onclick="nextStep()">Next: Select Permissions</button>
         </div>
 
-        <!-- Step 2: Permission Selection -->
+        <!-- Step 2: Permissions + Live Preview -->
         <div class="wizard-step" data-step="2" style="display: none;">
-            {% for group in permission_groups %}
-            <div class="permission-group">
-                <div class="group-header">
-                    <h3>{{ group.group_name }}</h3>
-                    <label class="select-all-label">
-                        <input type="checkbox" class="select-all-checkbox" data-group="{{ group.group_name }}">
-                        Select All
-                    </label>
-                </div>
-                <div class="permission-list">
-                    {% for perm in group.permissions %}
-                    <label class="permission-checkbox">
-                        <input type="checkbox"
-                               class="permission-item"
-                               data-group="{{ group.group_name }}"
-                               value="{{ perm.id }}"
-                               {% if perm.checked %}checked{% endif %}>
-                        <span class="permission-label">{{ perm.label }}</span>
-                        <span class="permission-code">{{ perm.code }}</span>
-                    </label>
+            <div class="permissions-preview-layout">
+                <!-- Left: Permission checkboxes -->
+                <div class="permissions-panel">
+                    <h2 class="panel-title">Permissions</h2>
+                    {% for group in permission_groups %}
+                    <div class="permission-group">
+                        <div class="group-header">
+                            <h3>{{ group.group_name }}</h3>
+                            <label class="select-all-label">
+                                <input type="checkbox" class="select-all-checkbox" data-group="{{ group.group_name }}">
+                                Select All
+                            </label>
+                        </div>
+                        <div class="permission-list">
+                            {% for perm in group.permissions %}
+                            <label class="permission-checkbox">
+                                <input type="checkbox"
+                                       class="permission-item"
+                                       data-group="{{ group.group_name }}"
+                                       value="{{ perm.id }}"
+                                       {% if perm.checked %}checked{% endif %}>
+                                <span class="permission-label">{{ perm.label }}</span>
+                                <span class="permission-code">{{ perm.code }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
                     {% endfor %}
                 </div>
-            </div>
-            {% endfor %}
 
-            <div class="button-group">
-                <button type="button" class="btn btn-secondary" onclick="prevStep()">Back</button>
-                <button type="button" class="btn btn-primary" onclick="showPreview()">Next: Preview Menu Access</button>
-            </div>
-        </div>
-
-        <!-- Step 3: Menu Preview -->
-        <div class="wizard-step" data-step="3" style="display: none;">
-            <div id="preview-loading" style="display: none;">Loading menu preview...</div>
-            <div id="preview-error" class="error-message" style="display: none;"></div>
-
-            <div id="preview-content">
-                <p id="preview-summary"></p>
-                <div id="preview-tree"></div>
+                <!-- Right: Live menu preview -->
+                <div class="preview-panel">
+                    <h2 class="panel-title">Menu Preview</h2>
+                    <div class="preview-sidebar-mock">
+                        <!-- Sidebar mock — vertical list grouped by module -->
+                        <div class="mock-sidebar" id="mock-sidebar">
+                            <div id="preview-empty" class="preview-empty-state">
+                                Select permissions to see menu access
+                            </div>
+                            <div id="preview-loading" style="display: none;" class="preview-loading">Updating...</div>
+                        </div>
+                    </div>
+                    <p id="preview-summary" class="preview-count"></p>
+                </div>
             </div>
 
             <div class="button-group">
                 <button type="button" class="btn btn-secondary" onclick="prevStep()">Back</button>
-                <button type="submit" class="btn btn-success">Create Role</button>
+                <button type="submit" class="btn btn-success" id="create-btn" disabled>Create Role</button>
             </div>
         </div>
     </form>
@@ -100,21 +101,26 @@
 
 <script>
 let currentStep = 1;
+let debounceTimer = null;
 
 function showStep(step) {
     document.querySelectorAll('.wizard-step').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
 
-    document.querySelector(`.wizard-step[data-step="${step}"]`).style.display = 'block';
-    document.querySelector(`.step[data-step="${step}"]`).classList.add('active');
+    document.querySelector('.wizard-step[data-step="' + step + '"]').style.display = 'block';
+    document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
     currentStep = step;
+
+    // Trigger initial preview when entering step 2
+    if (step === 2) {
+        fetchPreview();
+    }
 }
 
 function nextStep() {
     if (currentStep === 1) {
-        // Validate Step 1
-        const name = document.getElementById('name').value;
-        const label = document.getElementById('label').value;
+        var name = document.getElementById('name').value;
+        var label = document.getElementById('label').value;
         if (!name || !label) {
             alert('Please fill in required fields');
             return;
@@ -128,108 +134,128 @@ function prevStep() {
 }
 
 // Select All toggle
-document.querySelectorAll('.select-all-checkbox').forEach(checkbox => {
+document.querySelectorAll('.select-all-checkbox').forEach(function(checkbox) {
     checkbox.addEventListener('change', function() {
-        const group = this.dataset.group;
-        const checked = this.checked;
-        document.querySelectorAll(`.permission-item[data-group="${group}"]`).forEach(item => {
+        var group = this.dataset.group;
+        var checked = this.checked;
+        document.querySelectorAll('.permission-item[data-group="' + group + '"]').forEach(function(item) {
             item.checked = checked;
         });
+        onPermissionChange();
     });
 });
 
-// Update select-all state when individual checkboxes change
-document.querySelectorAll('.permission-item').forEach(checkbox => {
+// Individual permission change — debounced preview
+document.querySelectorAll('.permission-item').forEach(function(checkbox) {
     checkbox.addEventListener('change', function() {
-        const group = this.dataset.group;
-        const groupCheckboxes = document.querySelectorAll(`.permission-item[data-group="${group}"]`);
-        const allChecked = Array.from(groupCheckboxes).every(cb => cb.checked);
-        const selectAllCheckbox = document.querySelector(`.select-all-checkbox[data-group="${group}"]`);
+        var group = this.dataset.group;
+        var groupCheckboxes = document.querySelectorAll('.permission-item[data-group="' + group + '"]');
+        var allChecked = Array.from(groupCheckboxes).every(function(cb) { return cb.checked; });
+        var selectAllCheckbox = document.querySelector('.select-all-checkbox[data-group="' + group + '"]');
         if (selectAllCheckbox) {
             selectAllCheckbox.checked = allChecked;
         }
+        onPermissionChange();
     });
 });
 
-async function showPreview() {
-    // Collect selected permission IDs
-    const selectedIds = Array.from(document.querySelectorAll('.permission-item:checked'))
-        .map(cb => parseInt(cb.value));
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.permission-item:checked'))
+        .map(function(cb) { return parseInt(cb.value); });
+}
 
-    if (selectedIds.length === 0) {
-        alert('Please select at least one permission');
-        return;
-    }
+function onPermissionChange() {
+    var selectedIds = getSelectedIds();
 
     // Update hidden input
     document.getElementById('permission-ids-input').value = JSON.stringify(selectedIds);
 
-    // Show step 3
-    showStep(3);
+    // Enable/disable create button
+    document.getElementById('create-btn').disabled = selectedIds.length === 0;
 
-    // Fetch preview
+    // Debounced preview fetch
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchPreview, 200);
+}
+
+async function fetchPreview() {
+    var selectedIds = getSelectedIds();
+
+    if (selectedIds.length === 0) {
+        document.getElementById('preview-empty').style.display = 'block';
+        document.getElementById('preview-loading').style.display = 'none';
+        document.getElementById('preview-summary').textContent = '';
+        clearPreview();
+        return;
+    }
+
+    document.getElementById('preview-empty').style.display = 'none';
     document.getElementById('preview-loading').style.display = 'block';
-    document.getElementById('preview-error').style.display = 'none';
-    document.getElementById('preview-content').style.display = 'none';
 
     try {
-        const response = await fetch('/roles/builder/preview', {
+        var response = await fetch('/roles/builder/preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ permission_ids: selectedIds })
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to load preview');
-        }
+        if (!response.ok) throw new Error('Failed to load preview');
 
-        const data = await response.json();
+        var data = await response.json();
         displayPreview(data);
     } catch (error) {
         document.getElementById('preview-loading').style.display = 'none';
-        document.getElementById('preview-error').textContent = error.message;
-        document.getElementById('preview-error').style.display = 'block';
+        document.getElementById('preview-empty').textContent = 'Error loading preview';
+        document.getElementById('preview-empty').style.display = 'block';
     }
+}
+
+function clearPreview() {
+    var sidebar = document.getElementById('mock-sidebar');
+    var existing = sidebar.querySelectorAll('.mock-module-group');
+    existing.forEach(function(el) { el.remove(); });
 }
 
 function displayPreview(data) {
     document.getElementById('preview-loading').style.display = 'none';
-    document.getElementById('preview-content').style.display = 'block';
+    document.getElementById('preview-empty').style.display = 'none';
+    clearPreview();
 
-    const summary = document.getElementById('preview-summary');
-    summary.textContent = `This role grants access to ${data.count} menu item(s)`;
+    var summary = document.getElementById('preview-summary');
+    summary.textContent = data.count + ' menu item' + (data.count !== 1 ? 's' : '') + ' accessible';
 
-    const tree = document.getElementById('preview-tree');
-    tree.textContent = ''; // Clear previous content
-
-    // Group by module
-    const byModule = {};
-    data.items.forEach(item => {
+    // Group items by module
+    var byModule = {};
+    data.items.forEach(function(item) {
         if (!byModule[item.module_name]) {
             byModule[item.module_name] = [];
         }
         byModule[item.module_name].push(item);
     });
 
-    // Render tree using safe DOM methods
-    for (const [moduleName, items] of Object.entries(byModule)) {
-        const moduleDiv = document.createElement('div');
-        moduleDiv.className = 'preview-module';
+    var sidebar = document.getElementById('mock-sidebar');
 
-        const moduleTitle = document.createElement('strong');
-        moduleTitle.textContent = moduleName;
-        moduleDiv.appendChild(moduleTitle);
+    // Render each module as a vertical group
+    Object.keys(byModule).sort().forEach(function(moduleName) {
+        var group = document.createElement('div');
+        group.className = 'mock-module-group';
 
-        const itemsList = document.createElement('ul');
-        items.forEach(item => {
-            const li = document.createElement('li');
-            li.textContent = `${item.label} (${item.path})`;
-            itemsList.appendChild(li);
+        var header = document.createElement('div');
+        header.className = 'mock-module-header';
+        header.textContent = moduleName;
+        group.appendChild(header);
+
+        byModule[moduleName].forEach(function(item) {
+            var a = document.createElement('a');
+            a.className = 'mock-sidebar-link';
+            a.href = '#';
+            a.onclick = function(e) { e.preventDefault(); };
+            a.textContent = item.label;
+            group.appendChild(a);
         });
 
-        moduleDiv.appendChild(itemsList);
-        tree.appendChild(moduleDiv);
-    }
+        sidebar.appendChild(group);
+    });
 }
 </script>
 {% endblock %}

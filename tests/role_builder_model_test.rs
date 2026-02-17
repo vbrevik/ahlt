@@ -17,43 +17,46 @@ fn setup_test_db() -> (TempDir, rusqlite::Connection) {
 fn test_find_accessible_nav_items() {
     let (_dir, conn) = setup_test_db();
 
+    // Create requires_permission relation type
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (999, 'relation_type', 'requires_permission', 'Requires Permission')",
+        [],
+    ).unwrap();
+
     // Create test permission
     conn.execute(
         "INSERT INTO entities (id, entity_type, name, label) VALUES (100, 'permission', 'test.view', 'Test View')",
         [],
     ).unwrap();
 
-    // Create test nav item with permission requirement
+    // Create parent module (top-level nav_item, no parent)
     conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (200, 'nav_item', 'test_page', 'Test Page')",
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (201, 'nav_item', 'test_module', 'Test Module', 1, 1)",
         [],
     ).unwrap();
     conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (200, 'path', '/test')",
-        [],
-    ).unwrap();
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (200, 'permission_required', 'test.view')",
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (201, 'url', '/test-module')",
         [],
     ).unwrap();
 
-    // Create nav module
+    // Create child nav item with parent property
     conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (201, 'nav_module', 'test_module', 'Test Module')",
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (200, 'nav_item', 'test_page', 'Test Page', 1, 2)",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (200, 'url', '/test')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (200, 'parent', 'test_module')",
         [],
     ).unwrap();
 
-    // Create in_module relation type
+    // Link child nav item to permission via requires_permission relation
     conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (999, 'relation_type', 'in_module', 'In Module')",
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (999, 200, 100)",
         [],
-    ).unwrap();
-
-    // Link nav item to module
-    let rt_id: i64 = 999;
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, 200, 201)",
-        [rt_id],
     ).unwrap();
 
     // Query with permission ID 100
@@ -63,4 +66,99 @@ fn test_find_accessible_nav_items() {
     assert_eq!(items[0].label, "Test Page");
     assert_eq!(items[0].path, "/test");
     assert_eq!(items[0].module_name, "Test Module");
+}
+
+#[test]
+fn test_standalone_module_appears_when_permitted() {
+    let (_dir, conn) = setup_test_db();
+
+    // Create requires_permission relation type
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (999, 'relation_type', 'requires_permission', 'Requires Permission')",
+        [],
+    ).unwrap();
+
+    // Create permission
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (100, 'permission', 'dashboard.view', 'View Dashboard')",
+        [],
+    ).unwrap();
+
+    // Create standalone module (no children) with permission
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (201, 'nav_item', 'dashboard', 'Dashboard', 1, 1)",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (201, 'url', '/dashboard')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (999, 201, 100)",
+        [],
+    ).unwrap();
+
+    let items = find_accessible_nav_items(&conn, &[100]).unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].label, "Dashboard");
+}
+
+#[test]
+fn test_unpermitted_items_excluded() {
+    let (_dir, conn) = setup_test_db();
+
+    // Create requires_permission relation type
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (999, 'relation_type', 'requires_permission', 'Requires Permission')",
+        [],
+    ).unwrap();
+
+    // Create two permissions
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (100, 'permission', 'users.list', 'List Users')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label) VALUES (101, 'permission', 'roles.manage', 'Manage Roles')",
+        [],
+    ).unwrap();
+
+    // Parent module
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (201, 'nav_item', 'admin', 'Admin', 1, 1)",
+        [],
+    ).unwrap();
+
+    // Child requiring users.list
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (202, 'nav_item', 'admin.users', 'Users', 1, 2)",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (202, 'parent', 'admin')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (999, 202, 100)",
+        [],
+    ).unwrap();
+
+    // Child requiring roles.manage
+    conn.execute(
+        "INSERT INTO entities (id, entity_type, name, label, is_active, sort_order) VALUES (203, 'nav_item', 'admin.roles', 'Roles', 1, 3)",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (203, 'parent', 'admin')",
+        [],
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (999, 203, 101)",
+        [],
+    ).unwrap();
+
+    // Only grant users.list — should see Users but not Roles
+    let items = find_accessible_nav_items(&conn, &[100]).unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].label, "Users");
 }
