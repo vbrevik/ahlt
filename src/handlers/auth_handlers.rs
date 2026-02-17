@@ -1,10 +1,10 @@
 use actix_session::Session;
-use actix_web::{web, HttpResponse};
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::{user, role, permission, setting};
-use crate::auth::{csrf, password};
+use crate::auth::{csrf, password, rate_limit::RateLimiter};
 use crate::errors::{AppError, render};
 use crate::templates_structs::LoginTemplate;
 
@@ -40,11 +40,30 @@ pub async fn login_page(
 }
 
 pub async fn login_submit(
+    req: HttpRequest,
     pool: web::Data<DbPool>,
     session: Session,
     form: web::Form<LoginForm>,
+    limiter: web::Data<RateLimiter>,
 ) -> Result<HttpResponse, AppError> {
     csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    // Rate-limit check BEFORE any database access
+    let ip = req.peer_addr()
+        .map(|addr| addr.ip())
+        .unwrap_or_else(|| std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
+
+    if limiter.is_blocked(ip) {
+        let conn = pool.get()?;
+        let app_name = setting::get_value(&conn, "app.name", "Ahlt");
+        let csrf_token = csrf::get_or_create_token(&session);
+        let tmpl = LoginTemplate {
+            error: Some("Too many failed login attempts. Please try again later.".to_string()),
+            app_name,
+            csrf_token,
+        };
+        return render(tmpl);
+    }
 
     let conn = pool.get()?;
     let app_name = setting::get_value(&conn, "app.name", "Ahlt");
@@ -67,6 +86,9 @@ pub async fn login_submit(
         Some(u) => {
             match password::verify_password(&form.password, &u.password) {
                 Ok(true) => {
+                    // Successful login — clear rate limit for this IP
+                    limiter.clear(ip);
+
                     // Look up role label for display
                     let role_label = role::find_by_id(&conn, u.role_id)?
                         .map(|r| r.label)
@@ -85,10 +107,16 @@ pub async fn login_submit(
                         .insert_header(("Location", "/dashboard"))
                         .finish())
                 }
-                _ => render_error("Invalid username or password"),
+                _ => {
+                    limiter.record_failure(ip);
+                    render_error("Invalid username or password")
+                }
             }
         }
-        None => render_error("Invalid username or password"),
+        None => {
+            limiter.record_failure(ip);
+            render_error("Invalid username or password")
+        }
     }
 }
 

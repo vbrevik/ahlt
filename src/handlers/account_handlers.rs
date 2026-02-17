@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::user;
-use crate::auth::{csrf, password};
+use crate::auth::{csrf, password, validate};
 use crate::auth::session::get_user_id;
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, AccountTemplate};
@@ -40,10 +40,8 @@ pub async fn submit(
     let conn = pool.get()?;
 
     // Validate inputs
-    let mut errors = vec![];
-    if form.new_password.is_empty() {
-        errors.push("New password is required".to_string());
-    }
+    let mut errors: Vec<String> = vec![];
+    errors.extend(validate::validate_password(&form.new_password));
     if form.new_password != form.confirm_password {
         errors.push("New passwords do not match".to_string());
     }

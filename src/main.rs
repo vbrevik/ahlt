@@ -67,6 +67,9 @@ async fn main() -> std::io::Result<()> {
 
     let bind_addr = format!("{}:{}", host, port);
 
+    // Login rate limiter (per-IP, in-memory)
+    let rate_limiter = auth::rate_limit::RateLimiter::new();
+
     // WebSocket connection map for real-time warning notifications
     let conn_map = handlers::warning_handlers::ws::new_connection_map();
 
@@ -87,6 +90,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(conn_map.clone()))
+            .app_data(web::Data::new(rate_limiter.clone()))
             // Static files
             .service(actix_files::Files::new("/static", "./static"))
             // WebSocket route (before auth middleware scope)

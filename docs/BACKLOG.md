@@ -31,12 +31,24 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | entity_type | Purpose | Key Properties |
 |---|---|---|
-| `relation_type` | Named relationship kinds | — |
+| `relation_type` | Named relationship kinds (26 defined) | — |
 | `role` | Named collection of permissions | `description`, `is_default` |
-| `permission` | Atomic capability | `group_name` |
+| `permission` | Atomic capability (30+ defined) | `group_name` |
 | `user` | Account with role relation | `password`, `email` |
 | `nav_item` | Menu entry (module or page) | `url`, `parent` *(permission via relation)* |
-| `setting` | Key-value config *(planned)* | `value`, `description` |
+| `setting` | Key-value config (8 defined) | `value`, `description`, `setting_type` |
+| `workflow_status` | State in a workflow (suggestion/proposal) | `entity_type_scope`, `status_code`, `is_initial`, `is_terminal` |
+| `workflow_transition` | Allowed state change | `from_status_code`, `to_status_code`, `required_permission` |
+| `tor` | Term of Reference | `description`, `status`, `purpose` |
+| `suggestion` | Workflow item (suggestion stage) | `description`, `status`, `submitted_by` |
+| `proposal` | Workflow item (proposal stage) | `description`, `status`, `submitted_by` |
+| `agenda_point` | Meeting agenda item | `type` (informative/decision), `status` |
+| `coa` | Course of Action (decision option) | `description`, `type` (simple/complex) |
+| `opinion` | Advisory input from participants | `stance`, `rationale` |
+| `warning` | System notification | `severity`, `category`, `source_action`, `details` |
+| `warning_receipt` | Per-user warning delivery | `status` (unread/read/deleted) |
+| `warning_event` | Warning audit trail entry | `event_type`, `performed_by` |
+| `audit_entry` | Audit log record | `user_id`, `action`, `target_type`, `summary` |
 
 ### Relations in Use
 
@@ -45,29 +57,76 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `has_role` | user → role | User's assigned role |
 | `has_permission` | role → permission | Role's granted permissions |
 | `requires_permission` | nav_item → permission | Nav item access requirement |
+| `member_of` | user → tor | ToR membership |
+| `has_tor_role` | user → tor | User's role within a ToR |
+| `belongs_to_tor` | entity → tor | Entity scoped to a ToR |
+| `suggested_to` | suggestion → tor | Suggestion target |
+| `spawns_proposal` | suggestion → proposal | Auto-creation link |
+| `submitted_to` | proposal → tor | Proposal target |
+| `transition_from` | workflow_transition → workflow_status | Transition source state |
+| `transition_to` | workflow_transition → workflow_status | Transition target state |
+| `considers_coa` | agenda_point → coa | Decision options |
+| `originates_from` | agenda_point → proposal | Agenda from proposal |
+| `has_section` / `has_subsection` | coa → coa | Nested COA structure |
+| `spawns_agenda_point` | proposal → agenda_point | Scheduling link |
+| `opinion_by` / `opinion_on` / `prefers_coa` | opinion → user/agenda/coa | Opinion tracking |
+| `targets_user` | warning → user | Warning target |
+| `for_warning` / `for_user` / `on_receipt` | warning_receipt → entities | Receipt links |
+| `forwarded_to_user` | warning_event → user | Forward tracking |
 
 ### Permission Codes (seed data)
 
-| Code | Description |
-|------|-------------|
-| `dashboard.view` | View the dashboard |
-| `users.list` | View user list |
-| `users.create` | Create new users |
-| `users.edit` | Edit existing users |
-| `users.delete` | Delete users |
-| `roles.manage` | Create/edit/delete roles and assign permissions |
-| `settings.manage` | Modify app settings |
+| Code | Group | Description |
+|------|-------|-------------|
+| `dashboard.view` | Dashboard | View the dashboard |
+| `users.list` | Users | View user list |
+| `users.create` | Users | Create new users |
+| `users.edit` | Users | Edit existing users |
+| `users.delete` | Users | Delete users |
+| `roles.manage` | Roles | Create/edit/delete roles and assign permissions |
+| `settings.manage` | Settings | Modify app settings |
+| `audit.view` | Admin | View audit log |
+| `warnings.view` | Admin | View warnings |
+| `tor.list` | Governance | List Terms of Reference |
+| `tor.create` | Governance | Create Terms of Reference |
+| `tor.edit` | Governance | Edit Terms of Reference |
+| `tor.manage_members` | Governance | Manage ToR members |
+| `suggestion.view` | Workflow | View suggestions |
+| `suggestion.create` | Workflow | Submit new suggestions |
+| `suggestion.review` | Workflow | Accept or reject suggestions |
+| `proposal.view` | Workflow | View proposals |
+| `proposal.create` | Workflow | Create new proposals |
+| `proposal.edit` | Workflow | Edit draft proposals |
+| `proposal.submit` | Workflow | Submit drafts for review |
+| `proposal.review` | Workflow | Move proposals to under_review |
+| `proposal.approve` | Workflow | Approve or reject proposals |
+| `agenda.view` | Governance | View agenda |
+| `agenda.create` | Governance | Create agenda points |
+| `agenda.queue` | Governance | Queue proposals for agenda |
+| `agenda.manage` | Governance | Manage agenda status |
+| `agenda.participate` | Governance | Participate in meeting |
+| `agenda.decide` | Governance | Make final decisions |
+| `coa.create` | Workflow | Create courses of action |
+| `coa.edit` | Workflow | Edit courses of action |
+| `workflow.manage` | Governance | Manage workflow system |
 
 ### Navigation Hierarchy (seed data)
 
 | Name | Label | Parent | URL | Permission |
 |---|---|---|---|---|
-| `dashboard` | Dashboard | — | `/dashboard` | *(all logged-in)* |
+| `dashboard` | Dashboard | — | `/dashboard` | `dashboard.view` |
 | `admin` | Admin | — | `/users` | *(visible if any child permitted)* |
 | `admin.users` | Users | `admin` | `/users` | `users.list` |
 | `admin.roles` | Roles | `admin` | `/roles` | `roles.manage` |
 | `admin.ontology` | Ontology | `admin` | `/ontology` | `settings.manage` |
-| `admin.settings` | Settings *(planned)* | `admin` | `/settings` | `settings.manage` |
+| `admin.settings` | Settings | `admin` | `/settings` | `settings.manage` |
+| `admin.audit` | Audit Log | `admin` | `/audit` | `audit.view` |
+| `admin.menu_builder` | Menu Builder | `admin` | `/menu-builder` | `roles.manage` |
+| `admin.warnings` | Warnings | `admin` | `/warnings` | `warnings.view` |
+| `admin.role_builder` | Role Builder | `admin` | `/roles/builder` | `roles.manage` |
+| `governance` | Governance | — | `/tor` | *(visible if any child permitted)* |
+| `governance.tor` | Terms of Reference | `governance` | `/tor` | `tor.list` |
+| `governance.workflow` | Item Workflow | `governance` | `/workflow` | `suggestion.view` |
 
 ---
 
@@ -86,20 +145,19 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Permission-gated visibility (module visible if any child permitted)
 - 2.3 Nav permissions via relations: converted nav_item permission checks from `permission_code` text properties to `requires_permission` relations (nav_item→permission), making permissions visible in ontology graph and consistent with EAV model
 
-### Security (partial)
+### Security (5.1–5.4)
 - 5.1 Self-deletion protection
 - 5.2 Last admin protection
+- 5.3 Persistent session key from `SESSION_KEY` env var (falls back to `Key::generate()` with warning)
+- 5.4 CSRF protection: 32-byte hex token, constant-time comparison, all 9 POST handlers validate
 
-### Housekeeping (partial)
+### Housekeeping
 - 7.1 Git init + push to GitHub
 - 7.2 Favicon (inline SVG data URI)
 
 ### Infrastructure
 - PageContext struct (bundles username, permissions, flash, nav_modules, sidebar_items)
 - `PageContext::build()` constructor reduces handler boilerplate
-
-### Security (continued)
-- 5.3 Persistent session key from `SESSION_KEY` env var (falls back to `Key::generate()` with warning)
 
 ### Role Management (4.1)
 - Full CRUD: list (with permission/user counts), create, edit, delete (with user-assigned guard)
@@ -108,317 +166,150 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 ### Ontology Explorer
 - Three-tab explorer: Concepts (schema-level D3 graph) + Data (instance-level D3 graph) + Reference (entity type cards, relation patterns, schema docs)
-- JSON APIs: `/ontology/api/schema` (entity types as nodes, relation patterns as edges) + `/ontology/api/graph` (all entity instances + properties)
-- Concepts tab: schema graph with entity type nodes (sized by count), relation pattern edges, toolbar (fit-all, zoom in/out, reset, lock positions), keyboard shortcuts (F/+/-/0/L/Esc), auto-fit on simulation settle
-- Data tab: instance graph with type filtering, node hover highlighting, click detail panel with properties + connections + "Full detail" link, drag/zoom/pan
+- JSON APIs: `/ontology/api/schema` + `/ontology/api/graph`
+- Concepts tab: schema graph with entity type nodes (sized by count), relation pattern edges, toolbar, keyboard shortcuts
+- Data tab: instance graph with type filtering, node hover highlighting, click detail panel
 - Reference tab: entity type summary cards, relation pattern breakdowns, schema reference tables
-- `admin.ontology` nav item under Admin module, gated by `settings.manage`
 
 ### App Settings (3.1 + 3.2 + 3.3)
 - Settings as entities with entity_type='setting', properties: `value`, `description`, `setting_type` (text/number/boolean)
-- Seeded defaults: `app.name` = "Ahlt", `app.description` = "Administration Platform"
-- `GET /settings` form + `POST /settings` save with upsert, protected by `settings.manage`
-- `admin.settings` nav item under Admin module
-- Supports text, number, and boolean (select dropdown) field types
-- Runtime integration: `app.name` drives navbar brand, page titles (all templates), and login page brand
-- `setting::get_value()` used in `PageContext::build()` (authenticated pages) and login handler
-- No caching — simple DB lookup per request, sufficient at current scale
-
-### CSRF Protection (5.4)
-- Token generation: 32 random bytes hex-encoded, stored in session
-- `src/auth/csrf.rs`: `get_or_create_token()` + `validate_csrf()` with constant-time comparison
-- All 7 form templates updated with hidden `csrf_token` input field
-- All 9 POST handlers validate CSRF before processing
-- Form structs: added `csrf_token` field to `LoginForm`, `UserForm`; raw body handlers extract from parsed params; body-less handlers use shared `CsrfOnly` struct
-- Dependencies: `rand = "0.9"`, `hex = "0.4"`
+- 8 seeded settings: app.name, app.description, audit.enabled, audit.log_path, audit.retention_days, warnings.retention_resolved_days, warnings.retention_info_days, warnings.retention_deleted_days
+- Runtime integration: `app.name` drives navbar brand, page titles, and login page brand
 
 ### Change Password (6.1)
-- `GET /account`: form with current/new/confirm password fields + CSRF token
-- `POST /account`: validates current password, checks new==confirm, updates via upsert on entity_properties
-- New functions: `user::find_password_hash_by_id()`, `user::update_password()`
-- Navbar username link changed to clickable link to `/account`
-- Flash message on successful password change
-- Form errors: wrong current password, mismatch confirmation
+- `GET /account` + `POST /account` with current/new/confirm validation
 
 ### Navbar Avatar Dropdown (6.5)
-- Replaced username text + separate logout form with avatar dropdown
-- Avatar: circular button showing user initial (first letter, uppercase) in accent color
-- Dropdown panel: username header, Profile (→ /account), Warnings (→ /warnings with badge), divider, Logout (red, CSRF form)
-- Badge support: `warning_count` field in PageContext (currently 0, ready for warnings feature), red notification badge on avatar when warnings > 0
-- Three-section centered navbar layout: brand (left, flex:1), modules (center), user dropdown (right, flex:1)
-- Click-outside-to-close with global document listener
-- CSS: `.user-dropdown`, `.avatar`, `.dropdown-panel`, `.badge-count` classes with animation
+- Avatar with user initial, dropdown with Profile/Warnings/Logout, live warning badge count via WebSocket
 
 ### Audit Trail (7.3)
-- Two-tier system: high-value events in database (EAV), all events in filesystem (JSON Lines)
-- Database: audit_entry entities with properties (user_id, action, target_type, target_id, summary)
-- Filesystem: Daily-rotated .jsonl files in data/audit/ with secure permissions (0600/0700)
-- Settings: audit.enabled, audit.log_path, audit.retention_days
-- Retention cleanup on startup (configurable, 0=forever)
+- Two-tier system: database (EAV) + filesystem (daily-rotated JSONL)
 - UI: /audit with search, action filter, target type filter, pagination
-- Permission: audit.view for viewing logs
-- Integration: user create/delete, role create/delete/permissions_changed logged
-- Error handling: logging failures never block requests (logged to stderr)
+- Retention cleanup on startup (configurable via settings)
 
 ### Custom Error Pages (6.2)
-- HTML templates for 404 and 500 errors with branded design
-- templates/errors/404.html: "Page Not Found" with Go to Dashboard / Go Back buttons
-- templates/errors/500.html: "Server Error" with Go to Dashboard / Try Again buttons
-- Centered layout with warm gradient background matching login page, large amber error code
-- Updated AppError::error_response() to serve HTML via include_str!() instead of plain text
-- Registered default_service() handler for 404 fallback on unmatched routes
-- CSS: .error-page, .error-icon, .error-content, .error-actions
+- Branded 404 and 500 error pages with navigation buttons
 
-### Pagination on User List (6.3)
-- Query parameters: `?page=1&per_page=25` with defaults and clamping (1-100 per page)
-- `UserPage` struct: bundles users Vec + pagination metadata (page, per_page, total_count, total_pages)
-- `user::find_paginated()`: SQL LIMIT/OFFSET pattern with total count calculation
-- Handler: `web::Query<PaginationQuery>` with `Option<i64>` fields for flexible defaults
-- Template: conditional pagination controls (`{% if total_pages > 1 %}`) with Previous/Next buttons
-- Page info display: "Page X of Y (Z total)" format
-- CSS: `.pagination`, `.pagination-info`, `.pagination-controls` with disabled button states
-- Graceful degradation: single-page datasets show clean interface without pagination UI
-
-### Search/Filter on User List (6.4)
-- Query parameter: `?q=searchterm` for filtering users by username or display name
-- `user::find_paginated()` extended with `search: Option<&str>` parameter
-- SQL: `WHERE e.entity_type = 'user' AND (e.name LIKE ?1 OR e.label LIKE ?1)` pattern with wildcard wrapping
-- Bug fix: count query was missing table alias `e`, causing search clause (`e.name LIKE ?`) to fail
-- Search form UI: input + Search button + conditional Clear link when active
-- Pagination links preserve search query parameter: `?page=N&per_page=M&q=term`
-- Search input displays current query value on page load
-
-### Code Cleanup & Refactoring (Tasks 1-28)
-
-**Phase 1-2: Error Handling Foundation** (Tasks 1-9)
-- Enhanced AppError enum with 8 variants (Db, Pool, Template, Hash, NotFound, PermissionDenied, Session, Csrf)
-- Implemented ResponseError trait for HTTP error responses (403 for permissions/CSRF, 404 for NotFound, 500 for others)
-- Created render() helper for template rendering with automatic error conversion
-- Updated session helpers to return Result types (get_user_id, get_username, get_permissions, require_permission)
-- Updated PageContext::build to return Result<Self, AppError>
-- Updated csrf::validate_csrf to return Result<(), AppError>
-- Fixed 10 clippy warnings (unused imports, redundant enum names, collapsible ifs)
-- Removed dead code (find_all_display function)
-
-**Phase 3: Handler Migration** (Tasks 10-21)
-- Migrated all 27 handlers to AppError pattern across 8 files
-- User handlers (6): list, new_form, create, edit_form, update, delete
-- Role handlers (6): list, new_form, create, edit_form, update, delete
-- Audit handlers (1): list
-- Account handlers (2): form, submit
-- Settings handlers (2): list, save
-- Ontology handlers (6): concepts, graph, graph_data, schema_data, data, data_detail
-- Auth handlers (3): login_page, login_submit, logout
-- Dashboard handler (1): index
-- Impact: ~280 lines of boilerplate eliminated, consistent ? operator usage
-- Code reviews caught missing validation (role update) and audit logging (user update) early
-
-**Phase 4: File Splitting** (Tasks 23-28)
-- Split models/ontology.rs (471 lines) → 4 modules (schema.rs, instance.rs, entities.rs, mod.rs)
-- Split models/user.rs (370 lines) → 3 modules (types.rs, queries.rs, mod.rs)
-- Split models/role.rs (323 lines) → 3 modules (types.rs, queries.rs, mod.rs)
-- Split handlers/user_handlers.rs (236 lines) → 3 modules (list.rs, crud.rs, mod.rs)
-- Split handlers/role_handlers.rs (~280 lines) → 4 modules (helpers.rs, list.rs, crud.rs, mod.rs)
-- Total: 1,680 lines reorganized into 17 focused modules
-- Impact: Better code organization, clearer separation of concerns, easier navigation
-
-**Documentation**
-- Created CLAUDE.md with comprehensive project context:
-  - Architecture overview (stack, directory structure, EAV pattern)
-  - Key patterns (AppError, session helpers, template rendering, EAV)
-  - Gotchas (Askama 0.14, Actix-web 4, SQLite + r2d2)
-  - Development workflows (adding handlers, audit logging, migrations)
-  - Refactoring workflow (phased approach with reviews)
-  - Code review checklist (CRUD consistency, audit logging, validation)
-  - Verification commands (cargo check patterns, build status)
-  - Time-saving analysis (18-28 hours avoided with upfront context)
-  - Recent refactoring summary (Phases 1-4)
-
-**Commits:** 22 commits created with detailed messages and co-authorship
+### Pagination (6.3) + Search/Filter (6.4)
+- User list with `?page=1&per_page=25&q=searchterm` support
 
 ### Frontend Design Review (6.6)
-- Audited all templates and CSS for UX consistency issues
-- Color-coded role badges: Administrator (dark), Editor (green), Viewer (blue), Manager (brown), Analyst (purple)
-- Unified search/filter bar component with styled custom select arrows
-- Improved empty states with title + descriptive text
-- Muted ID columns in tables (monospace, small, light gray)
-- Redesigned dashboard: personalized greeting, stat cards, permission-gated quick action cards with amber accent borders
-- Enhanced roles list: monospace name, bold label, badge-styled permission/user counts
-- Enhanced audit log: unified search form, styled filter dropdowns, proper empty state
-- All pages visually verified via Playwright screenshots
+- Color-coded role badges, unified search bars, improved empty states, redesigned dashboard
 
 ### Menu Builder / Permission Matrix (4.2)
-- Visual permission matrix: roles as columns, permissions as rows grouped by section (Admin, Dashboard, Roles, Settings, Users)
-- `src/models/permission.rs`: `find_all_with_groups()`, `find_all_role_grants()`, `grant_permission()`, `revoke_permission()`
-- `src/templates_structs.rs`: `MatrixCell`, `PermissionRow`, `PageGroup`, `RoleColumn`, `MenuBuilderTemplate`
-- `src/handlers/menu_builder_handlers.rs`: GET `index()` builds matrix, POST `save()` diffs and applies changes
-- Pre-computed matrix cells (Askama can't call `.contains()` in templates)
-- Diff-based save: compare submitted checkboxes vs DB state, only INSERT/DELETE changes
-- Unique checkbox names `perm_{role_id}_{permission_id}` avoid serde_urlencoded duplicate key issue
-- JavaScript: change tracking with asterisk indicator, unsaved-changes warning (beforeunload), column toggle
-- Audit logging with descriptive summary ("N granted, M revoked via Menu Builder")
-- Nav item: `admin.menu_builder` under Admin module, gated by `roles.manage`
-- CSS: sticky left column, grouped section headers, hover states, accent-colored checkboxes
+- Visual permission matrix: roles as columns, permissions as rows grouped by section
+- Diff-based save with audit logging
+- JavaScript change tracking with unsaved-changes warning
 
-### Manual Testing (Complete)
-- Created comprehensive test data seed script with 4 roles and 5 users
-- Generated proper argon2 password hash for "password123"
-- Verified login/logout functionality with multiple users
-- Tested user CRUD operations:
-  - List page with all users displayed correctly
-  - Search functionality filtering by username/name
-  - Edit form pre-populated with user data
-  - Create form with role dropdown
-- Validated permission-based access control:
-  - alice (Editor): can create/edit users, see Ontology/Settings, no Roles access
-  - bob (Viewer): read-only access, no edit buttons, minimal sidebar navigation
-  - Confirmed Actions column empty for users without edit permissions
-  - Verified sidebar navigation filtered by user permissions
-- Screenshot evidence captured: bob-viewer-users-list.png
-- All 27 refactored handlers working correctly with AppError pattern
-- Zero compilation errors, clean build
+### Roles Builder (4.3)
+- Three-step wizard: role details → permission selection → menu preview
+- Real-time menu preview based on selected permissions
+- Form validation, XSS-safe DOM manipulation, audit logging
+- 5 integration tests
 
-### Phase 2a: Item Pipeline (Complete)
-- Created complete suggestion→proposal workflow
-- Suggestion creation with form validation
-- Auto-proposal creation when suggestion accepted
-- Proposal CRUD with status transitions (draft→submitted→under_review→approved→rejected)
-- Pipeline view with tabs for suggestions/proposals
+### Phase 2a: Item Pipeline
+- Suggestion→proposal workflow with form validation and auto-proposal creation
 - Integration tests validating complete workflow
-- E2E testing with Playwright
 
-### Phase 2b: Agenda Points, COAs & Data-Driven Workflows (Complete)
-- **Data-Driven Workflow Engine**: WorkflowStatus + WorkflowTransition entities replace all hardcoded transitions
-- **Agenda Points**: Meeting items (informative or decision) with scheduling from proposal queue
-- **Courses of Action (COAs)**: Decision options with nested section support (simple or complex)
-- **Opinion Recording**: Advisory input from participants (separate from decisions)
-- **Decision Making**: Authority makes final decisions with veto power
-- **Proposal Queue**: Mark proposals ready, bulk-schedule into agenda points
-- **Terminology Rename**: Systematic pipeline→workflow rename (40+ files)
-- **19 Tasks Delivered**: Infrastructure, models, handlers, templates, routes, E2E tests
-- **Test Coverage**: 12 new Phase 2b tests all passing, plus existing Phase 2a tests still passing
-- **Code Quality**: 0 new errors, integrated subagent-driven development for quality gates
-- **Production Ready**: All routes wired, permissions integrated, audit logging, CSRF protection
+### Phase 2b: Agenda Points, COAs & Data-Driven Workflows
+- Data-driven workflow engine: WorkflowStatus + WorkflowTransition entities replace all hardcoded transitions
+- Agenda points (informative/decision), courses of action (simple/complex), opinion recording, decision making
+- Proposal queue with bulk scheduling
+- 19 tasks delivered, 12 tests
 
-### Production Deployment Preparation (Complete)
-- **Environment Variables**: HOST, PORT, COOKIE_SECURE added to main.rs with backward-compatible defaults (127.0.0.1:8080, cookie_secure=false)
-- **Release Profile**: Cargo.toml `[profile.release]` with LTO, single codegen unit, binary stripping
-- **Configuration Documentation**: `.env.example` documenting all 6 env vars (APP_ENV, HOST, PORT, SESSION_KEY, COOKIE_SECURE, RUST_LOG)
-- **Containerization**: Multi-stage Dockerfile (rust:1.84 builder → debian:bookworm-slim runtime) with dependency caching
-- **Docker Ignore**: `.dockerignore` excludes target/, data/, .git/, tests/
-- **No New Dependencies**: All config via `std::env::var` only
-- **Backward Compatible**: Zero env vars = identical dev behavior as before
+### Warnings System
+- Three-layer model: warning → warning_receipt → warning_event
+- WebSocket real-time notifications with toast UI
+- List/detail pages with category/severity/status filters + pagination
+- Background scheduler (5-min interval) running generators + retention cleanup
+- Event-driven generators: inline warnings on user create/delete, role permission changes
+- 7 integration tests
 
-### Phase 2a Automated Testing (Complete)
-- **Test Dependencies**: Added tempfile, rusqlite, regex, serde_json to dev-dependencies
-- **Infrastructure**: Shared `setup_test_db()` with TempDir, `insert_entity/prop/relation` helpers, `get_permissions_for_user` query, CSRF extraction
-- **17 Tests Covering**:
-  - Infrastructure (3): schema compilation, CSRF extraction, missing token handling
-  - Authentication (3): user lookup, nonexistent user, permission assignment through role chain
-  - User CRUD (3): create+retrieve with properties, update via upsert, delete with CASCADE verification
-  - User Search (1): LIKE search on name/label, LIMIT/OFFSET pagination, entity type filtering
-  - Data Integrity (2): UNIQUE(entity_type, name) constraint, UNIQUE relation constraint preventing duplicates
-  - Permission Enforcement (3): admin has all permissions, viewer has limited permissions, no-role user has zero permissions
-  - Role Lifecycle (1): grant permissions, inherit through role, revoke permission, verify loss
-  - Nav Gating (1): requires_permission relation filtering nav items by user permissions
-- **Code Quality**: 0 errors, 0 warnings, all 32 tests passing (17 Phase 2a + 12 Phase 2b + 3 workflow)
+### Production Deployment Preparation
+- Environment variables (HOST, PORT, COOKIE_SECURE, SESSION_KEY, APP_ENV, RUST_LOG)
+- Multi-stage Dockerfile with dependency caching
+- Release profile (LTO, strip, single codegen unit)
 
-### Warnings System (Complete)
-- **Architecture**: Three-layer EAV model (warning→warning_receipt→warning_event) with per-user receipt tracking
-- **Crate Split**: Created `src/lib.rs` to enable integration test imports (`ahlt::warnings::*`)
-- **Core Module** (`src/warnings/`): create_warning, create_receipts, update_receipt_status, resolve_warning, warning_exists (dedup), get_users_with_permission
-- **Query Layer** (`src/warnings/queries.rs`): count_unread, find_for_user (paginated+filtered), get_warning_detail, get_recipients, get_receipt_timeline, find_receipt_for_user
-- **WebSocket Notifications** (`src/handlers/warning_handlers/ws.rs`): Real-time push via ConnectionMap, auto-reconnecting client JS, toast notifications with severity colors
-- **UI**: Warning list page with category/severity/status filters + pagination; detail page with auto-mark-as-read, forward dropdown, event timeline, recipients sidebar
-- **Actions**: Mark-as-deleted (soft delete), forward to another user (creates new receipt + WS notification)
-- **Background Scheduler**: 5-minute interval running generators (users without roles, DB size) + retention cleanup
-- **Event-Driven Generators**: Inline warnings on user create/delete, role permission changes
-- **Relation Types**: targets_user, for_warning, for_user, on_receipt, forwarded_to_user
-- **Settings**: warnings.retention_resolved_days (30), warnings.retention_deleted_days (7)
-- **Permission**: `warnings.view` permission, `admin.warnings` nav item
-- **Badge**: Live unread count in navbar avatar dropdown, WebSocket-updated
-- **Integration Tests**: 7 tests covering create, receipts, count_unread, mark_read, deduplication, pagination, detail, timeline
-- **Bug Fix**: Dedup function `warning_exists()` requires dedup key in `details` field — fixed generators to include it
-- **Code Quality**: 0 errors, all 39 tests passing (17+12+7+3)
+### Code Cleanup & Refactoring (Tasks 1-28)
+- Phase 1-2: AppError enum with 8 variants, render() helper, session helpers return Result
+- Phase 3: All 27 handlers migrated to AppError pattern (~280 lines eliminated)
+- Phase 4: 5 large files split into 17 focused modules (1,680 lines reorganized)
+
+### Automated Testing
+- 45 tests across 6 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder
+
+### Hardening: Input Validation (H.2)
+- Centralized `src/auth/validate.rs` with 5 reusable functions: username, email, password, required field, optional field
+- Applied across all form handlers: user create/update, role create/update, ToR create/update, account password change
+- Length limits enforced on all text inputs, format validation on username (alphanumeric + underscore) and email
+
+### Hardening: Rate Limiting (H.1)
+- Per-IP login rate limiting: 5 failed attempts per 15-minute window, 6th attempt blocked before DB access
+- In-memory `HashMap<IpAddr, Vec<Instant>>` behind `Arc<Mutex<>>`, no external dependencies
+- Lazy cleanup of stale entries, poison-resistant mutex, clear on successful login
 
 ---
 
 ## Remaining Backlog
 
-### Future Features
-- More entity types (projects, tasks, documents, etc.)
-- Configurable workflows
-- API access for external integrations
+### Hardening & Quality
+
+| ID | Item | Priority | Effort | Description |
+|----|------|----------|--------|-------------|
+| H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). |
+| H.4 | **Test coverage expansion** | Medium | Large | ~10 handler modules lack isolated integration tests: account, auth, dashboard, audit, menu builder, ontology, ToR, agenda, COA, opinion. Currently 45 tests / 6 files. |
+| H.5 | **Composite DB index** | Low | Small | Add `entity_properties(entity_id, key)` composite index for EAV lookup performance. |
+
+### Features
+
+| ID | Item | Priority | Effort | Description |
+|----|------|----------|--------|-------------|
+| F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via db.rs seeding. Add CRUD UI for creating/editing workflow definitions without code changes. |
+| F.2 | **REST API layer** | Medium | Large | Only 2 JSON endpoints exist (`/ontology/api/{schema,graph}`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
+| F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
+| F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
+| F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
+| F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
 
 ---
 
 ## Implementation Order
 
 ```
-DONE                                NEXT                          LATER
-════                                ════                          ═════
-Epic 1: Ontology Foundation         Warnings system                More entity types
-Epic 2: Data-Driven Nav             API access                     Configurable workflows
-5.1 Self-deletion guard
-5.2 Last admin guard
-5.3 Session key from env
-5.4 CSRF protection
-4.1 Role Management UI
+DONE                                    CANDIDATES (pick next)
+════                                    ══════════════════════
+Epic 1: Ontology Foundation             F.1  Workflow builder UI (high, large effort)
+Epic 2: Data-Driven Nav                 H.4  Test coverage expansion (medium, large)
+5.1–5.4 Security                        F.2  REST API layer (medium, large)
+4.1 Role Management                     F.3  More entity types (medium, variable)
+4.2 Menu Builder                        H.3  WebSocket error handling (medium, small)
+4.3 Roles Builder                       H.5  Composite DB index (low, small)
+3.1–3.3 App Settings                    F.4  Dark mode (low, medium)
+6.1–6.6 UX features                     F.5  User profile enhancements (low, small)
+7.1–7.3 Housekeeping                    F.6  Dashboard widgets (low, medium)
 Ontology Explorer
-3.1 Settings entities
-3.2 Settings page
-3.3 Runtime settings
-6.1 Change password
-6.2 Custom error pages
-6.3 Pagination
-6.4 Search/filter users
-6.5 Navbar avatar dropdown
-7.1 Git + GitHub
-7.2 Favicon
-7.3 Audit trail
-PageContext refactor
-2.3 Nav perms via relations
-Code cleanup (Tasks 1-28):
-- Phase 1-2: Error foundation
-- Phase 3: Handler migration
-- Phase 4: File splitting
-Manual testing (complete)
-6.6 Frontend design review
-4.2 Menu Builder
-Phase 2b Workflows (complete)
-Phase 2a Testing (complete):
-- Infrastructure foundation
-- Full test suite (17 tests)
-Production deployment (complete)
-Warnings system (complete):
-- Core module + queries
-- WebSocket real-time push
-- List/detail UI + actions
-- Background scheduler
-- Event-driven generators
-- Integration tests (7)
-
-### Roles Builder (4.3)
-- Three-step wizard: role details → permission selection → menu preview
-- Menu preview: real-time calculation of accessible nav items based on selected permissions
-- Permission grouping by group_name with "Select All" toggles per section
-- Safe DOM manipulation (createElement/textContent) preventing XSS vulnerabilities
-- Form validation: alphanumeric role names, uniqueness checks, required fields
-- Audit logging: role creation tracked with permission count
-- Routes: `/roles/builder` (wizard), `/roles/builder/preview` (AJAX), `/roles/builder/create` (submit)
-- Integration tests (5): role creation, uniqueness, menu preview, empty roles, permission checks
-- SQL script for adding nav item to admin module
+Phase 2a: Item Pipeline
+Phase 2b: Workflows + Governance
+Warnings System
+Production Deployment
+Code Cleanup (Tasks 1-28)
+Automated Testing (45 tests)
+H.1 Rate Limiting
+H.2 Input Validation
 ```
+
+---
 
 ## Architecture Decisions
 
 ### Handler Pattern
-Each handler follows: permission check → get conn → build PageContext → page query → template render. The `PageContext::build()` helper consolidates the 5 common fields (username, permissions, flash, nav_modules, sidebar_items) into a single constructor call.
-
-**Decision:** Keep explicit handler bodies (Approach A) at current scale. The ~15-20 lines per GET handler are clear, debuggable, and easy to customize. When the app grows to 10+ handler files (roles, settings, etc.), adopt a `render()` helper (Approach B) and a proper `AppError` type with `ResponseError` impl (Approach D) — together these reduce GET handlers to ~8 lines with idiomatic `?` error propagation. The `AppError` skeleton already exists in `src/errors.rs`. See `docs/handler-patterns.md` for the full analysis of all 6 approaches considered.
+Each handler follows: permission check → get conn → build PageContext → page query → template render. The `PageContext::build()` helper consolidates the 5 common fields (username, permissions, flash, nav_modules, sidebar_items) into a single constructor call. All handlers use `Result<HttpResponse, AppError>` with `?` operator for error propagation.
 
 ### Nav Item Hierarchy
-Top-level items with no children are standalone (Dashboard). Items with children are modules (Admin) — visible if any child passes permission check. Children appear in sidebar when their parent module is active. Active module detection checks child URLs first for correct prefix matching.
+Top-level items with no children are standalone (Dashboard). Items with children are modules (Admin, Governance) — visible if any child passes permission check. Children appear in sidebar when their parent module is active. Active module detection checks child URLs first for correct prefix matching.
 
 ### EAV Trade-offs
 The generic schema means zero migrations when adding new entity types. The trade-off is more complex queries (LEFT JOINs on entity_properties). Typed domain structs (UserDisplay, RoleDisplay) provide a stable API layer over the generic storage.
+
+### Workflow Engine
+Workflow definitions (statuses + transitions) are stored as EAV entities, not hardcoded. Transitions are permission-gated and support conditions. The engine queries available transitions at runtime based on current status and user permissions. Currently seeded for suggestion and proposal workflows — designed to be extensible to any entity type.

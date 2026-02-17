@@ -3,7 +3,7 @@ use actix_web::{web, HttpResponse};
 
 use crate::db::DbPool;
 use crate::models::tor;
-use crate::auth::csrf;
+use crate::auth::{csrf, validate};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
@@ -51,13 +51,10 @@ pub async fn create(
     let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
 
     // Validate
-    let mut errors = vec![];
-    if name.trim().is_empty() {
-        errors.push("Name is required".to_string());
-    }
-    if label.trim().is_empty() {
-        errors.push("Label is required".to_string());
-    }
+    let mut errors: Vec<String> = vec![];
+    errors.extend(validate::validate_required(name, "Name", 50));
+    errors.extend(validate::validate_required(label, "Label", 100));
+    errors.extend(validate::validate_optional(description, "Description", 500));
 
     if !errors.is_empty() {
         let ctx = PageContext::build(&session, &conn, "/tor")?;
@@ -190,13 +187,10 @@ pub async fn update(
     let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
 
     // Validate
-    let mut errors = vec![];
-    if name.trim().is_empty() {
-        errors.push("Name is required".to_string());
-    }
-    if label.trim().is_empty() {
-        errors.push("Label is required".to_string());
-    }
+    let mut errors: Vec<String> = vec![];
+    errors.extend(validate::validate_required(name, "Name", 50));
+    errors.extend(validate::validate_required(label, "Label", 100));
+    errors.extend(validate::validate_optional(description, "Description", 500));
 
     if !errors.is_empty() {
         let existing = tor::find_detail_by_id(&conn, id).ok().flatten();

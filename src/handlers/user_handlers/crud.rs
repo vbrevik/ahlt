@@ -4,7 +4,7 @@ use actix_web::{web, HttpResponse};
 use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
 use crate::models::role;
-use crate::auth::{csrf, password};
+use crate::auth::{csrf, password, validate};
 use crate::auth::session::{get_user_id, require_permission};
 use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
@@ -44,16 +44,11 @@ pub async fn create(
     let conn = pool.get()?;
 
     // Validate
-    let mut errors = vec![];
-    if form.username.trim().is_empty() {
-        errors.push("Username is required".to_string());
-    }
-    if form.password.is_empty() {
-        errors.push("Password is required".to_string());
-    }
-    if form.email.trim().is_empty() {
-        errors.push("Email is required".to_string());
-    }
+    let mut errors: Vec<String> = vec![];
+    errors.extend(validate::validate_username(&form.username));
+    errors.extend(validate::validate_password(&form.password));
+    errors.extend(validate::validate_email(&form.email));
+    errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
 
     let role_id: i64 = match form.role_id.parse() {
         Ok(id) => id,
@@ -183,12 +178,13 @@ pub async fn update(
     let conn = pool.get()?;
 
     // Validate
-    let mut errors = vec![];
-    if form.username.trim().is_empty() {
-        errors.push("Username is required".to_string());
-    }
-    if form.email.trim().is_empty() {
-        errors.push("Email is required".to_string());
+    let mut errors: Vec<String> = vec![];
+    errors.extend(validate::validate_username(&form.username));
+    errors.extend(validate::validate_email(&form.email));
+    errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
+    // Password is optional on update — only validate if provided
+    if !form.password.is_empty() {
+        errors.extend(validate::validate_password(&form.password));
     }
 
     let new_role_id: i64 = match form.role_id.parse() {

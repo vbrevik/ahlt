@@ -263,6 +263,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_admin_warnings_id, "url", "/warnings");
     insert_prop(&conn, nav_admin_warnings_id, "parent", "admin");
 
+    // Admin → Role Builder: sidebar child
+    let nav_admin_role_builder_id = insert_entity(&conn, "nav_item", "admin.role_builder", "Role Builder", 8);
+    insert_prop(&conn, nav_admin_role_builder_id, "url", "/roles/builder");
+    insert_prop(&conn, nav_admin_role_builder_id, "parent", "admin");
+
     // Governance: module header
     let _nav_governance_id = insert_entity(&conn, "nav_item", "governance", "Governance", 3);
     insert_prop(&conn, _nav_governance_id, "url", "/tor");
@@ -325,6 +330,9 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
 
     // Admin > Menu Builder requires roles.manage
     insert_relation(&conn, requires_permission_rel_type_id, nav_admin_menu_builder_id, roles_manage_perm_id);
+
+    // Admin > Role Builder requires roles.manage
+    insert_relation(&conn, requires_permission_rel_type_id, nav_admin_role_builder_id, roles_manage_perm_id);
 
     // Admin > Warnings requires warnings.view
     let warnings_view_perm_id: i64 = conn.query_row(
