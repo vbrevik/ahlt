@@ -12,6 +12,7 @@ use crate::templates_structs::{
     PermissionGroup,
 };
 use crate::audit;
+use crate::handlers::warning_handlers::ws::ConnectionMap;
 
 pub async fn wizard_form(
     pool: web::Data<DbPool>,
@@ -34,12 +35,11 @@ pub async fn wizard_form(
                 code: perm.code,
                 label: perm.label,
                 group_name: perm.group_name,
-                checked: false, // New role has no permissions yet
+                checked: false,
             }
         );
     }
 
-    // Convert to Vec<PermissionGroup>
     let mut permission_groups: Vec<PermissionGroup> = groups_map.into_iter()
         .map(|(group_name, permissions)| PermissionGroup { group_name, permissions })
         .collect();
@@ -51,6 +51,45 @@ pub async fn wizard_form(
         ctx,
         permission_groups,
         csrf_token,
+        role: None,
+    };
+
+    render(tmpl)
+}
+
+pub async fn edit_form(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<i64>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
+
+    let id = path.into_inner();
+    let conn = pool.get()?;
+    let ctx = PageContext::build(&session, &conn, "/roles")?;
+
+    let role_detail = role::find_detail_by_id(&conn, id)?
+        .ok_or(AppError::NotFound)?;
+
+    // Get all permissions with checked state for this role
+    let all_checkboxes = role::find_permission_checkboxes(&conn, id)?;
+
+    let mut groups_map: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
+    for perm in all_checkboxes {
+        groups_map.entry(perm.group_name.clone()).or_default().push(perm);
+    }
+    let mut permission_groups: Vec<PermissionGroup> = groups_map.into_iter()
+        .map(|(group_name, permissions)| PermissionGroup { group_name, permissions })
+        .collect();
+    permission_groups.sort_by(|a, b| a.group_name.cmp(&b.group_name));
+
+    let csrf_token = ctx.csrf_token.clone();
+
+    let tmpl = RoleBuilderTemplate {
+        ctx,
+        permission_groups,
+        csrf_token,
+        role: Some(role_detail),
     };
 
     render(tmpl)
@@ -80,12 +119,10 @@ pub async fn create_role(
 
     let conn = pool.get()?;
 
-    // Validate role name
     validate_role_name(&form.name)?;
     validate_role_label(&form.label)?;
     ensure_unique_role_name(&conn, &form.name)?;
 
-    // Parse permission IDs
     let permission_ids: Vec<i64> = serde_json::from_str(&form.permission_ids)
         .map_err(|_| AppError::Session("Invalid permission data".into()))?;
 
@@ -93,14 +130,12 @@ pub async fn create_role(
         return Err(AppError::Session("Please select at least one permission".into()));
     }
 
-    // Transaction: create role entity + properties + relations
     let role_id = conn.query_row(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', ?1, ?2) RETURNING id",
         params![&form.name, &form.label],
         |row| row.get::<_, i64>(0),
     )?;
 
-    // Add description property if provided
     if !form.description.trim().is_empty() {
         conn.execute(
             "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'description', ?2)",
@@ -108,7 +143,6 @@ pub async fn create_role(
         )?;
     }
 
-    // Add permission relations
     let rt_id: i64 = conn.query_row(
         "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_permission'",
         [],
@@ -122,7 +156,6 @@ pub async fn create_role(
         )?;
     }
 
-    // Audit log
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "name": form.name,
@@ -131,8 +164,68 @@ pub async fn create_role(
     });
     let _ = audit::log(&conn, user_id, "role.created_via_builder", "role", role_id, details);
 
+    let _ = session.insert("flash", "Role created successfully");
     Ok(HttpResponse::SeeOther()
-        .append_header(("Location", format!("/roles/{}", role_id)))
+        .append_header(("Location", "/roles"))
+        .finish())
+}
+
+pub async fn update_role(
+    pool: web::Data<DbPool>,
+    session: Session,
+    form: web::Form<RoleBuilderForm>,
+    conn_map: web::Data<ConnectionMap>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.manage")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let role_id: i64 = form.role_id.as_deref()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(|| AppError::Session("Missing role ID".into()))?;
+
+    let conn = pool.get()?;
+
+    validate_role_name(&form.name)?;
+    validate_role_label(&form.label)?;
+    ensure_unique_role_name_excluding(&conn, &form.name, role_id)?;
+
+    let permission_ids: Vec<i64> = serde_json::from_str(&form.permission_ids)
+        .map_err(|_| AppError::Session("Invalid permission data".into()))?;
+
+    if permission_ids.is_empty() {
+        return Err(AppError::Session("Please select at least one permission".into()));
+    }
+
+    role::update(&conn, role_id, form.name.trim(), form.label.trim(),
+                 form.description.trim(), &permission_ids)?;
+
+    // Audit log
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let details = serde_json::json!({
+        "role_name": form.name.trim(),
+        "new_permission_count": permission_ids.len(),
+        "summary": format!("Updated permissions for role '{}'", form.label.trim())
+    });
+    let _ = audit::log(&conn, user_id, "role.permissions_changed", "role", role_id, details);
+
+    // Warning for admins
+    let msg = format!("Permissions updated for role '{}'", form.label.trim());
+    if let Ok(wid) = crate::warnings::create_warning(
+        &conn, "info", "security", "event.role.permissions_changed", &msg, "", "system"
+    ) {
+        let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings")
+            .unwrap_or_default();
+        if !admins.is_empty() {
+            let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+            crate::handlers::warning_handlers::ws::notify_users(
+                &conn_map, &pool, &admins, wid, "info", &msg,
+            );
+        }
+    }
+
+    let _ = session.insert("flash", "Role updated successfully");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", "/roles"))
         .finish())
 }
 
@@ -163,6 +256,20 @@ fn ensure_unique_role_name(conn: &rusqlite::Connection, name: &str) -> Result<()
     let exists = conn.query_row(
         "SELECT 1 FROM entities WHERE entity_type='role' AND name=?1",
         params![name],
+        |_| Ok(true),
+    ).unwrap_or(false);
+
+    if exists {
+        Err(AppError::Session(format!("Role '{}' already exists", name)))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_unique_role_name_excluding(conn: &rusqlite::Connection, name: &str, exclude_id: i64) -> Result<(), AppError> {
+    let exists = conn.query_row(
+        "SELECT 1 FROM entities WHERE entity_type='role' AND name=?1 AND id != ?2",
+        params![name, exclude_id],
         |_| Ok(true),
     ).unwrap_or(false);
 

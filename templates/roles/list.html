@@ -42,7 +42,7 @@
             <td><span class="badge badge-user">{{ role.permission_count }}</span></td>
             <td><span class="badge badge-user">{{ role.user_count }}</span></td>
             <td class="actions">
-                <a href="/roles/{{ role.id }}/edit" class="btn btn-sm">Edit</a>
+                <a href="/roles/builder/{{ role.id }}/edit" class="btn btn-sm">Edit</a>
                 {% if role.user_count == 0 %}
                 <form method="post" action="/roles/{{ role.id }}/delete" class="inline"
                       onsubmit="return confirm('Delete this role?')">

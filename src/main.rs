@@ -125,8 +125,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/builder", web::get().to(handlers::role_builder_handlers::wizard_form))
                     .route("/roles/builder/preview", web::post().to(handlers::role_builder_handlers::preview_menu))
                     .route("/roles/builder/create", web::post().to(handlers::role_builder_handlers::create_role))
-                    .route("/roles/{id}/edit", web::get().to(handlers::role_handlers::edit_form))
-                    .route("/roles/{id}", web::post().to(handlers::role_handlers::update))
+                    .route("/roles/builder/update", web::post().to(handlers::role_builder_handlers::update_role))
+                    .route("/roles/builder/{id}/edit", web::get().to(handlers::role_builder_handlers::edit_form))
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // ToR CRUD — /tor/new BEFORE /tor/{id}
                     .route("/tor", web::get().to(handlers::tor_handlers::list))

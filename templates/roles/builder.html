@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Role Builder{% endblock %}
+{% block title %}{% if role.is_some() %}Edit Role{% else %}Role Builder{% endif %}{% endblock %}
 
 {% block content %}
 <div class="role-builder-container">
-    <h1>Create New Role</h1>
+    <h1>{% if role.is_some() %}Edit Role{% else %}Create New Role{% endif %}</h1>
 
     <!-- Step Indicator -->
     <div class="step-indicator">
@@ -18,26 +18,31 @@
         </div>
     </div>
 
-    <form id="role-builder-form" action="/roles/builder/create" method="POST">
+    <form id="role-builder-form" action="{% if let Some(r) = role %}/roles/builder/update{% else %}/roles/builder/create{% endif %}" method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="permission_ids" id="permission-ids-input" value="[]">
+        {% if let Some(r) = role %}
+        <input type="hidden" name="role_id" value="{{ r.id }}">
+        {% endif %}
 
         <!-- Step 1: Role Details -->
         <div class="wizard-step" data-step="1">
             <div class="form-group">
                 <label for="name">Role Name *</label>
-                <input type="text" id="name" name="name" required pattern="[a-zA-Z0-9_]+" maxlength="50">
+                <input type="text" id="name" name="name" required pattern="[a-zA-Z0-9_]+" maxlength="50"
+                       value="{% if let Some(r) = role %}{{ r.name }}{% endif %}">
                 <small>Alphanumeric and underscore only</small>
             </div>
 
             <div class="form-group">
                 <label for="label">Display Label *</label>
-                <input type="text" id="label" name="label" required maxlength="100">
+                <input type="text" id="label" name="label" required maxlength="100"
+                       value="{% if let Some(r) = role %}{{ r.label }}{% endif %}">
             </div>
 
             <div class="form-group">
                 <label for="description">Description</label>
-                <textarea id="description" name="description" rows="3"></textarea>
+                <textarea id="description" name="description" rows="3">{% if let Some(r) = role %}{{ r.description }}{% endif %}</textarea>
             </div>
 
             <button type="button" class="btn btn-primary" onclick="nextStep()">Next: Select Permissions</button>
@@ -79,7 +84,6 @@
                 <div class="preview-panel">
                     <h2 class="panel-title">Menu Preview</h2>
                     <div class="preview-sidebar-mock">
-                        <!-- Sidebar mock — vertical list grouped by module -->
                         <div class="mock-sidebar" id="mock-sidebar">
                             <div id="preview-empty" class="preview-empty-state">
                                 Select permissions to see menu access
@@ -93,7 +97,9 @@
 
             <div class="button-group">
                 <button type="button" class="btn btn-secondary" onclick="prevStep()">Back</button>
-                <button type="submit" class="btn btn-success" id="create-btn" disabled>Create Role</button>
+                <button type="submit" class="btn btn-success" id="create-btn" disabled>
+                    {% if role.is_some() %}Update Role{% else %}Create Role{% endif %}
+                </button>
             </div>
         </div>
     </form>
@@ -111,7 +117,6 @@ function showStep(step) {
     document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
     currentStep = step;
 
-    // Trigger initial preview when entering step 2
     if (step === 2) {
         fetchPreview();
     }
@@ -145,7 +150,7 @@ document.querySelectorAll('.select-all-checkbox').forEach(function(checkbox) {
     });
 });
 
-// Individual permission change — debounced preview
+// Individual permission change
 document.querySelectorAll('.permission-item').forEach(function(checkbox) {
     checkbox.addEventListener('change', function() {
         var group = this.dataset.group;
@@ -167,13 +172,9 @@ function getSelectedIds() {
 function onPermissionChange() {
     var selectedIds = getSelectedIds();
 
-    // Update hidden input
     document.getElementById('permission-ids-input').value = JSON.stringify(selectedIds);
-
-    // Enable/disable create button
     document.getElementById('create-btn').disabled = selectedIds.length === 0;
 
-    // Debounced preview fetch
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(fetchPreview, 200);
 }
@@ -224,7 +225,6 @@ function displayPreview(data) {
     var summary = document.getElementById('preview-summary');
     summary.textContent = data.count + ' menu item' + (data.count !== 1 ? 's' : '') + ' accessible';
 
-    // Group items by module
     var byModule = {};
     data.items.forEach(function(item) {
         if (!byModule[item.module_name]) {
@@ -235,7 +235,6 @@ function displayPreview(data) {
 
     var sidebar = document.getElementById('mock-sidebar');
 
-    // Render each module as a vertical group
     Object.keys(byModule).sort().forEach(function(moduleName) {
         var group = document.createElement('div');
         group.className = 'mock-module-group';
@@ -257,5 +256,16 @@ function displayPreview(data) {
         sidebar.appendChild(group);
     });
 }
+
+// Initialize on page load — handles edit mode with pre-checked permissions
+onPermissionChange();
+
+// Sync "Select All" checkboxes on load for groups where all are checked
+document.querySelectorAll('.select-all-checkbox').forEach(function(selectAll) {
+    var group = selectAll.dataset.group;
+    var groupCheckboxes = document.querySelectorAll('.permission-item[data-group="' + group + '"]');
+    var allChecked = groupCheckboxes.length > 0 && Array.from(groupCheckboxes).every(function(cb) { return cb.checked; });
+    selectAll.checked = allChecked;
+});
 </script>
 {% endblock %}

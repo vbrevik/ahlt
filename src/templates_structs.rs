@@ -384,6 +384,7 @@ pub struct RoleBuilderTemplate {
     pub ctx: PageContext,
     pub permission_groups: Vec<PermissionGroup>,
     pub csrf_token: String,
+    pub role: Option<RoleDetail>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -404,4 +405,5 @@ pub struct RoleBuilderForm {
     pub description: String,
     pub permission_ids: String, // JSON array
     pub csrf_token: String,
+    pub role_id: Option<String>,
 }

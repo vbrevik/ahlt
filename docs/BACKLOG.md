@@ -203,11 +203,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 ### Roles Builder (4.3)
 - Two-step wizard: role details → permissions & live sidebar preview (side-by-side)
+- Handles both create and edit: single wizard replaces old separate edit form
+- Edit mode pre-fills step 1 fields and pre-checks assigned permissions
 - Live preview uses `requires_permission` relations (matches real nav system logic)
 - Vertical preview grouped by module with accurate permission filtering
-- Permission check fix: uses `roles.manage` (correct) instead of `admin.roles`
-- Form validation, XSS-safe DOM manipulation, audit logging
-- 7 integration tests (5 original + 2 new: standalone module, unpermitted exclusion)
+- Update handler includes audit logging + admin WebSocket warning (parity with old edit)
+- Old `/roles/{id}/edit` removed; edit now at `/roles/builder/{id}/edit`
+- 8 integration tests (5 builder + 3 model)
 
 ### Phase 2a: Item Pipeline
 - Suggestion→proposal workflow with form validation and auto-proposal creation
