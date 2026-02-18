@@ -776,5 +776,210 @@ pub fn seed_staging(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, srb_agenda, "tor_id", &srb_id.to_string());
     insert_relation(&conn, belongs_to_tor_rt, srb_agenda, srb_id);
 
-    log::info!("ToR staging data seeded: 2 ToRs (Budget Committee, Safety Review Board) with positions, members, suggestions, proposals, and agenda points");
+    // ToR 3: Sprint Planning (biweekly, monday)
+    let sp_id = insert_entity(&conn, "tor", "sprint_planning", "Sprint Planning", 3);
+    insert_prop(&conn, sp_id, "description", "Biweekly sprint planning session to define sprint goal and select backlog items");
+    insert_prop(&conn, sp_id, "status", "active");
+    insert_prop(&conn, sp_id, "meeting_cadence", "biweekly");
+    insert_prop(&conn, sp_id, "cadence_day", "monday");
+    insert_prop(&conn, sp_id, "cadence_time", "09:00");
+    insert_prop(&conn, sp_id, "cadence_duration_minutes", "120");
+    insert_prop(&conn, sp_id, "default_location", "Team Room");
+
+    let sp_sm = insert_entity(&conn, "tor_function", "sp_scrum_master", "Scrum Master", 0);
+    insert_prop(&conn, sp_sm, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, sp_sm, sp_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, sp_sm);
+
+    let sp_po = insert_entity(&conn, "tor_function", "sp_product_owner", "Product Owner", 0);
+    insert_prop(&conn, sp_po, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, sp_po, sp_id);
+    insert_relation(&conn, fills_position_rt, alice_id, sp_po);
+
+    let sp_sug = insert_entity(&conn, "suggestion", "suggestion_2026_01_20_sp", "Add estimation session before sprint planning", 0);
+    insert_prop(&conn, sp_sug, "description", "Run a 30-minute async estimation session the day before sprint planning so team members can pre-size stories. This would cut planning duration significantly.");
+    insert_prop(&conn, sp_sug, "submitted_date", "2026-01-20");
+    insert_prop(&conn, sp_sug, "status", "open");
+    insert_prop(&conn, sp_sug, "submitted_by_id", &alice_id.to_string());
+    insert_relation(&conn, suggested_to_rt, sp_sug, sp_id);
+
+    let sp_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_03_03_sp", "Sprint 14 Planning", 0);
+    insert_prop(&conn, sp_agenda, "title", "Sprint 14 Planning");
+    insert_prop(&conn, sp_agenda, "description", "Define sprint 14 goal, review velocity from sprint 13, and select backlog items for the sprint.");
+    insert_prop(&conn, sp_agenda, "item_type", "decision");
+    insert_prop(&conn, sp_agenda, "scheduled_date", "2026-03-03");
+    insert_prop(&conn, sp_agenda, "time_allocation_minutes", "120");
+    insert_prop(&conn, sp_agenda, "status", "scheduled");
+    insert_prop(&conn, sp_agenda, "created_by", &charlie_id.to_string());
+    insert_prop(&conn, sp_agenda, "created_date", "2026-02-17T09:00:00");
+    insert_prop(&conn, sp_agenda, "tor_id", &sp_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, sp_agenda, sp_id);
+
+    // ToR 4: Daily Standup (every working day)
+    let ds_id = insert_entity(&conn, "tor", "daily_standup", "Daily Standup", 4);
+    insert_prop(&conn, ds_id, "description", "Short daily synchronisation — what did I do yesterday, what am I doing today, any blockers");
+    insert_prop(&conn, ds_id, "status", "active");
+    insert_prop(&conn, ds_id, "meeting_cadence", "working_days");
+    insert_prop(&conn, ds_id, "cadence_time", "09:15");
+    insert_prop(&conn, ds_id, "cadence_duration_minutes", "15");
+    insert_prop(&conn, ds_id, "default_location", "Team Room");
+
+    let ds_lead = insert_entity(&conn, "tor_function", "ds_team_lead", "Team Lead", 0);
+    insert_prop(&conn, ds_lead, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, ds_lead, ds_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, ds_lead);
+
+    let ds_dev = insert_entity(&conn, "tor_function", "ds_developer", "Developer", 0);
+    insert_prop(&conn, ds_dev, "membership_type", "optional");
+    insert_relation(&conn, belongs_to_tor_rt, ds_dev, ds_id);
+    insert_relation(&conn, fills_position_rt, alice_id, ds_dev);
+
+    let ds_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_02_19_ds", "Daily sync — blockers and progress", 0);
+    insert_prop(&conn, ds_agenda, "title", "Daily sync — blockers and progress");
+    insert_prop(&conn, ds_agenda, "description", "Each team member: yesterday, today, blockers. Parking lot for follow-ups.");
+    insert_prop(&conn, ds_agenda, "item_type", "informative");
+    insert_prop(&conn, ds_agenda, "scheduled_date", "2026-02-19");
+    insert_prop(&conn, ds_agenda, "time_allocation_minutes", "15");
+    insert_prop(&conn, ds_agenda, "status", "scheduled");
+    insert_prop(&conn, ds_agenda, "created_by", &charlie_id.to_string());
+    insert_prop(&conn, ds_agenda, "created_date", "2026-02-18T17:00:00");
+    insert_prop(&conn, ds_agenda, "tor_id", &ds_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, ds_agenda, ds_id);
+
+    // ToR 5: Sprint Review / Show & Tell (biweekly, friday afternoon)
+    let sr_id = insert_entity(&conn, "tor", "sprint_review", "Sprint Review", 5);
+    insert_prop(&conn, sr_id, "description", "End-of-sprint demo of completed work to stakeholders; gather feedback before retrospective");
+    insert_prop(&conn, sr_id, "status", "active");
+    insert_prop(&conn, sr_id, "meeting_cadence", "biweekly");
+    insert_prop(&conn, sr_id, "cadence_day", "friday");
+    insert_prop(&conn, sr_id, "cadence_time", "14:00");
+    insert_prop(&conn, sr_id, "cadence_duration_minutes", "60");
+    insert_prop(&conn, sr_id, "default_location", "Presentation Room");
+
+    let sr_po = insert_entity(&conn, "tor_function", "sr_product_owner", "Product Owner", 0);
+    insert_prop(&conn, sr_po, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, sr_po, sr_id);
+    insert_relation(&conn, fills_position_rt, alice_id, sr_po);
+
+    let sr_sm = insert_entity(&conn, "tor_function", "sr_scrum_master", "Scrum Master", 0);
+    insert_prop(&conn, sr_sm, "membership_type", "optional");
+    insert_relation(&conn, belongs_to_tor_rt, sr_sm, sr_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, sr_sm);
+
+    let sr_sug = insert_entity(&conn, "suggestion", "suggestion_2026_02_07_sr", "Invite external stakeholders to sprint reviews", 0);
+    insert_prop(&conn, sr_sug, "description", "Expand sprint review attendance to include key external stakeholders (customers, legal, compliance). Currently only internal team attends.");
+    insert_prop(&conn, sr_sug, "submitted_date", "2026-02-07");
+    insert_prop(&conn, sr_sug, "status", "open");
+    insert_prop(&conn, sr_sug, "submitted_by_id", &charlie_id.to_string());
+    insert_relation(&conn, suggested_to_rt, sr_sug, sr_id);
+
+    let sr_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_02_28_sr", "Sprint 13 Demo & Stakeholder Feedback", 0);
+    insert_prop(&conn, sr_agenda, "title", "Sprint 13 Demo & Stakeholder Feedback");
+    insert_prop(&conn, sr_agenda, "description", "Demo completed features from sprint 13. Collect acceptance decisions from Product Owner and feedback from attendees.");
+    insert_prop(&conn, sr_agenda, "item_type", "informative");
+    insert_prop(&conn, sr_agenda, "scheduled_date", "2026-02-28");
+    insert_prop(&conn, sr_agenda, "time_allocation_minutes", "45");
+    insert_prop(&conn, sr_agenda, "status", "scheduled");
+    insert_prop(&conn, sr_agenda, "created_by", &alice_id.to_string());
+    insert_prop(&conn, sr_agenda, "created_date", "2026-02-20T13:00:00");
+    insert_prop(&conn, sr_agenda, "tor_id", &sr_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, sr_agenda, sr_id);
+
+    // ToR 6: Sprint Retrospective (biweekly, friday)
+    let retro_id = insert_entity(&conn, "tor", "sprint_retrospective", "Sprint Retrospective", 6);
+    insert_prop(&conn, retro_id, "description", "Team reflects on the sprint process — what went well, what to improve, action items");
+    insert_prop(&conn, retro_id, "status", "active");
+    insert_prop(&conn, retro_id, "meeting_cadence", "biweekly");
+    insert_prop(&conn, retro_id, "cadence_day", "friday");
+    insert_prop(&conn, retro_id, "cadence_time", "15:30");
+    insert_prop(&conn, retro_id, "cadence_duration_minutes", "60");
+    insert_prop(&conn, retro_id, "default_location", "Team Room");
+
+    let retro_sm = insert_entity(&conn, "tor_function", "retro_scrum_master", "Scrum Master", 0);
+    insert_prop(&conn, retro_sm, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, retro_sm, retro_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, retro_sm);
+
+    let retro_dev = insert_entity(&conn, "tor_function", "retro_developer", "Developer", 0);
+    insert_prop(&conn, retro_dev, "membership_type", "optional");
+    insert_relation(&conn, belongs_to_tor_rt, retro_dev, retro_id);
+    insert_relation(&conn, fills_position_rt, alice_id, retro_dev);
+
+    let retro_sug = insert_entity(&conn, "suggestion", "suggestion_2026_02_01_retro", "Use async retro board before the meeting", 0);
+    insert_prop(&conn, retro_sug, "description", "Fill in retro board (went well / improve / action items) asynchronously 24h before the meeting so time is spent on discussion rather than writing.");
+    insert_prop(&conn, retro_sug, "submitted_date", "2026-02-01");
+    insert_prop(&conn, retro_sug, "status", "accepted");
+    insert_prop(&conn, retro_sug, "submitted_by_id", &alice_id.to_string());
+    insert_relation(&conn, suggested_to_rt, retro_sug, retro_id);
+
+    let retro_prop = insert_entity(&conn, "proposal", "async_retro_board_process", "Async Retrospective Board Process", 0);
+    insert_prop(&conn, retro_prop, "title", "Async Retrospective Board Process");
+    insert_prop(&conn, retro_prop, "description", "Team uses a shared digital board (e.g. Miro) populated at least 24 hours before each retrospective. The live meeting focuses entirely on prioritising action items.");
+    insert_prop(&conn, retro_prop, "rationale", "Eliminates 20-25 minutes of silent writing time per retro, increases meeting quality, and gives quieter team members time to contribute thoughtfully.");
+    insert_prop(&conn, retro_prop, "submitted_date", "2026-02-08");
+    insert_prop(&conn, retro_prop, "status", "submitted");
+    insert_prop(&conn, retro_prop, "submitted_by_id", &alice_id.to_string());
+    insert_relation(&conn, submitted_to_rt, retro_prop, retro_id);
+
+    let retro_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_02_28_retro", "Sprint 13 Retrospective", 0);
+    insert_prop(&conn, retro_agenda, "title", "Sprint 13 Retrospective");
+    insert_prop(&conn, retro_agenda, "description", "Review action items from sprint 12 retro, discuss sprint 13 highlights and pain points, define 1-2 improvement actions for sprint 14.");
+    insert_prop(&conn, retro_agenda, "item_type", "decision");
+    insert_prop(&conn, retro_agenda, "scheduled_date", "2026-02-28");
+    insert_prop(&conn, retro_agenda, "time_allocation_minutes", "60");
+    insert_prop(&conn, retro_agenda, "status", "scheduled");
+    insert_prop(&conn, retro_agenda, "created_by", &charlie_id.to_string());
+    insert_prop(&conn, retro_agenda, "created_date", "2026-02-20T14:00:00");
+    insert_prop(&conn, retro_agenda, "tor_id", &retro_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, retro_agenda, retro_id);
+
+    // ToR 7: Backlog Refinement (weekly, wednesday)
+    let br_id = insert_entity(&conn, "tor", "backlog_refinement", "Backlog Refinement", 7);
+    insert_prop(&conn, br_id, "description", "Weekly grooming session to clarify, estimate, and prioritise upcoming backlog items so they are sprint-ready");
+    insert_prop(&conn, br_id, "status", "active");
+    insert_prop(&conn, br_id, "meeting_cadence", "weekly");
+    insert_prop(&conn, br_id, "cadence_day", "wednesday");
+    insert_prop(&conn, br_id, "cadence_time", "13:00");
+    insert_prop(&conn, br_id, "cadence_duration_minutes", "60");
+    insert_prop(&conn, br_id, "default_location", "Team Room");
+
+    let br_po = insert_entity(&conn, "tor_function", "br_product_owner", "Product Owner", 0);
+    insert_prop(&conn, br_po, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, br_po, br_id);
+    insert_relation(&conn, fills_position_rt, alice_id, br_po);
+
+    let br_dev = insert_entity(&conn, "tor_function", "br_developer", "Developer", 0);
+    insert_prop(&conn, br_dev, "membership_type", "optional");
+    insert_relation(&conn, belongs_to_tor_rt, br_dev, br_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, br_dev);
+
+    let br_sug = insert_entity(&conn, "suggestion", "suggestion_2026_01_27_br", "Create a Definition of Ready checklist", 0);
+    insert_prop(&conn, br_sug, "description", "Define formal acceptance criteria for stories entering the sprint — acceptance criteria written, dependencies identified, estimated. Stops half-baked stories reaching planning.");
+    insert_prop(&conn, br_sug, "submitted_date", "2026-01-27");
+    insert_prop(&conn, br_sug, "status", "accepted");
+    insert_prop(&conn, br_sug, "submitted_by_id", &charlie_id.to_string());
+    insert_relation(&conn, suggested_to_rt, br_sug, br_id);
+
+    let br_prop = insert_entity(&conn, "proposal", "definition_of_ready_checklist", "Definition of Ready Checklist", 0);
+    insert_prop(&conn, br_prop, "title", "Definition of Ready Checklist");
+    insert_prop(&conn, br_prop, "description", "Adopt a 4-point Definition of Ready: (1) acceptance criteria written, (2) external dependencies identified, (3) story estimated in points, (4) UI mockup attached if applicable. Stories not meeting all 4 criteria cannot enter sprint planning.");
+    insert_prop(&conn, br_prop, "rationale", "Sprint 11 had 3 stories pulled mid-sprint due to unclear requirements. A DoR prevents unready stories from reaching planning.");
+    insert_prop(&conn, br_prop, "submitted_date", "2026-02-03");
+    insert_prop(&conn, br_prop, "status", "submitted");
+    insert_prop(&conn, br_prop, "submitted_by_id", &charlie_id.to_string());
+    insert_relation(&conn, submitted_to_rt, br_prop, br_id);
+
+    let br_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_02_25_br", "Refine sprint 14 backlog candidates", 0);
+    insert_prop(&conn, br_agenda, "title", "Refine sprint 14 backlog candidates");
+    insert_prop(&conn, br_agenda, "description", "Clarify and estimate 8-10 candidate stories for sprint 14. Apply Definition of Ready criteria; park items that don't qualify.");
+    insert_prop(&conn, br_agenda, "item_type", "informative");
+    insert_prop(&conn, br_agenda, "scheduled_date", "2026-02-25");
+    insert_prop(&conn, br_agenda, "time_allocation_minutes", "60");
+    insert_prop(&conn, br_agenda, "status", "scheduled");
+    insert_prop(&conn, br_agenda, "created_by", &alice_id.to_string());
+    insert_prop(&conn, br_agenda, "created_date", "2026-02-18T12:00:00");
+    insert_prop(&conn, br_agenda, "tor_id", &br_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, br_agenda, br_id);
+
+    log::info!("ToR staging data seeded: 7 ToRs (Budget Committee, Safety Review Board, Sprint Planning, Daily Standup, Sprint Review, Sprint Retrospective, Backlog Refinement) with positions, members, suggestions, proposals, and agenda points");
 }
