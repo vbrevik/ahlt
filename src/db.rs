@@ -69,9 +69,12 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _requires_perm_id = insert_entity(&conn, "relation_type", "requires_permission", "Requires Permission", 0);
 
     // --- ToR relation types ---
+    // DEPRECATED: replaced by fills_position
     let _member_of_id = insert_entity(&conn, "relation_type", "member_of", "Member Of", 0);
+    // DEPRECATED: replaced by fills_position
     let _has_tor_role_id = insert_entity(&conn, "relation_type", "has_tor_role", "Has ToR Role", 0);
     let _belongs_to_tor_id = insert_entity(&conn, "relation_type", "belongs_to_tor", "Belongs to ToR", 0);
+    let _fills_position_id = insert_entity(&conn, "relation_type", "fills_position", "Fills Position", 0);
 
     // --- Item workflow relation types ---
     let _suggested_to_id = insert_entity(&conn, "relation_type", "suggested_to", "Suggested To", 0);
@@ -141,6 +144,9 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
         ("coa.edit", "Edit Courses of Action", "Workflow"),
         ("workflow.manage", "Manage Workflow System", "Governance"),
         ("warnings.view", "View Warnings", "Admin"),
+        ("minutes.generate", "Generate Meeting Minutes", "Governance"),
+        ("minutes.edit", "Edit Meeting Minutes", "Governance"),
+        ("minutes.approve", "Approve Meeting Minutes", "Governance"),
     ];
 
     let mut perm_ids: Vec<(i64, &str)> = Vec::new();
@@ -509,7 +515,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
     insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
 
-    log::info!("Seeded ontology: 26 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
+    log::info!("Seeded ontology: 27 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
 
