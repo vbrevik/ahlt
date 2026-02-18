@@ -8,11 +8,16 @@ pub fn find_all_list_items(conn: &Connection) -> rusqlite::Result<Vec<TorListIte
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_status.value, 'active') AS status, \
                 COALESCE(p_cadence.value, 'ad-hoc') AS meeting_cadence, \
-                (SELECT COUNT(*) FROM relations r_member \
-                 WHERE r_member.target_id = e.id \
-                   AND r_member.relation_type_id = (\
+                (SELECT COUNT(DISTINCT r_fills.source_id) \
+                 FROM relations r_tor \
+                 JOIN relations r_fills ON r_tor.source_id = r_fills.target_id \
+                 WHERE r_tor.target_id = e.id \
+                   AND r_tor.relation_type_id = (\
                        SELECT id FROM entities \
-                       WHERE entity_type = 'relation_type' AND name = 'member_of') \
+                       WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+                   AND r_fills.relation_type_id = (\
+                       SELECT id FROM entities \
+                       WHERE entity_type = 'relation_type' AND name = 'fills_position') \
                 ) AS member_count, \
                 (SELECT COUNT(*) FROM relations r_func \
                  WHERE r_func.target_id = e.id \
@@ -204,61 +209,80 @@ pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Find all positions in a ToR with their current holders.
+/// Returns positions even when vacant (holder fields will be None).
 pub fn find_members(conn: &Connection, tor_id: i64) -> rusqlite::Result<Vec<TorMember>> {
     let mut stmt = conn.prepare(
-        "SELECT u.id, u.name, u.label \
-         FROM relations r \
-         JOIN entities u ON r.source_id = u.id \
-         WHERE r.target_id = ?1 \
-           AND r.relation_type_id = (\
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'member_of') \
-         ORDER BY u.label",
+        "SELECT f.id AS position_id, f.name AS position_name, f.label AS position_label, \
+                COALESCE(p_mt.value, 'optional') AS membership_type, \
+                u.id AS holder_id, u.name AS holder_name, u.label AS holder_label \
+         FROM entities f \
+         JOIN relations r_tor ON f.id = r_tor.source_id \
+         LEFT JOIN relations r_fills ON f.id = r_fills.target_id \
+             AND r_fills.relation_type_id = ( \
+                 SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+         LEFT JOIN entities u ON r_fills.source_id = u.id AND u.entity_type = 'user' \
+         LEFT JOIN entity_properties p_mt ON f.id = p_mt.entity_id AND p_mt.key = 'membership_type' \
+         WHERE r_tor.target_id = ?1 \
+           AND r_tor.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+           AND f.entity_type = 'tor_function' \
+         ORDER BY CASE WHEN COALESCE(p_mt.value, 'optional') = 'mandatory' THEN 0 ELSE 1 END, f.label",
     )?;
 
-    let users: Vec<(i64, String, String)> = stmt
+    let members = stmt
         .query_map(params![tor_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            let holder_id: Option<i64> = row.get("holder_id")?;
+            Ok(TorMember {
+                position_id: row.get("position_id")?,
+                position_name: row.get("position_name")?,
+                position_label: row.get("position_label")?,
+                membership_type: row.get("membership_type")?,
+                holder_id,
+                holder_name: if holder_id.is_some() { row.get("holder_name")? } else { None },
+                holder_label: if holder_id.is_some() { row.get("holder_label")? } else { None },
+            })
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut func_stmt = conn.prepare(
-        "SELECT f.id, f.name, f.label \
-         FROM relations r_role \
-         JOIN entities f ON r_role.target_id = f.id \
-         JOIN relations r_tor ON f.id = r_tor.source_id \
-         WHERE r_role.source_id = ?1 \
-           AND r_role.relation_type_id = (\
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'has_tor_role') \
-           AND r_tor.target_id = ?2 \
-           AND r_tor.relation_type_id = (\
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
-         ORDER BY f.label",
+    Ok(members)
+}
+
+/// Assign a user to a position (creates fills_position relation).
+pub fn assign_to_position(
+    conn: &Connection,
+    user_id: i64,
+    position_id: i64,
+    membership_type: &str,
+) -> rusqlite::Result<()> {
+    // Set the membership_type property on the position
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'membership_type', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![position_id, membership_type],
     )?;
 
-    let mut members = Vec::new();
-    for (user_id, user_name, user_label) in users {
-        let functions: Vec<TorFunctionRef> = func_stmt
-            .query_map(params![user_id, tor_id], |row| {
-                Ok(TorFunctionRef {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    label: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+    // Create fills_position relation
+    conn.execute(
+        "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
+         VALUES ( \
+             (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position'), \
+             ?1, ?2)",
+        params![user_id, position_id],
+    )?;
 
-        members.push(TorMember {
-            user_id,
-            user_name,
-            user_label,
-            functions,
-        });
-    }
+    Ok(())
+}
 
-    Ok(members)
+/// Remove the current holder from a position.
+pub fn vacate_position(conn: &Connection, position_id: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "DELETE FROM relations WHERE target_id = ?1 \
+         AND relation_type_id = ( \
+             SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')",
+        params![position_id],
+    )?;
+    Ok(())
 }
 
 pub fn find_functions(
@@ -315,60 +339,25 @@ pub fn find_functions(
     Ok(result)
 }
 
-pub fn add_member(conn: &Connection, user_id: i64, tor_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
-         VALUES (\
-             (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'member_of'), \
-             ?1, ?2\
-         )",
-        params![user_id, tor_id],
-    )?;
-    Ok(())
-}
-
-pub fn remove_member(conn: &Connection, user_id: i64, tor_id: i64) -> rusqlite::Result<()> {
-    // Remove membership relation
-    conn.execute(
-        "DELETE FROM relations \
-         WHERE source_id = ?1 AND target_id = ?2 \
-           AND relation_type_id = (\
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'member_of')",
-        params![user_id, tor_id],
-    )?;
-
-    // Remove any tor function assignments for this user within this tor
-    conn.execute(
-        "DELETE FROM relations \
-         WHERE source_id = ?1 \
-           AND relation_type_id = (\
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'has_tor_role') \
-           AND target_id IN (\
-               SELECT r.source_id FROM relations r \
-               WHERE r.target_id = ?2 \
-                 AND r.relation_type_id = (\
-                     SELECT id FROM entities \
-                     WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor'))",
-        params![user_id, tor_id],
-    )?;
-
-    Ok(())
-}
-
+/// Count positions with holders in a ToR (not vacant positions).
 pub fn count_members(conn: &Connection, tor_id: i64) -> rusqlite::Result<i64> {
     conn.query_row(
-        "SELECT COUNT(*) FROM relations \
-         WHERE relation_type_id = (\
-             SELECT id FROM entities \
-             WHERE entity_type = 'relation_type' AND name = 'member_of') \
-           AND target_id = ?1",
+        "SELECT COUNT(DISTINCT r_fills.source_id) \
+         FROM entities f \
+         JOIN relations r_tor ON f.id = r_tor.source_id \
+         JOIN relations r_fills ON f.id = r_fills.target_id \
+         WHERE r_tor.target_id = ?1 \
+           AND r_tor.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+           AND r_fills.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+           AND f.entity_type = 'tor_function'",
         params![tor_id],
         |row| row.get(0),
     )
 }
 
+/// Find users not currently filling any position in this ToR.
 pub fn find_non_members(
     conn: &Connection,
     tor_id: i64,
@@ -378,12 +367,15 @@ pub fn find_non_members(
          FROM entities e \
          WHERE e.entity_type = 'user' \
            AND e.is_active = 1 \
-           AND e.id NOT IN (\
-               SELECT r.source_id FROM relations r \
-               WHERE r.target_id = ?1 \
-                 AND r.relation_type_id = (\
-                     SELECT id FROM entities \
-                     WHERE entity_type = 'relation_type' AND name = 'member_of')) \
+           AND e.id NOT IN ( \
+               SELECT r_fills.source_id \
+               FROM relations r_fills \
+               JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
+               WHERE r_tor.target_id = ?1 \
+                 AND r_tor.relation_type_id = ( \
+                     SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+                 AND r_fills.relation_type_id = ( \
+                     SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')) \
          ORDER BY e.label",
     )?;
 
@@ -396,18 +388,22 @@ pub fn find_non_members(
     Ok(users)
 }
 
-/// Verify user is a member of the given ToR, returning AppError::PermissionDenied if not.
+/// Verify user fills a position in the given ToR. Returns AppError::PermissionDenied if not.
 pub fn require_tor_membership(
     conn: &Connection,
     user_id: i64,
     tor_id: i64,
 ) -> Result<(), AppError> {
     let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM relations r \
-         JOIN entities rt ON r.relation_type_id = rt.id \
-         WHERE rt.name = 'member_of' \
-           AND r.source_id = ?1 \
-           AND r.target_id = ?2",
+        "SELECT COUNT(*) \
+         FROM relations r_fills \
+         JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
+         WHERE r_fills.source_id = ?1 \
+           AND r_tor.target_id = ?2 \
+           AND r_fills.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+           AND r_tor.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor')",
         params![user_id, tor_id],
         |row| row.get(0),
     )?;
