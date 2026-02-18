@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Workflow{% endblock %}
+{% block title %}Workflow Overview — {{ ctx.app_name }}{% endblock %}
 
 {% block nav %}
 {% include "partials/nav.html" %}
@@ -11,4 +11,170 @@
 {% endblock %}
 
 {% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Workflow Overview</h1>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-nav">
+    <a href="/workflow?tab=suggestions"
+       class="tab-link{% if active_tab.as_str() == "suggestions" %} active{% endif %}">
+        Suggestions ({{ suggestions.len() }})
+    </a>
+    <a href="/workflow?tab=proposals"
+       class="tab-link{% if active_tab.as_str() == "proposals" %} active{% endif %}">
+        Proposals ({{ proposals.len() }})
+    </a>
+    <a href="/workflow?tab=agenda_points"
+       class="tab-link{% if active_tab.as_str() == "agenda_points" %} active{% endif %}">
+        Agenda Points ({{ agenda_points.len() }})
+    </a>
+</div>
+
+<!-- Suggestions Tab -->
+{% if active_tab.as_str() == "suggestions" %}
+{% if suggestions.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No suggestions found</p>
+    <p>Suggestions from all Terms of Reference will appear here.</p>
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>ToR</th>
+            <th class="col-id">ID</th>
+            <th>Description</th>
+            <th>Submitted By</th>
+            <th>Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for s in suggestions %}
+        <tr>
+            <td><a href="/tor/{{ s.tor_id }}/workflow?tab=suggestions">{{ s.tor_name }}</a></td>
+            <td class="col-id">{{ s.id }}</td>
+            <td>{{ s.description_preview }}</td>
+            <td>{{ s.submitted_by_name }}</td>
+            <td>{{ s.submitted_date }}</td>
+            <td>
+                {% if s.status.as_str() == "open" %}
+                <span class="badge badge-info">Open</span>
+                {% else if s.status.as_str() == "accepted" %}
+                <span class="badge badge-success">Accepted</span>
+                {% else %}
+                <span class="badge badge-danger">Rejected</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+<!-- Proposals Tab -->
+{% if active_tab.as_str() == "proposals" %}
+{% if proposals.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No proposals found</p>
+    <p>Proposals from all Terms of Reference will appear here.</p>
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>ToR</th>
+            <th class="col-id">ID</th>
+            <th>Title</th>
+            <th>Submitted By</th>
+            <th>Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in proposals %}
+        <tr>
+            <td><a href="/tor/{{ p.tor_id }}/workflow?tab=proposals">{{ p.tor_name }}</a></td>
+            <td class="col-id">{{ p.id }}</td>
+            <td><strong>{{ p.title }}</strong></td>
+            <td>{{ p.submitted_by_name }}</td>
+            <td>{{ p.submitted_date }}</td>
+            <td>
+                {% if p.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if p.status.as_str() == "submitted" %}
+                <span class="badge badge-info">Submitted</span>
+                {% else if p.status.as_str() == "under_review" %}
+                <span class="badge badge-warning">Under Review</span>
+                {% else if p.status.as_str() == "approved" %}
+                <span class="badge badge-success">Approved</span>
+                {% else if p.status.as_str() == "rejected" %}
+                <span class="badge badge-danger">Rejected</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
+
+<!-- Agenda Points Tab -->
+{% if active_tab.as_str() == "agenda_points" %}
+{% if agenda_points.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No agenda points found</p>
+    <p>Agenda points from all Terms of Reference will appear here.</p>
+</div>
+{% else %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>ToR</th>
+            <th class="col-id">ID</th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Scheduled Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in agenda_points %}
+        <tr>
+            <td><a href="/tor/{{ item.tor_id }}/workflow?tab=agenda_points">{{ item.tor_name }}</a></td>
+            <td class="col-id">{{ item.id }}</td>
+            <td><strong>{{ item.title }}</strong></td>
+            <td>
+                {% if item.item_type.as_str() == "decision" %}
+                <span class="badge badge-warning">Decision</span>
+                {% else %}
+                <span class="badge badge-info">Informative</span>
+                {% endif %}
+            </td>
+            <td>{{ item.scheduled_date }}</td>
+            <td>
+                {% if item.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if item.status.as_str() == "scheduled" %}
+                <span class="badge badge-info">Scheduled</span>
+                {% else if item.status.as_str() == "presented" %}
+                <span class="badge badge-primary">Presented</span>
+                {% else if item.status.as_str() == "decided" %}
+                <span class="badge badge-success">Decided</span>
+                {% else %}
+                <span class="badge badge-muted">{{ item.status }}</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endif %}
 {% endblock %}
