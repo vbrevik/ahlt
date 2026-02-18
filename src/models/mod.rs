@@ -2,6 +2,7 @@ pub mod agenda_point;
 pub mod audit;
 pub mod coa;
 pub mod entity;
+pub mod minutes;
 pub mod nav_item;
 pub mod ontology;
 pub mod opinion;
