@@ -87,6 +87,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     let _minutes_of_id = insert_entity(&conn, "relation_type", "minutes_of", "Minutes Of", 0);
     let _section_of_id = insert_entity(&conn, "relation_type", "section_of", "Section Of", 0);
 
+    // --- Presentation template relation types ---
+    let _template_of_id = insert_entity(&conn, "relation_type", "template_of", "Template Of", 0);
+    let _slide_of_id = insert_entity(&conn, "relation_type", "slide_of", "Slide Of", 0);
+    let _requires_template_id = insert_entity(&conn, "relation_type", "requires_template", "Requires Template", 0);
+
     // --- Item workflow relation types ---
     let _suggested_to_id = insert_entity(&conn, "relation_type", "suggested_to", "Suggested To", 0);
     let _spawns_proposal_id = insert_entity(&conn, "relation_type", "spawns_proposal", "Spawns Proposal", 0);
@@ -526,7 +531,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
     insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
 
-    log::info!("Seeded ontology: 32 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
+    log::info!("Seeded ontology: 35 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
 

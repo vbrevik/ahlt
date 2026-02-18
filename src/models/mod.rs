@@ -6,6 +6,7 @@ pub mod minutes;
 pub mod nav_item;
 pub mod ontology;
 pub mod opinion;
+pub mod presentation_template;
 pub mod relation;
 pub mod permission;
 pub mod protocol;
