@@ -315,9 +315,9 @@ pub fn find_functions(
          FROM relations r \
          JOIN entities u ON r.source_id = u.id \
          WHERE r.target_id = ?1 \
-           AND r.relation_type_id = (\
+           AND r.relation_type_id = ( \
                SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'has_tor_role') \
+               WHERE entity_type = 'relation_type' AND name = 'fills_position') \
          ORDER BY u.label",
     )?;
 
