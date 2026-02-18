@@ -16,60 +16,59 @@
 {% endif %}
 
 <div class="page-header">
-    <h1>{{ tor.label }}</h1>
+    <div>
+        <h1>{{ tor.label }}</h1>
+        <div style="font-family:var(--font-mono);font-size:0.8125rem;color:var(--text-muted);margin-top:0.25rem;">{{ tor.name }}</div>
+    </div>
     <div class="page-actions">
         {% if ctx.permissions.has("tor.edit") %}
         <a href="/tor/{{ tor.id }}/templates" class="btn btn-sm">Presentation Templates</a>
         <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
         {% endif %}
-        <a href="/tor" class="btn btn-sm">Back to List</a>
+        <a href="/tor" class="btn btn-sm">All ToRs</a>
     </div>
 </div>
 
-<div class="detail-card">
-    <div class="detail-row">
-        <span class="detail-label">Name</span>
-        <span class="detail-value"><code class="mono-type">{{ tor.name }}</code></span>
-    </div>
-    <div class="detail-row">
-        <span class="detail-label">Status</span>
-        <span class="detail-value">
+<!-- ToR Info Grid -->
+<div class="tor-info-grid">
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Status</div>
+        <div class="tor-info-value">
             {% if tor.status.as_str() == "active" %}
             <span class="badge badge-success">Active</span>
             {% else %}
             <span class="badge badge-muted">{{ tor.status }}</span>
             {% endif %}
-        </span>
+        </div>
+    </div>
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Meeting Cadence</div>
+        <div class="tor-info-value">
+            {{ tor.meeting_cadence }}{% if !tor.cadence_day.is_empty() %} &mdash; {{ tor.cadence_day }}{% endif %}{% if !tor.cadence_time.is_empty() %} at {{ tor.cadence_time }}{% endif %}
+        </div>
     </div>
     {% if !tor.description.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Description</span>
-        <span class="detail-value">{{ tor.description }}</span>
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Description</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.description }}</div>
     </div>
     {% endif %}
-    <div class="detail-row">
-        <span class="detail-label">Cadence</span>
-        <span class="detail-value">{{ tor.meeting_cadence }}
-            {% if !tor.cadence_day.is_empty() %} — {{ tor.cadence_day }}{% endif %}
-            {% if !tor.cadence_time.is_empty() %} at {{ tor.cadence_time }}{% endif %}
-        </span>
-    </div>
     {% if !tor.default_location.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Location</span>
-        <span class="detail-value">{{ tor.default_location }}</span>
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Location</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.default_location }}</div>
     </div>
     {% endif %}
     {% if !tor.remote_url.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Remote Meeting</span>
-        <span class="detail-value"><a href="{{ tor.remote_url }}" target="_blank" rel="noopener noreferrer">{{ tor.remote_url }}</a></span>
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Remote Meeting</div>
+        <div class="tor-info-value" style="font-size:0.875rem;"><a href="{{ tor.remote_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">{{ tor.remote_url }}</a></div>
     </div>
     {% endif %}
     {% if !tor.background_repo_url.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Background Documents</span>
-        <span class="detail-value"><a href="{{ tor.background_repo_url }}" target="_blank" rel="noopener noreferrer">{{ tor.background_repo_url }}</a></span>
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Background Documents</div>
+        <div class="tor-info-value" style="font-size:0.875rem;"><a href="{{ tor.background_repo_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">{{ tor.background_repo_url }}</a></div>
     </div>
     {% endif %}
 </div>
@@ -77,83 +76,74 @@
 <!-- Positions Section -->
 <section class="section">
     <div class="section-header">
-        <h2>Positions ({{ members.len() }})</h2>
+        <h2>Positions <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ members.len() }}</span></h2>
     </div>
 
     {% if members.is_empty() %}
     <p class="empty-hint">No positions defined yet. Add functions first, then assign people.</p>
     {% else %}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Position</th>
-                <th>Type</th>
-                <th>Current Holder</th>
-                {% if ctx.permissions.has("tor.manage_members") %}
-                <th>Actions</th>
+    <div class="position-list">
+    {% for member in members %}
+        <div class="position-row {% if member.membership_type.as_str() == "mandatory" %}{% if member.holder_id.is_some() %}pos-mandatory-filled{% else %}pos-mandatory-vacant{% endif %}{% else %}pos-optional{% endif %}">
+            <div>
+                <span class="position-label-text">{{ member.position_label }}</span>
+                <span class="position-name-text">{{ member.position_name }}</span>
+            </div>
+            <div>
+                {% if member.membership_type.as_str() == "mandatory" %}
+                <span class="badge badge-error">Mandatory</span>
+                {% else %}
+                <span class="badge badge-muted">Optional</span>
                 {% endif %}
-            </tr>
-        </thead>
-        <tbody>
-        {% for member in members %}
-            <tr>
-                <td><strong>{{ member.position_label }}</strong> <code class="mono-type">{{ member.position_name }}</code></td>
-                <td>
+            </div>
+            <div class="position-holder">
+                {% if let Some(label) = member.holder_label %}
+                <strong>{{ label }}</strong>
+                {% else %}
                     {% if member.membership_type.as_str() == "mandatory" %}
-                    <span class="badge badge-error">Mandatory</span>
+                    <span class="badge badge-warning">Vacant</span>
                     {% else %}
-                    <span class="badge badge-muted">Optional</span>
+                    <span class="text-muted">Vacant</span>
                     {% endif %}
-                </td>
-                <td>
-                    {% if let Some(label) = member.holder_label %}
-                    <strong>{{ label }}</strong>
-                    {% else %}
-                        {% if member.membership_type.as_str() == "mandatory" %}
-                        <span class="badge badge-warning">Vacant — mandatory position</span>
-                        {% else %}
-                        <span class="text-muted">Vacant</span>
-                        {% endif %}
-                    {% endif %}
-                </td>
-                {% if ctx.permissions.has("tor.manage_members") %}
-                <td class="actions">
-                    {% if member.holder_id.is_some() %}
-                    <form method="post" action="/tor/{{ tor.id }}/members" class="inline"
-                          onsubmit="return confirm('Vacate this position?')">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <input type="hidden" name="action" value="vacate">
-                        <input type="hidden" name="position_id" value="{{ member.position_id }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Vacate</button>
-                    </form>
-                    {% else %}
-                    <form method="post" action="/tor/{{ tor.id }}/members" class="inline-form">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <input type="hidden" name="action" value="assign">
-                        <input type="hidden" name="position_id" value="{{ member.position_id }}">
-                        <input type="hidden" name="membership_type" value="{{ member.membership_type }}">
-                        <select name="user_id" required>
-                            <option value="">Assign...</option>
-                            {% for u in available_users %}
-                            <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-primary">Assign</button>
-                    </form>
-                    {% endif %}
-                </td>
                 {% endif %}
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+            </div>
+            {% if ctx.permissions.has("tor.manage_members") %}
+            <div class="position-actions">
+                {% if member.holder_id.is_some() %}
+                <form method="post" action="/tor/{{ tor.id }}/members" class="inline"
+                      onsubmit="return confirm('Vacate this position?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="action" value="vacate">
+                    <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                    <button type="submit" class="btn btn-sm btn-danger">Vacate</button>
+                </form>
+                {% else %}
+                <form method="post" action="/tor/{{ tor.id }}/members" class="assign-inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="action" value="assign">
+                    <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                    <input type="hidden" name="membership_type" value="{{ member.membership_type }}">
+                    <select name="user_id" required>
+                        <option value="">Assign...</option>
+                        {% for u in available_users %}
+                        <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Assign</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
     {% endif %}
 </section>
 
 <!-- Functions Section -->
 <section class="section">
     <div class="section-header">
-        <h2>Functions ({{ functions.len() }})</h2>
+        <h2>Functions <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ functions.len() }}</span></h2>
         {% if ctx.permissions.has("tor.edit") %}
         <a href="/tor/{{ tor.id }}/functions/new" class="btn btn-sm btn-primary">New Function</a>
         {% endif %}
@@ -162,63 +152,46 @@
     {% if functions.is_empty() %}
     <p class="empty-hint">No functions defined yet.</p>
     {% else %}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Function</th>
-                <th>Category</th>
-                <th>Assigned To</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for func in functions %}
-            <tr>
-                <td><strong>{{ func.label }}</strong> <code class="mono-type">{{ func.name }}</code></td>
-                <td>{{ func.category }}</td>
-                <td>
-                    {% if func.assigned_to.is_empty() %}
-                    <span class="text-muted">Unassigned</span>
-                    {% else %}
-                    {% for user_label in func.assigned_to %}
-                    <span class="badge badge-user">{{ user_label }}</span>
-                    {% endfor %}
-                    {% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="function-list">
+    {% for func in functions %}
+        <div class="function-row">
+            <div>
+                <span class="function-label-text">{{ func.label }}</span>
+                <span class="function-name-text">{{ func.name }}</span>
+            </div>
+            <div class="function-category-text">{{ func.category }}</div>
+            <div class="function-assigned">
+                {% if func.assigned_to.is_empty() %}
+                <span class="text-muted" style="font-size:0.8125rem;">Unassigned</span>
+                {% else %}
+                {% for user_label in func.assigned_to %}
+                <span class="badge badge-user">{{ user_label }}</span>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
     {% endif %}
 </section>
 
 <!-- Meeting Protocol Section -->
 <section class="section">
     <div class="section-header">
-        <h2>Meeting Protocol ({{ protocol_steps.len() }} steps)</h2>
+        <h2>Meeting Protocol <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ protocol_steps.len() }} steps</span></h2>
     </div>
 
     {% if protocol_steps.is_empty() %}
     <p class="empty-hint">No protocol steps defined. Define the standard meeting order below.</p>
     {% else %}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Label</th>
-                <th>Type</th>
-                <th>Duration</th>
-                <th>Required</th>
-                {% if ctx.permissions.has("tor.edit") %}
-                <th>Actions</th>
-                {% endif %}
-            </tr>
-        </thead>
-        <tbody>
-        {% for step in protocol_steps %}
-            <tr>
-                <td>{{ step.sequence_order }}</td>
-                <td><strong>{{ step.label }}</strong> <code class="mono-type">{{ step.name }}</code></td>
-                <td>
+    <div class="protocol-step-list">
+    {% for step in protocol_steps %}
+        <div class="protocol-step-row">
+            <div class="step-num">{{ step.sequence_order }}</div>
+            <div class="step-body">
+                <div class="step-title-row">
+                    <span class="step-label-text">{{ step.label }}</span>
+                    <span class="step-name-code">{{ step.name }}</span>
                     {% if step.step_type.as_str() == "procedural" %}
                     <span class="badge badge-muted">Procedural</span>
                     {% else if step.step_type.as_str() == "agenda_slot" %}
@@ -226,54 +199,48 @@
                     {% else %}
                     <span class="badge badge-warning">Fixed</span>
                     {% endif %}
-                </td>
-                <td>
-                    {% if let Some(dur) = step.default_duration_minutes %}
-                    {{ dur }} min
-                    {% else %}
-                    <span class="text-muted">&mdash;</span>
-                    {% endif %}
-                </td>
-                <td>
                     {% if step.is_required %}
                     <span class="badge badge-error">Required</span>
-                    {% else %}
-                    <span class="text-muted">Optional</span>
                     {% endif %}
-                </td>
-                {% if ctx.permissions.has("tor.edit") %}
-                <td class="actions">
-                    {% if loop.index > 1 %}
-                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <input type="hidden" name="direction" value="up">
-                        <button type="submit" class="btn btn-sm" title="Move up">&uarr;</button>
-                    </form>
+                </div>
+                <div class="step-meta-row">
+                    {% if let Some(dur) = step.default_duration_minutes %}
+                    <span class="step-dur">{{ dur }} min</span>
                     {% endif %}
-                    {% if loop.index < protocol_steps.len() %}
-                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <input type="hidden" name="direction" value="down">
-                        <button type="submit" class="btn btn-sm" title="Move down">&darr;</button>
-                    </form>
-                    {% endif %}
-                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/delete" class="inline"
-                          onsubmit="return confirm('Delete this protocol step?')">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger" title="Delete">&times;</button>
-                    </form>
-                </td>
+                </div>
+            </div>
+            {% if ctx.permissions.has("tor.edit") %}
+            <div class="step-controls">
+                {% if loop.index > 1 %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="direction" value="up">
+                    <button type="submit" class="btn btn-sm" title="Move up">↑</button>
+                </form>
                 {% endif %}
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+                {% if loop.index < protocol_steps.len() %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="direction" value="down">
+                    <button type="submit" class="btn btn-sm" title="Move down">↓</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/delete" class="inline"
+                      onsubmit="return confirm('Delete this protocol step?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">&times;</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
     {% endif %}
 
     {% if ctx.permissions.has("tor.edit") %}
     <div class="form-section">
         <h3>Add Protocol Step</h3>
-        <form method="post" action="/tor/{{ tor.id }}/protocol" class="form-grid">
+        <form method="post" action="/tor/{{ tor.id }}/protocol">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <div class="form-row">
                 <div class="form-group">
@@ -304,9 +271,9 @@
                     <label for="step_duration">Duration (minutes, optional)</label>
                     <input type="number" id="step_duration" name="default_duration_minutes" min="1" placeholder="e.g. 15">
                 </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="is_required" value="true"> Required step
+                <div class="form-group" style="display:flex;align-items:center;padding-top:1.75rem;">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;text-transform:none;font-size:0.875rem;">
+                        <input type="checkbox" name="is_required" value="true" style="width:auto;accent-color:var(--accent);"> Required step
                     </label>
                 </div>
             </div>
@@ -323,119 +290,85 @@
 <!-- Dependencies Section -->
 <section class="section">
     <div class="section-header">
-        <h2>Dependencies ({{ upstream_deps.len() }} upstream, {{ downstream_deps.len() }} downstream)</h2>
+        <h2>Dependencies <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ upstream_deps.len() }} upstream · {{ downstream_deps.len() }} downstream</span></h2>
     </div>
 
-    {% if upstream_deps.is_empty() && downstream_deps.is_empty() %}
+    {% if upstream_deps.is_empty() %}
+    {% if downstream_deps.is_empty() %}
     <p class="empty-hint">No dependencies defined. Add relationships to other ToRs below.</p>
-    {% else %}
+    {% endif %}
+    {% endif %}
 
     {% if !upstream_deps.is_empty() %}
-    <h3>Upstream (feeds into this ToR)</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Source ToR</th>
-                <th>Type</th>
-                <th>Output Types</th>
-                <th>Description</th>
-                <th>Blocking</th>
-                {% if ctx.permissions.has("tor.edit") %}
-                <th>Actions</th>
-                {% endif %}
-            </tr>
-        </thead>
-        <tbody>
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Upstream — feeds into this ToR</div>
+        <div class="dep-flow-list">
         {% for dep in upstream_deps %}
-            <tr>
-                <td><a href="/tor/{{ dep.other_tor_id }}">{{ dep.other_tor_label }}</a></td>
-                <td>
-                    {% if dep.relation_type.as_str() == "feeds_into" %}
-                    <span class="badge badge-info">Feeds Into</span>
-                    {% else %}
-                    <span class="badge badge-warning">Escalates To</span>
-                    {% endif %}
-                </td>
-                <td>{% if dep.output_types.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.output_types }}{% endif %}</td>
-                <td>{% if dep.description.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.description }}{% endif %}</td>
-                <td>
+            <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
+                <a href="/tor/{{ dep.other_tor_id }}" class="dep-node-link">{{ dep.other_tor_label }}</a>
+                <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
+                    {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
+                </span>
+                <span class="dep-node-self">{{ tor.label }}</span>
+                <span class="dep-spacer"></span>
+                <div class="dep-meta">
                     {% if dep.is_blocking %}
                     <span class="badge badge-error">Blocking</span>
-                    {% else %}
-                    <span class="text-muted">No</span>
                     {% endif %}
-                </td>
+                    {% if !dep.output_types.is_empty() %}
+                    <span style="font-size:0.75rem;">{{ dep.output_types }}</span>
+                    {% endif %}
+                </div>
                 {% if ctx.permissions.has("tor.edit") %}
-                <td class="actions">
-                    <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
-                          onsubmit="return confirm('Remove this dependency?')">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger">&times;</button>
-                    </form>
-                </td>
+                <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                      onsubmit="return confirm('Remove this dependency?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                </form>
                 {% endif %}
-            </tr>
+            </div>
         {% endfor %}
-        </tbody>
-    </table>
+        </div>
+    </div>
     {% endif %}
 
     {% if !downstream_deps.is_empty() %}
-    <h3>Downstream (this ToR feeds into)</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Target ToR</th>
-                <th>Type</th>
-                <th>Output Types</th>
-                <th>Description</th>
-                <th>Blocking</th>
-                {% if ctx.permissions.has("tor.edit") %}
-                <th>Actions</th>
-                {% endif %}
-            </tr>
-        </thead>
-        <tbody>
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Downstream — this ToR feeds into</div>
+        <div class="dep-flow-list">
         {% for dep in downstream_deps %}
-            <tr>
-                <td><a href="/tor/{{ dep.other_tor_id }}">{{ dep.other_tor_label }}</a></td>
-                <td>
-                    {% if dep.relation_type.as_str() == "feeds_into" %}
-                    <span class="badge badge-info">Feeds Into</span>
-                    {% else %}
-                    <span class="badge badge-warning">Escalates To</span>
-                    {% endif %}
-                </td>
-                <td>{% if dep.output_types.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.output_types }}{% endif %}</td>
-                <td>{% if dep.description.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.description }}{% endif %}</td>
-                <td>
+            <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
+                <span class="dep-node-self">{{ tor.label }}</span>
+                <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
+                    {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
+                </span>
+                <a href="/tor/{{ dep.other_tor_id }}" class="dep-node-link">{{ dep.other_tor_label }}</a>
+                <span class="dep-spacer"></span>
+                <div class="dep-meta">
                     {% if dep.is_blocking %}
                     <span class="badge badge-error">Blocking</span>
-                    {% else %}
-                    <span class="text-muted">No</span>
                     {% endif %}
-                </td>
+                    {% if !dep.output_types.is_empty() %}
+                    <span style="font-size:0.75rem;">{{ dep.output_types }}</span>
+                    {% endif %}
+                </div>
                 {% if ctx.permissions.has("tor.edit") %}
-                <td class="actions">
-                    <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
-                          onsubmit="return confirm('Remove this dependency?')">
-                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <button type="submit" class="btn btn-sm btn-danger">&times;</button>
-                    </form>
-                </td>
+                <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                      onsubmit="return confirm('Remove this dependency?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                </form>
                 {% endif %}
-            </tr>
+            </div>
         {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
+        </div>
+    </div>
     {% endif %}
 
     {% if ctx.permissions.has("tor.edit") %}
     <div class="form-section">
         <h3>Add Dependency</h3>
-        <form method="post" action="/tor/{{ tor.id }}/dependencies" class="form-grid">
+        <form method="post" action="/tor/{{ tor.id }}/dependencies">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <div class="form-row">
                 <div class="form-group">
@@ -465,9 +398,9 @@
                     <input type="text" id="dep_description" name="description" placeholder="Brief description of this dependency">
                 </div>
             </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="is_blocking" value="true"> Blocking dependency
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;text-transform:none;font-size:0.875rem;">
+                    <input type="checkbox" name="is_blocking" value="true" style="width:auto;accent-color:var(--accent);"> Blocking dependency
                 </label>
             </div>
             <button type="submit" class="btn btn-primary">Add Dependency</button>

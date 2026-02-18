@@ -17,7 +17,7 @@
 
 <div class="page-header">
     <h1>Governance Map</h1>
-    <a href="/tor" class="btn btn-secondary">All ToRs</a>
+    <a href="/tor" class="btn btn-sm">All ToRs</a>
 </div>
 
 {% if tors.is_empty() %}
@@ -27,70 +27,45 @@
 </div>
 {% else %}
 
-{% if dependencies.is_empty() %}
-<div class="empty-state">
-    <p>No dependencies defined between ToRs. Add dependencies from individual <a href="/tor">ToR detail pages</a>.</p>
-</div>
-{% else %}
+{% if !dependencies.is_empty() %}
 <section class="section">
     <div class="section-header">
-        <h2>Dependencies ({{ dependencies.len() }})</h2>
+        <h2>Dependencies <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ dependencies.len() }}</span></h2>
     </div>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Source ToR</th>
-                <th>Relationship</th>
-                <th>Target ToR</th>
-                <th>Blocking</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for dep in dependencies %}
-            <tr>
-                <td><a href="/tor/{{ dep.source_tor_id }}"><strong>{{ dep.source_tor_label }}</strong></a></td>
-                <td>
-                    {% if dep.relation_type.as_str() == "feeds_into" %}
-                    <span class="badge" style="background:#3b82f6;color:#fff;">Feeds Into →</span>
-                    {% else %}
-                    <span class="badge" style="background:#f59e0b;color:#fff;">Escalates To ↑</span>
-                    {% endif %}
-                </td>
-                <td><a href="/tor/{{ dep.target_tor_id }}"><strong>{{ dep.target_tor_label }}</strong></a></td>
-                <td>
-                    {% if dep.is_blocking %}
-                    <span class="badge badge-error">Blocking</span>
-                    {% else %}
-                    <span class="text-muted">No</span>
-                    {% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="dep-flow-list">
+    {% for dep in dependencies %}
+        <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
+            <a href="/tor/{{ dep.source_tor_id }}" class="dep-node-link">{{ dep.source_tor_label }}</a>
+            <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
+                {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
+            </span>
+            <a href="/tor/{{ dep.target_tor_id }}" class="dep-node-link">{{ dep.target_tor_label }}</a>
+            <span class="dep-spacer"></span>
+            {% if dep.is_blocking %}
+            <span class="badge badge-error">Blocking</span>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
 </section>
+{% else %}
+<div class="empty-state" style="text-align:left;padding:1.5rem 0;">
+    <p style="color:var(--text-secondary);font-size:0.9375rem;">No dependencies defined between ToRs. Add dependencies from individual <a href="/tor" style="color:var(--accent);">ToR detail pages</a>.</p>
+</div>
 {% endif %}
 
 <section class="section">
     <div class="section-header">
-        <h2>All Terms of Reference ({{ tors.len() }})</h2>
+        <h2>All Terms of Reference <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ tors.len() }}</span></h2>
     </div>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Label</th>
-                <th>Name</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for t in tors %}
-            <tr>
-                <td><a href="/tor/{{ t.0 }}"><strong>{{ t.2 }}</strong></a></td>
-                <td><code class="mono-type">{{ t.1 }}</code></td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="gov-map-grid">
+    {% for t in tors %}
+        <div class="gov-tor-card">
+            <a href="/tor/{{ t.0 }}" class="gov-tor-link">{{ t.2 }}</a>
+            <div class="gov-tor-name">{{ t.1 }}</div>
+        </div>
+    {% endfor %}
+    </div>
 </section>
 
 {% endif %}

@@ -30,44 +30,46 @@
     {% endif %}
 </div>
 {% else %}
-<table class="table">
-    <thead>
-        <tr>
-            <th class="col-id">ID</th>
-            <th>Name</th>
-            <th>Label</th>
-            <th>Status</th>
-            <th>Cadence</th>
-            <th>Members</th>
-            <th>Functions</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for tor in tors %}
-        <tr>
-            <td class="col-id">{{ tor.id }}</td>
-            <td><code class="mono-type">{{ tor.name }}</code></td>
-            <td><strong>{{ tor.label }}</strong></td>
-            <td>
-                {% if tor.status.as_str() == "active" %}
-                <span class="badge badge-success">Active</span>
-                {% else %}
-                <span class="badge badge-muted">{{ tor.status }}</span>
-                {% endif %}
-            </td>
-            <td>{{ tor.meeting_cadence }}</td>
-            <td><span class="badge badge-user">{{ tor.member_count }}</span></td>
-            <td><span class="badge badge-user">{{ tor.function_count }}</span></td>
-            <td class="actions">
-                <a href="/tor/{{ tor.id }}" class="btn btn-sm">View</a>
-                {% if ctx.permissions.has("tor.edit") %}
-                <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
-                {% endif %}
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="tor-card-grid">
+{% for tor in tors %}
+    <div class="tor-card {% if tor.status.as_str() == "active" %}status-active{% else %}status-archived{% endif %}">
+        <div class="tor-card-top">
+            <span class="tor-card-title">{{ tor.label }}</span>
+            <span class="tor-card-id">#{{ tor.id }}</span>
+        </div>
+        <div class="tor-card-name">{{ tor.name }}</div>
+
+        <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.875rem; flex-wrap:wrap;">
+            {% if tor.status.as_str() == "active" %}
+            <span class="badge badge-success">Active</span>
+            {% else %}
+            <span class="badge badge-muted">{{ tor.status }}</span>
+            {% endif %}
+            <span class="tor-card-cadence">
+                <span class="tor-cadence-dot"></span>
+                {{ tor.meeting_cadence }}
+            </span>
+        </div>
+
+        <div class="tor-card-stats">
+            <div class="tor-stat">
+                <span class="tor-stat-value">{{ tor.member_count }}</span>
+                <span class="tor-stat-label">Members</span>
+            </div>
+            <div class="tor-stat">
+                <span class="tor-stat-value">{{ tor.function_count }}</span>
+                <span class="tor-stat-label">Functions</span>
+            </div>
+        </div>
+
+        <div class="tor-card-actions">
+            <a href="/tor/{{ tor.id }}" class="btn btn-sm btn-primary">View</a>
+            {% if ctx.permissions.has("tor.edit") %}
+            <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
+            {% endif %}
+        </div>
+    </div>
+{% endfor %}
+</div>
 {% endif %}
 {% endblock %}
