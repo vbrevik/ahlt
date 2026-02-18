@@ -3,6 +3,7 @@ use actix_web::{web, HttpResponse};
 
 use crate::db::DbPool;
 use crate::models::tor;
+use crate::models::protocol;
 use crate::auth::{csrf, validate};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
@@ -118,6 +119,7 @@ pub async fn detail(
             let ctx = PageContext::build(&session, &conn, "/tor")?;
             let members = tor::find_members(&conn, id)?;
             let functions = tor::find_functions(&conn, id)?;
+            let protocol_steps = protocol::find_steps_for_tor(&conn, id)?;
             let non_members = tor::find_non_members(&conn, id)?;
             let available_users = non_members.into_iter()
                 .map(|(id, name, label)| UserOption { id, name, label })
@@ -128,6 +130,7 @@ pub async fn detail(
                 tor: tor_detail,
                 members,
                 functions,
+                protocol_steps,
                 available_users,
             };
             render(tmpl)

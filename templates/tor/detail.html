@@ -189,4 +189,133 @@
     </table>
     {% endif %}
 </section>
+
+<!-- Meeting Protocol Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Meeting Protocol ({{ protocol_steps.len() }} steps)</h2>
+    </div>
+
+    {% if protocol_steps.is_empty() %}
+    <p class="empty-hint">No protocol steps defined. Define the standard meeting order below.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Label</th>
+                <th>Type</th>
+                <th>Duration</th>
+                <th>Required</th>
+                {% if ctx.permissions.has("tor.edit") %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for step in protocol_steps %}
+            <tr>
+                <td>{{ step.sequence_order }}</td>
+                <td><strong>{{ step.label }}</strong> <code class="mono-type">{{ step.name }}</code></td>
+                <td>
+                    {% if step.step_type.as_str() == "procedural" %}
+                    <span class="badge badge-muted">Procedural</span>
+                    {% else if step.step_type.as_str() == "agenda_slot" %}
+                    <span class="badge badge-info">Agenda Slot</span>
+                    {% else %}
+                    <span class="badge badge-warning">Fixed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if let Some(dur) = step.default_duration_minutes %}
+                    {{ dur }} min
+                    {% else %}
+                    <span class="text-muted">&mdash;</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if step.is_required %}
+                    <span class="badge badge-error">Required</span>
+                    {% else %}
+                    <span class="text-muted">Optional</span>
+                    {% endif %}
+                </td>
+                {% if ctx.permissions.has("tor.edit") %}
+                <td class="actions">
+                    {% if loop.index > 1 %}
+                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="direction" value="up">
+                        <button type="submit" class="btn btn-sm" title="Move up">&uarr;</button>
+                    </form>
+                    {% endif %}
+                    {% if loop.index < protocol_steps.len() %}
+                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="direction" value="down">
+                        <button type="submit" class="btn btn-sm" title="Move down">&darr;</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/delete" class="inline"
+                          onsubmit="return confirm('Delete this protocol step?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger" title="Delete">&times;</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div class="form-section">
+        <h3>Add Protocol Step</h3>
+        <form method="post" action="/tor/{{ tor.id }}/protocol" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_name">Name (internal)</label>
+                    <input type="text" id="step_name" name="name" required placeholder="e.g. roll_call">
+                </div>
+                <div class="form-group">
+                    <label for="step_label">Label (display)</label>
+                    <input type="text" id="step_label" name="label" required placeholder="e.g. Roll Call">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_type">Type</label>
+                    <select id="step_type" name="step_type">
+                        <option value="procedural">Procedural</option>
+                        <option value="agenda_slot">Agenda Slot</option>
+                        <option value="fixed">Fixed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="step_order">Sequence Order</label>
+                    <input type="number" id="step_order" name="sequence_order" value="1" min="1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_duration">Duration (minutes, optional)</label>
+                    <input type="number" id="step_duration" name="default_duration_minutes" min="1" placeholder="e.g. 15">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="is_required" value="true"> Required step
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="step_desc">Description</label>
+                <input type="text" id="step_desc" name="description" placeholder="Brief description of this step">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Step</button>
+        </form>
+    </div>
+    {% endif %}
+</section>
 {% endblock %}

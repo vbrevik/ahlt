@@ -138,6 +138,10 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/delete", web::post().to(handlers::tor_handlers::delete))
                     // ToR member management
                     .route("/tor/{id}/members", web::post().to(handlers::tor_handlers::manage_members))
+                    // ToR protocol management
+                    .route("/tor/{id}/protocol", web::post().to(handlers::tor_handlers::add_step))
+                    .route("/tor/{id}/protocol/{step_id}/delete", web::post().to(handlers::tor_handlers::delete_step))
+                    .route("/tor/{id}/protocol/{step_id}/move", web::post().to(handlers::tor_handlers::move_step))
                     // Workflow view
                     .route("/tor/{id}/workflow", web::get().to(handlers::workflow_handlers::view))
                     // Suggestion workflow
