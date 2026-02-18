@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Presentation Templates — {{ tor_label }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Presentation Templates</h1>
+    <div class="page-actions">
+        <a href="/tor/{{ tor_id }}" class="btn btn-sm">Back to {{ tor_label }}</a>
+    </div>
+</div>
+
+<!-- Existing Templates -->
+<section class="section">
+    <div class="section-header">
+        <h2>Templates ({{ templates.len() }})</h2>
+    </div>
+
+    {% if templates.is_empty() %}
+    <p class="empty-hint">No presentation templates defined yet.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Template</th>
+                <th>Description</th>
+                <th>Slides</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in templates %}
+            <tr>
+                <td><strong>{{ t.label }}</strong> <code class="mono-type">{{ t.name }}</code></td>
+                <td>{{ t.description }}</td>
+                <td>{{ t.slide_count }}</td>
+                <td class="actions">
+                    <a href="/tor/{{ tor_id }}/templates?selected={{ t.id }}" class="btn btn-sm">Manage Slides</a>
+                    <form method="post" action="/tor/{{ tor_id }}/templates/{{ t.id }}/delete" class="inline"
+                          onsubmit="return confirm('Delete this template and all its slides?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Create Template Form -->
+    <div class="form-section">
+        <h3>Create Template</h3>
+        <form method="post" action="/tor/{{ tor_id }}/templates" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="tmpl_name">Name (internal)</label>
+                    <input type="text" id="tmpl_name" name="name" required placeholder="e.g. monthly_report">
+                </div>
+                <div class="form-group">
+                    <label for="tmpl_label">Label (display)</label>
+                    <input type="text" id="tmpl_label" name="label" required placeholder="e.g. Monthly Report">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="tmpl_desc">Description</label>
+                <input type="text" id="tmpl_desc" name="description" placeholder="What this template is for">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Template</button>
+        </form>
+    </div>
+</section>
+
+<!-- Selected Template Slides -->
+{% if let Some(sel) = selected_template %}
+<section class="section">
+    <div class="section-header">
+        <h2>Slides for: {{ sel.label }}</h2>
+    </div>
+
+    {% if slides.is_empty() %}
+    <p class="empty-hint">No slides defined. Add slides below.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Slide</th>
+                <th>Required Content</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for slide in slides %}
+            <tr>
+                <td>{{ slide.slide_order }}</td>
+                <td><strong>{{ slide.label }}</strong></td>
+                <td>{{ slide.required_content }}</td>
+                <td>{{ slide.notes }}</td>
+                <td class="actions">
+                    <form method="post" action="/tor/{{ tor_id }}/templates/{{ sel.id }}/slides/{{ slide.id }}/move" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="direction" value="up">
+                        <button type="submit" class="btn btn-sm" title="Move up">&uarr;</button>
+                    </form>
+                    <form method="post" action="/tor/{{ tor_id }}/templates/{{ sel.id }}/slides/{{ slide.id }}/move" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="direction" value="down">
+                        <button type="submit" class="btn btn-sm" title="Move down">&darr;</button>
+                    </form>
+                    <form method="post" action="/tor/{{ tor_id }}/templates/{{ sel.id }}/slides/{{ slide.id }}/delete" class="inline"
+                          onsubmit="return confirm('Delete this slide?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Add Slide Form -->
+    <div class="form-section">
+        <h3>Add Slide</h3>
+        <form method="post" action="/tor/{{ tor_id }}/templates/{{ sel.id }}/slides" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="slide_name">Name (internal)</label>
+                    <input type="text" id="slide_name" name="name" required placeholder="e.g. title_slide">
+                </div>
+                <div class="form-group">
+                    <label for="slide_label">Label (display)</label>
+                    <input type="text" id="slide_label" name="label" required placeholder="e.g. Title Slide">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="slide_order">Order</label>
+                    <input type="number" id="slide_order" name="slide_order" value="1" min="1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="slide_content">Required Content</label>
+                <input type="text" id="slide_content" name="required_content" placeholder="Describe what this slide must contain">
+            </div>
+            <div class="form-group">
+                <label for="slide_notes">Notes</label>
+                <input type="text" id="slide_notes" name="notes" placeholder="Additional instructions for the presenter">
+            </div>
+            <button type="submit" class="btn btn-primary">Add Slide</button>
+        </form>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
