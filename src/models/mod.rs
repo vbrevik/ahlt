@@ -7,6 +7,7 @@ pub mod ontology;
 pub mod opinion;
 pub mod relation;
 pub mod permission;
+pub mod protocol;
 pub mod proposal;
 pub mod role;
 pub mod setting;
