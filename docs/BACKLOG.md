@@ -126,6 +126,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `admin.role_builder` | Role Builder | `admin` | `/roles/builder` | `roles.manage` |
 | `governance` | Governance | — | `/tor` | *(visible if any child permitted)* |
 | `governance.tor` | Terms of Reference | `governance` | `/tor` | `tor.list` |
+| `governance.map` | Governance Map | `governance` | `/governance/map` | `tor.list` |
 | `governance.workflow` | Item Workflow | `governance` | `/workflow` | `suggestion.view` |
 
 ---
@@ -252,6 +253,17 @@ All domain objects share three generic tables — no dedicated tables per type:
 - In-memory `HashMap<IpAddr, Vec<Instant>>` behind `Arc<Mutex<>>`, no external dependencies
 - Lazy cleanup of stale entries, poison-resistant mutex, clear on successful login
 
+### ToR Expansion (13 tasks)
+- **Position-based membership**: `fills_position` relation (user→tor_function) replaces `member_of`+`has_tor_role`; authority flows through named positions, not persons. Vacant positions remain visible with `mandatory`/`optional` type from `entity_properties`.
+- **Protocol templates**: `protocol_step` entities scoped to a ToR define reusable meeting agendas with type, duration, required flag, and sequence ordering.
+- **Inter-ToR dependencies**: `feeds_into` and `escalates_to` relations between ToR entities with `is_blocking` metadata on `relation_properties`.
+- **Minutes auto-scaffold**: `Minutes` + `MinutesSection` EAV model. `generate_scaffold()` creates 5 sections from meeting data (attendance flags vacant mandatory positions). Status lifecycle: draft→pending_approval→approved (read-only once approved).
+- **Presentation templates**: `template_of`/`slide_of` relation chain. Per-ToR fixed slide templates with ordered slides and move-up/down reordering.
+- **Governance map**: Cross-ToR dependency overview at `/governance/map` with colour-coded relationship badges. Nav item added to Governance sidebar.
+- New relations seeded: `fills_position`, `protocol_of`, `feeds_into`, `escalates_to`, `minutes_of`, `section_of`, `template_of`, `slide_of`, `requires_template`
+- New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
+- New nav item: `governance.map` → `/governance/map` under Governance module
+
 ---
 
 ## Remaining Backlog
@@ -274,6 +286,10 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
+| T.1 | **Governance map visual graph** | Medium | Medium | Replace the table on `/governance/map` with a D3 graph (similar to ontology explorer) — nodes for ToRs, directed edges for feeds_into/escalates_to, click-through to ToR detail. |
+| T.2 | **ToR vacancy warning generators** | Medium | Small | Background scheduler generators that fire warnings when mandatory positions in active ToRs are unfilled. Uses `fills_position` + `entity_properties membership_type=mandatory`. |
+| T.3 | **Meeting scheduling** | Low | Large | Create `meeting` entities linked to a ToR, with scheduled date + actual protocol steps cloned from ToR protocol template. Minutes auto-scaffold would be triggered from a meeting, not manually. |
+| T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
 
 ---
 
@@ -300,6 +316,7 @@ Code Cleanup (Tasks 1-28)
 Automated Testing (47 tests)
 H.1 Rate Limiting
 H.2 Input Validation
+ToR Expansion (13 tasks)
 ```
 
 ---

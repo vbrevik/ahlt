@@ -259,6 +259,10 @@ PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
 
 ❌ **Can't call `Vec<String>::contains()` with `&str`**: Create wrapper types with template-friendly methods (e.g. `Permissions::has(&str)`)
 
+❌ **No `&&` in `{% if %}` conditions**: Askama 0.14 doesn't support `{% if a && b %}`. Use nested `{% if a %}{% if b %}...{% endif %}{% endif %}` instead.
+
+❌ **No array indexing `arr[i]`**: Can't write `steps[idx-1]` to find neighbours. Load all items in the handler, find the target by ID, determine its neighbour server-side, then swap.
+
 ### Actix-web 4
 
 ⚠️ **Route order matters**: `/users/new` must be registered BEFORE `/users/{id}` or path param swallows "new"
