@@ -14,9 +14,9 @@ use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem,
 use crate::models::presentation_template::{PresentationTemplate, TemplateSlide};
 use crate::models::minutes::{Minutes, MinutesSection};
 use crate::models::protocol::ProtocolStep;
-use crate::models::suggestion::SuggestionListItem;
-use crate::models::proposal::{ProposalListItem, ProposalDetail};
-use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail};
+use crate::models::suggestion::{SuggestionListItem, CrossTorSuggestionItem};
+use crate::models::proposal::{ProposalListItem, ProposalDetail, CrossTorProposalItem};
+use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail, CrossTorAgendaItem};
 use crate::models::coa::{CoaListItem, CoaDetail};
 use crate::models::opinion::{OpinionDetail, OpinionSummary};
 use crate::models::workflow::AvailableTransition;
@@ -234,6 +234,16 @@ pub struct WorkflowTemplate {
     pub suggestions: Vec<SuggestionListItem>,
     pub proposals: Vec<ProposalListItem>,
     pub agenda_points: Vec<AgendaPointListItem>,
+}
+
+#[derive(Template)]
+#[template(path = "workflow/index.html")]
+pub struct WorkflowIndexTemplate {
+    pub ctx: PageContext,
+    pub active_tab: String,
+    pub suggestions: Vec<CrossTorSuggestionItem>,
+    pub proposals: Vec<CrossTorProposalItem>,
+    pub agenda_points: Vec<CrossTorAgendaItem>,
 }
 
 #[derive(Template)]
