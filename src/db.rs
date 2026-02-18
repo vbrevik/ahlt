@@ -49,6 +49,41 @@ fn insert_relation(conn: &rusqlite::Connection, rel_type_id: i64, source_id: i64
     ).unwrap();
 }
 
+/// Helper: insert a ToR dependency relation (feeds_into / escalates_to) with metadata properties.
+fn insert_dependency(
+    conn: &rusqlite::Connection,
+    rel_type_id: i64,
+    source_id: i64,
+    target_id: i64,
+    output_types: &str,
+    description: &str,
+    is_blocking: bool,
+) {
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![rel_type_id, source_id, target_id],
+    ).unwrap();
+    let relation_id = conn.last_insert_rowid();
+    if !output_types.is_empty() {
+        conn.execute(
+            "INSERT INTO relation_properties (relation_id, key, value) VALUES (?1, 'output_types', ?2)",
+            params![relation_id, output_types],
+        ).unwrap();
+    }
+    if !description.is_empty() {
+        conn.execute(
+            "INSERT INTO relation_properties (relation_id, key, value) VALUES (?1, 'description', ?2)",
+            params![relation_id, description],
+        ).unwrap();
+    }
+    if is_blocking {
+        conn.execute(
+            "INSERT INTO relation_properties (relation_id, key, value) VALUES (?1, 'is_blocking', 'true')",
+            params![relation_id],
+        ).unwrap();
+    }
+}
+
 /// Seed the full ontology: relation types, roles, permissions, role-permission relations,
 /// and default admin user. Only runs if no entities exist yet.
 pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
@@ -981,5 +1016,53 @@ pub fn seed_staging(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, br_agenda, "tor_id", &br_id.to_string());
     insert_relation(&conn, belongs_to_tor_rt, br_agenda, br_id);
 
-    log::info!("ToR staging data seeded: 7 ToRs (Budget Committee, Safety Review Board, Sprint Planning, Daily Standup, Sprint Review, Sprint Retrospective, Backlog Refinement) with positions, members, suggestions, proposals, and agenda points");
+    // --- Agile ceremony dependencies ---
+    let feeds_into_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='feeds_into'",
+        [], |row| row.get(0),
+    ).unwrap();
+
+    // Backlog Refinement → Sprint Planning (blocking: can't plan without a groomed backlog)
+    insert_dependency(&conn, feeds_into_rt, br_id, sp_id,
+        "sprint-ready backlog items",
+        "Groomed and estimated stories from refinement enter sprint planning",
+        true);
+
+    // Sprint Planning → Daily Standup (sprint commitments tracked daily)
+    insert_dependency(&conn, feeds_into_rt, sp_id, ds_id,
+        "sprint goal, task assignments",
+        "Daily standup tracks progress against sprint planning commitments",
+        false);
+
+    // Sprint Planning → Sprint Review (sprint deliverables verified against commitments)
+    insert_dependency(&conn, feeds_into_rt, sp_id, sr_id,
+        "sprint commitments, acceptance criteria",
+        "Sprint review verifies completed work against planning commitments",
+        false);
+
+    // Daily Standup → Sprint Review (daily progress and resolved blockers feed review)
+    insert_dependency(&conn, feeds_into_rt, ds_id, sr_id,
+        "blocker resolutions, daily progress",
+        "Resolved blockers and daily progress updates lead to deliverables shown in review",
+        false);
+
+    // Sprint Review → Sprint Retrospective (blocking: retro starts after review is closed)
+    insert_dependency(&conn, feeds_into_rt, sr_id, retro_id,
+        "accepted items, stakeholder feedback",
+        "Retrospective begins only after sprint review is complete and feedback is gathered",
+        true);
+
+    // Sprint Retrospective → Sprint Planning (improvement actions feed into next sprint)
+    insert_dependency(&conn, feeds_into_rt, retro_id, sp_id,
+        "improvement actions, process changes",
+        "Agreed retrospective actions are addressed in the next sprint planning session",
+        false);
+
+    // Backlog Refinement → Sprint Review (refined stories become review candidates)
+    insert_dependency(&conn, feeds_into_rt, br_id, sr_id,
+        "defined acceptance criteria",
+        "Acceptance criteria agreed in refinement used to verify completion at sprint review",
+        false);
+
+    log::info!("ToR staging data seeded: 7 ToRs (Budget Committee, Safety Review Board, Sprint Planning, Daily Standup, Sprint Review, Sprint Retrospective, Backlog Refinement) with positions, members, suggestions, proposals, agenda points, and ceremony dependencies");
 }
