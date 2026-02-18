@@ -29,13 +29,17 @@ pub struct TorDetail {
     pub background_repo_url: String,
 }
 
-/// A member of a ToR with their function(s).
+/// A position in a ToR with its current holder (if any).
+/// Position-based: authority flows from position, not person.
 #[derive(Debug, Clone)]
 pub struct TorMember {
-    pub user_id: i64,
-    pub user_name: String,
-    pub user_label: String,
-    pub functions: Vec<TorFunctionRef>,
+    pub position_id: i64,
+    pub position_name: String,
+    pub position_label: String,
+    pub membership_type: String, // "mandatory" or "optional"
+    pub holder_id: Option<i64>,
+    pub holder_name: Option<String>,
+    pub holder_label: Option<String>,
 }
 
 /// A function assigned to a member (lightweight reference).
