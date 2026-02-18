@@ -72,6 +72,91 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<ProposalLi
     Ok(items)
 }
 
+/// Find all proposals across all ToRs (or filtered to ToRs a user fills a position in).
+///
+/// `user_id = None`  → returns every proposal across all ToRs.
+/// `user_id = Some(id)` → returns only proposals for ToRs the user fills a position in.
+pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec<CrossTorProposalItem>, AppError> {
+    let base_sql = "SELECT tor.id AS tor_id, tor.label AS tor_name, e.id, \
+                           COALESCE(p_title.value, '') AS title, \
+                           COALESCE(p_date.value, '') AS submitted_date, \
+                           COALESCE(p_status.value, 'draft') AS status, \
+                           COALESCE(p_by.value, '0') AS submitted_by_id, \
+                           COALESCE(u.label, '') AS submitted_by_name, \
+                           p_reason.value AS rejection_reason, \
+                           r_spawn.source_id AS related_suggestion_id \
+                    FROM entities e \
+                    JOIN relations r ON e.id = r.source_id \
+                    JOIN entities rt ON r.relation_type_id = rt.id AND rt.name = 'submitted_to' \
+                    JOIN entities tor ON tor.id = r.target_id AND tor.entity_type = 'tor' \
+                    LEFT JOIN entity_properties p_title \
+                        ON e.id = p_title.entity_id AND p_title.key = 'title' \
+                    LEFT JOIN entity_properties p_date \
+                        ON e.id = p_date.entity_id AND p_date.key = 'submitted_date' \
+                    LEFT JOIN entity_properties p_status \
+                        ON e.id = p_status.entity_id AND p_status.key = 'status' \
+                    LEFT JOIN entity_properties p_by \
+                        ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
+                    LEFT JOIN entities u \
+                        ON CAST(p_by.value AS INTEGER) = u.id \
+                    LEFT JOIN entity_properties p_reason \
+                        ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
+                    LEFT JOIN relations r_spawn \
+                        ON e.id = r_spawn.target_id \
+                       AND r_spawn.relation_type_id = ( \
+                           SELECT id FROM entities \
+                           WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
+                    WHERE e.entity_type = 'proposal'";
+
+    let row_to_item = |row: &rusqlite::Row<'_>| {
+        let submitted_by_id_str: String = row.get("submitted_by_id")?;
+        let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
+        let rejection_reason: Option<String> = row.get("rejection_reason")?;
+        let related_suggestion_id: Option<i64> = row.get("related_suggestion_id")?;
+
+        Ok(CrossTorProposalItem {
+            tor_id: row.get("tor_id")?,
+            tor_name: row.get("tor_name")?,
+            id: row.get("id")?,
+            title: row.get("title")?,
+            submitted_by_id,
+            submitted_by_name: row.get("submitted_by_name")?,
+            submitted_date: row.get("submitted_date")?,
+            status: row.get("status")?,
+            rejection_reason,
+            related_suggestion_id,
+        })
+    };
+
+    let items = if let Some(uid) = user_id {
+        let sql = format!(
+            "{} AND EXISTS (\
+                SELECT 1 FROM relations r_fills \
+                JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
+                WHERE r_fills.source_id = ?1 \
+                  AND r_tor.target_id = tor.id \
+                  AND r_fills.relation_type_id = (\
+                      SELECT id FROM entities \
+                      WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+                  AND r_tor.relation_type_id = (\
+                      SELECT id FROM entities \
+                      WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor')\
+            ) ORDER BY tor.label ASC, submitted_date DESC",
+            base_sql
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map(params![uid], row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        let sql = format!("{} ORDER BY tor.label ASC, submitted_date DESC", base_sql);
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map([], row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?
+    };
+
+    Ok(items)
+}
+
 /// Find a single proposal by its entity id.
 pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<ProposalDetail>, AppError> {
     let mut stmt = conn.prepare(

@@ -13,6 +13,21 @@ pub struct ProposalListItem {
     pub related_suggestion_id: Option<i64>,
 }
 
+/// Proposal as shown in the cross-ToR workflow index view.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossTorProposalItem {
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub id: i64,
+    pub title: String,
+    pub submitted_by_id: i64,
+    pub submitted_by_name: String,
+    pub submitted_date: String,
+    pub status: String,
+    pub rejection_reason: Option<String>,
+    pub related_suggestion_id: Option<i64>,
+}
+
 /// Full proposal detail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProposalDetail {
