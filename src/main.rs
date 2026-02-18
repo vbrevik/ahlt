@@ -142,6 +142,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/protocol", web::post().to(handlers::tor_handlers::add_step))
                     .route("/tor/{id}/protocol/{step_id}/delete", web::post().to(handlers::tor_handlers::delete_step))
                     .route("/tor/{id}/protocol/{step_id}/move", web::post().to(handlers::tor_handlers::move_step))
+                    // ToR dependency management
+                    .route("/tor/{id}/dependencies", web::post().to(handlers::tor_handlers::handle_add_dependency))
+                    .route("/tor/{id}/dependencies/{relation_id}/delete", web::post().to(handlers::tor_handlers::handle_remove_dependency))
                     // Workflow view
                     .route("/tor/{id}/workflow", web::get().to(handlers::workflow_handlers::view))
                     // Suggestion workflow

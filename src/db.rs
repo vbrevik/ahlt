@@ -79,6 +79,10 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     // --- Protocol relation types ---
     let _protocol_of_id = insert_entity(&conn, "relation_type", "protocol_of", "Protocol Of", 0);
 
+    // --- Dependency relation types ---
+    let _feeds_into_id = insert_entity(&conn, "relation_type", "feeds_into", "Feeds Into", 0);
+    let _escalates_to_id = insert_entity(&conn, "relation_type", "escalates_to", "Escalates To", 0);
+
     // --- Item workflow relation types ---
     let _suggested_to_id = insert_entity(&conn, "relation_type", "suggested_to", "Suggested To", 0);
     let _spawns_proposal_id = insert_entity(&conn, "relation_type", "spawns_proposal", "Spawns Proposal", 0);
@@ -518,7 +522,7 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_relation(&conn, transition_from_rel_id, pt_reject_review, p_under_review);
     insert_relation(&conn, transition_to_rel_id, pt_reject_review, p_rejected);
 
-    log::info!("Seeded ontology: 28 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
+    log::info!("Seeded ontology: 30 relation types, 2 roles, {} permissions, 12 nav items, 8 settings, 1 admin user, workflow + warning entities", perms.len());
     log::info!("Default admin created — username: admin, password: admin123");
 }
 

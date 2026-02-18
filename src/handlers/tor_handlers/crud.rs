@@ -124,6 +124,9 @@ pub async fn detail(
             let available_users = non_members.into_iter()
                 .map(|(id, name, label)| UserOption { id, name, label })
                 .collect();
+            let upstream_deps = tor::find_upstream(&conn, id)?;
+            let downstream_deps = tor::find_downstream(&conn, id)?;
+            let other_tors = tor::find_other_tors(&conn, id)?;
 
             let tmpl = TorDetailTemplate {
                 ctx,
@@ -132,6 +135,9 @@ pub async fn detail(
                 functions,
                 protocol_steps,
                 available_users,
+                upstream_deps,
+                downstream_deps,
+                other_tors,
             };
             render(tmpl)
         }

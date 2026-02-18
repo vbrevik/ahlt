@@ -10,7 +10,7 @@ use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDeta
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::models::audit::AuditEntryPage;
-use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem};
+use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem, TorDependency};
 use crate::models::protocol::ProtocolStep;
 use crate::models::suggestion::SuggestionListItem;
 use crate::models::proposal::{ProposalListItem, ProposalDetail};
@@ -192,6 +192,9 @@ pub struct TorDetailTemplate {
     pub functions: Vec<TorFunctionListItem>,
     pub protocol_steps: Vec<ProtocolStep>,
     pub available_users: Vec<UserOption>,
+    pub upstream_deps: Vec<TorDependency>,
+    pub downstream_deps: Vec<TorDependency>,
+    pub other_tors: Vec<(i64, String, String)>,
 }
 
 // --- Workflow templates ---

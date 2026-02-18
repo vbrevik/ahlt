@@ -318,4 +318,160 @@
     </div>
     {% endif %}
 </section>
+
+<!-- Dependencies Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Dependencies ({{ upstream_deps.len() }} upstream, {{ downstream_deps.len() }} downstream)</h2>
+    </div>
+
+    {% if upstream_deps.is_empty() && downstream_deps.is_empty() %}
+    <p class="empty-hint">No dependencies defined. Add relationships to other ToRs below.</p>
+    {% else %}
+
+    {% if !upstream_deps.is_empty() %}
+    <h3>Upstream (feeds into this ToR)</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Source ToR</th>
+                <th>Type</th>
+                <th>Output Types</th>
+                <th>Description</th>
+                <th>Blocking</th>
+                {% if ctx.permissions.has("tor.edit") %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for dep in upstream_deps %}
+            <tr>
+                <td><a href="/tor/{{ dep.other_tor_id }}">{{ dep.other_tor_label }}</a></td>
+                <td>
+                    {% if dep.relation_type.as_str() == "feeds_into" %}
+                    <span class="badge badge-info">Feeds Into</span>
+                    {% else %}
+                    <span class="badge badge-warning">Escalates To</span>
+                    {% endif %}
+                </td>
+                <td>{% if dep.output_types.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.output_types }}{% endif %}</td>
+                <td>{% if dep.description.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.description }}{% endif %}</td>
+                <td>
+                    {% if dep.is_blocking %}
+                    <span class="badge badge-error">Blocking</span>
+                    {% else %}
+                    <span class="text-muted">No</span>
+                    {% endif %}
+                </td>
+                {% if ctx.permissions.has("tor.edit") %}
+                <td class="actions">
+                    <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                          onsubmit="return confirm('Remove this dependency?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if !downstream_deps.is_empty() %}
+    <h3>Downstream (this ToR feeds into)</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Target ToR</th>
+                <th>Type</th>
+                <th>Output Types</th>
+                <th>Description</th>
+                <th>Blocking</th>
+                {% if ctx.permissions.has("tor.edit") %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for dep in downstream_deps %}
+            <tr>
+                <td><a href="/tor/{{ dep.other_tor_id }}">{{ dep.other_tor_label }}</a></td>
+                <td>
+                    {% if dep.relation_type.as_str() == "feeds_into" %}
+                    <span class="badge badge-info">Feeds Into</span>
+                    {% else %}
+                    <span class="badge badge-warning">Escalates To</span>
+                    {% endif %}
+                </td>
+                <td>{% if dep.output_types.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.output_types }}{% endif %}</td>
+                <td>{% if dep.description.is_empty() %}<span class="text-muted">&mdash;</span>{% else %}{{ dep.description }}{% endif %}</td>
+                <td>
+                    {% if dep.is_blocking %}
+                    <span class="badge badge-error">Blocking</span>
+                    {% else %}
+                    <span class="text-muted">No</span>
+                    {% endif %}
+                </td>
+                {% if ctx.permissions.has("tor.edit") %}
+                <td class="actions">
+                    <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                          onsubmit="return confirm('Remove this dependency?')">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% endif %}
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div class="form-section">
+        <h3>Add Dependency</h3>
+        <form method="post" action="/tor/{{ tor.id }}/dependencies" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dep_target">Target ToR</label>
+                    <select id="dep_target" name="target_tor_id" required>
+                        <option value="">Select a ToR...</option>
+                        {% for t in other_tors %}
+                        <option value="{{ t.0 }}">{{ t.2 }} ({{ t.1 }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dep_type">Relation Type</label>
+                    <select id="dep_type" name="relation_type">
+                        <option value="feeds_into">Feeds Into</option>
+                        <option value="escalates_to">Escalates To</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dep_output_types">Output Types (comma-separated)</label>
+                    <input type="text" id="dep_output_types" name="output_types" placeholder="e.g. budget_report, recommendations">
+                </div>
+                <div class="form-group">
+                    <label for="dep_description">Description</label>
+                    <input type="text" id="dep_description" name="description" placeholder="Brief description of this dependency">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_blocking" value="true"> Blocking dependency
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Dependency</button>
+        </form>
+    </div>
+    {% endif %}
+</section>
 {% endblock %}
