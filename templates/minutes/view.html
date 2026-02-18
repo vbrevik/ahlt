@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}{{ minutes.label }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <div>
+        <a href="/tor" class="btn btn-sm">Back to Terms of Reference</a>
+    </div>
+    <h1>{{ minutes.label }}</h1>
+    <div class="header-actions">
+        {% if minutes.status.as_str() == "draft" %}
+        <span class="badge badge-muted">Draft</span>
+        {% else if minutes.status.as_str() == "pending_approval" %}
+        <span class="badge badge-warning">Pending Approval</span>
+        {% else %}
+        <span class="badge badge-success">Approved</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-main">
+        <div class="card">
+            <div class="card-header">Minutes Details</div>
+            <div class="card-body">
+                <dl class="detail-list">
+                    <dt>Meeting</dt>
+                    <dd><strong>{{ minutes.meeting_name }}</strong></dd>
+
+                    <dt>Generated</dt>
+                    <dd>{{ minutes.generated_date }}</dd>
+
+                    <dt>Status</dt>
+                    <dd>
+                        {% if minutes.status.as_str() == "draft" %}
+                        <span class="badge badge-muted">Draft</span>
+                        {% else if minutes.status.as_str() == "pending_approval" %}
+                        <span class="badge badge-warning">Pending Approval</span>
+                        {% else %}
+                        <span class="badge badge-success">Approved</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Status Actions -->
+        {% if minutes.status.as_str() == "draft" %}
+            {% if ctx.permissions.has("minutes.edit") %}
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" action="/minutes/{{ minutes.id }}/status" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="status" value="pending_approval">
+                        <button type="submit" class="btn btn-primary">Submit for Approval</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+
+        {% if minutes.status.as_str() == "pending_approval" %}
+            {% if ctx.permissions.has("minutes.approve") %}
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" action="/minutes/{{ minutes.id }}/status" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="status" value="approved">
+                        <button type="submit" class="btn btn-success" onclick="return confirm('Approve these minutes? They will become read-only.')">Approve Minutes</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+
+        <!-- Sections -->
+        {% for section in sections %}
+        <div class="card">
+            <div class="card-header">
+                {{ section.label }}
+                {% if section.is_auto_generated %}
+                <span class="badge badge-muted" style="margin-left: 0.5rem;">Auto-generated</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if minutes.status.as_str() != "approved" %}
+                    {% if ctx.permissions.has("minutes.edit") %}
+                    <form method="post" action="/minutes/{{ minutes.id }}/sections/{{ section.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <div class="form-group">
+                            <textarea name="content" rows="8" class="form-control">{{ section.content }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">Save Section</button>
+                    </form>
+                    {% else %}
+                    <pre class="detail-json">{{ section.content }}</pre>
+                    {% endif %}
+                {% else %}
+                <pre class="detail-json">{{ section.content }}</pre>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
