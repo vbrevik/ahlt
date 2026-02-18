@@ -548,105 +548,233 @@ pub fn seed_staging(pool: &DbPool, admin_password_hash: &str) {
 
     let conn = pool.get().expect("Failed to get DB connection for staging seed");
 
+    // --- Block 1: users and roles ---
     let staging_marker: i64 = conn.query_row(
         "SELECT COUNT(*) FROM entities WHERE entity_type='user' AND name='alice'",
         [],
         |row| row.get(0),
     ).unwrap_or(0);
 
-    if staging_marker > 0 {
-        log::info!("Staging data already seeded, skipping");
+    if staging_marker == 0 {
+        log::info!("Seeding staging data...");
+
+        let has_role_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_role'",
+            [], |row| row.get(0),
+        ).unwrap();
+        let has_perm_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_permission'",
+            [], |row| row.get(0),
+        ).unwrap();
+
+        // Additional roles
+        let editor_role_id = insert_entity(&conn, "role", "editor", "Editor", 3);
+        insert_prop(&conn, editor_role_id, "description", "Can create and edit content");
+
+        let viewer_role_id = insert_entity(&conn, "role", "viewer", "Viewer", 4);
+        insert_prop(&conn, viewer_role_id, "description", "Read-only access");
+
+        let manager_role_id = insert_entity(&conn, "role", "manager", "Manager", 5);
+        insert_prop(&conn, manager_role_id, "description", "Can manage governance workflows");
+
+        // Editor permissions
+        let editor_perms = [
+            "dashboard.view", "users.list", "users.create", "users.edit",
+            "suggestion.view", "suggestion.create", "proposal.view", "proposal.create",
+            "proposal.edit", "proposal.submit", "settings.manage",
+        ];
+        for perm_code in &editor_perms {
+            let perm_id: i64 = conn.query_row(
+                "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+                [perm_code], |row| row.get(0),
+            ).unwrap();
+            insert_relation(&conn, has_perm_id, editor_role_id, perm_id);
+        }
+
+        // Viewer permissions
+        let viewer_perms = ["dashboard.view", "users.list"];
+        for perm_code in &viewer_perms {
+            let perm_id: i64 = conn.query_row(
+                "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+                [perm_code], |row| row.get(0),
+            ).unwrap();
+            insert_relation(&conn, has_perm_id, viewer_role_id, perm_id);
+        }
+
+        // Manager permissions
+        let manager_perms = [
+            "dashboard.view", "users.list", "users.create", "users.edit",
+            "tor.list", "tor.create", "tor.edit", "tor.manage_members",
+            "suggestion.view", "suggestion.create", "suggestion.review",
+            "proposal.view", "proposal.create", "proposal.edit", "proposal.submit",
+            "proposal.review", "proposal.approve",
+            "agenda.view", "agenda.create", "agenda.queue", "agenda.manage",
+            "agenda.participate", "agenda.decide",
+            "coa.create", "coa.edit",
+        ];
+        for perm_code in &manager_perms {
+            let perm_id: i64 = conn.query_row(
+                "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
+                [perm_code], |row| row.get(0),
+            ).unwrap();
+            insert_relation(&conn, has_perm_id, manager_role_id, perm_id);
+        }
+
+        // Additional users
+        let alice_id = insert_entity(&conn, "user", "alice", "Alice Editor", 0);
+        insert_prop(&conn, alice_id, "password", admin_password_hash);
+        insert_prop(&conn, alice_id, "email", "alice@example.com");
+        insert_relation(&conn, has_role_id, alice_id, editor_role_id);
+
+        let bob_id = insert_entity(&conn, "user", "bob", "Bob Viewer", 0);
+        insert_prop(&conn, bob_id, "password", admin_password_hash);
+        insert_prop(&conn, bob_id, "email", "bob@example.com");
+        insert_relation(&conn, has_role_id, bob_id, viewer_role_id);
+
+        let charlie_id = insert_entity(&conn, "user", "charlie", "Charlie Manager", 0);
+        insert_prop(&conn, charlie_id, "password", admin_password_hash);
+        insert_prop(&conn, charlie_id, "email", "charlie@example.com");
+        insert_relation(&conn, has_role_id, charlie_id, manager_role_id);
+
+        let diana_id = insert_entity(&conn, "user", "diana", "Diana Admin", 0);
+        insert_prop(&conn, diana_id, "password", admin_password_hash);
+        insert_prop(&conn, diana_id, "email", "diana@example.com");
+        let admin_role_id: i64 = conn.query_row(
+            "SELECT id FROM entities WHERE entity_type='role' AND name='admin'",
+            [], |row| row.get(0),
+        ).unwrap();
+        insert_relation(&conn, has_role_id, diana_id, admin_role_id);
+
+        log::info!("Staging data seeded: 3 additional roles (editor, viewer, manager), 4 additional users (alice, bob, charlie, diana)");
+    } else {
+        log::info!("Staging user data already seeded, skipping");
+    }
+
+    // --- Block 2: ToR sample data ---
+    let tor_marker: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities WHERE entity_type='tor' AND name='budget_committee'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    if tor_marker > 0 {
+        log::info!("ToR staging data already seeded, skipping");
         return;
     }
 
-    log::info!("Seeding staging data...");
+    log::info!("Seeding ToR staging data...");
 
-    let has_role_id: i64 = conn.query_row(
-        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_role'",
+    let belongs_to_tor_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='belongs_to_tor'",
         [], |row| row.get(0),
     ).unwrap();
-    let has_perm_id: i64 = conn.query_row(
-        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='has_permission'",
+    let fills_position_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='fills_position'",
+        [], |row| row.get(0),
+    ).unwrap();
+    let suggested_to_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='suggested_to'",
+        [], |row| row.get(0),
+    ).unwrap();
+    let submitted_to_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='relation_type' AND name='submitted_to'",
         [], |row| row.get(0),
     ).unwrap();
 
-    // Additional roles
-    let editor_role_id = insert_entity(&conn, "role", "editor", "Editor", 3);
-    insert_prop(&conn, editor_role_id, "description", "Can create and edit content");
-
-    let viewer_role_id = insert_entity(&conn, "role", "viewer", "Viewer", 4);
-    insert_prop(&conn, viewer_role_id, "description", "Read-only access");
-
-    let manager_role_id = insert_entity(&conn, "role", "manager", "Manager", 5);
-    insert_prop(&conn, manager_role_id, "description", "Can manage governance workflows");
-
-    // Editor permissions
-    let editor_perms = [
-        "dashboard.view", "users.list", "users.create", "users.edit",
-        "suggestion.view", "suggestion.create", "proposal.view", "proposal.create",
-        "proposal.edit", "proposal.submit", "settings.manage",
-    ];
-    for perm_code in &editor_perms {
-        let perm_id: i64 = conn.query_row(
-            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
-            [perm_code], |row| row.get(0),
-        ).unwrap();
-        insert_relation(&conn, has_perm_id, editor_role_id, perm_id);
-    }
-
-    // Viewer permissions
-    let viewer_perms = ["dashboard.view", "users.list"];
-    for perm_code in &viewer_perms {
-        let perm_id: i64 = conn.query_row(
-            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
-            [perm_code], |row| row.get(0),
-        ).unwrap();
-        insert_relation(&conn, has_perm_id, viewer_role_id, perm_id);
-    }
-
-    // Manager permissions
-    let manager_perms = [
-        "dashboard.view", "users.list", "users.create", "users.edit",
-        "tor.list", "tor.create", "tor.edit", "tor.manage_members",
-        "suggestion.view", "suggestion.create", "suggestion.review",
-        "proposal.view", "proposal.create", "proposal.edit", "proposal.submit",
-        "proposal.review", "proposal.approve",
-        "agenda.view", "agenda.create", "agenda.queue", "agenda.manage",
-        "agenda.participate", "agenda.decide",
-        "coa.create", "coa.edit",
-    ];
-    for perm_code in &manager_perms {
-        let perm_id: i64 = conn.query_row(
-            "SELECT id FROM entities WHERE entity_type='permission' AND name=?1",
-            [perm_code], |row| row.get(0),
-        ).unwrap();
-        insert_relation(&conn, has_perm_id, manager_role_id, perm_id);
-    }
-
-    // Additional users
-    let alice_id = insert_entity(&conn, "user", "alice", "Alice Editor", 0);
-    insert_prop(&conn, alice_id, "password", admin_password_hash);
-    insert_prop(&conn, alice_id, "email", "alice@example.com");
-    insert_relation(&conn, has_role_id, alice_id, editor_role_id);
-
-    let bob_id = insert_entity(&conn, "user", "bob", "Bob Viewer", 0);
-    insert_prop(&conn, bob_id, "password", admin_password_hash);
-    insert_prop(&conn, bob_id, "email", "bob@example.com");
-    insert_relation(&conn, has_role_id, bob_id, viewer_role_id);
-
-    let charlie_id = insert_entity(&conn, "user", "charlie", "Charlie Manager", 0);
-    insert_prop(&conn, charlie_id, "password", admin_password_hash);
-    insert_prop(&conn, charlie_id, "email", "charlie@example.com");
-    insert_relation(&conn, has_role_id, charlie_id, manager_role_id);
-
-    let diana_id = insert_entity(&conn, "user", "diana", "Diana Admin", 0);
-    insert_prop(&conn, diana_id, "password", admin_password_hash);
-    insert_prop(&conn, diana_id, "email", "diana@example.com");
-    let admin_role_id: i64 = conn.query_row(
-        "SELECT id FROM entities WHERE entity_type='role' AND name='admin'",
+    let alice_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='user' AND name='alice'",
         [], |row| row.get(0),
     ).unwrap();
-    insert_relation(&conn, has_role_id, diana_id, admin_role_id);
+    let charlie_id: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type='user' AND name='charlie'",
+        [], |row| row.get(0),
+    ).unwrap();
 
-    log::info!("Staging data seeded: 3 additional roles (editor, viewer, manager), 4 additional users (alice, bob, charlie, diana)");
+    // ToR 1: Budget Committee (monthly, wednesday)
+    let bc_id = insert_entity(&conn, "tor", "budget_committee", "Budget Committee", 1);
+    insert_prop(&conn, bc_id, "description", "Oversees budget planning and expenditure approvals");
+    insert_prop(&conn, bc_id, "status", "active");
+    insert_prop(&conn, bc_id, "meeting_cadence", "monthly");
+    insert_prop(&conn, bc_id, "cadence_day", "wednesday");
+    insert_prop(&conn, bc_id, "cadence_time", "10:00");
+    insert_prop(&conn, bc_id, "cadence_duration_minutes", "90");
+    insert_prop(&conn, bc_id, "default_location", "Conference Room A");
+
+    let bc_chair = insert_entity(&conn, "tor_function", "bc_chair", "Chair", 0);
+    insert_prop(&conn, bc_chair, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, bc_chair, bc_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, bc_chair);
+
+    let bc_member = insert_entity(&conn, "tor_function", "bc_member", "Member", 0);
+    insert_prop(&conn, bc_member, "membership_type", "optional");
+    insert_relation(&conn, belongs_to_tor_rt, bc_member, bc_id);
+    insert_relation(&conn, fills_position_rt, alice_id, bc_member);
+
+    // Suggestion for Budget Committee
+    let bc_sug = insert_entity(&conn, "suggestion", "suggestion_2026_01_15_bc", "Need new procurement process for capital expenditures", 0);
+    insert_prop(&conn, bc_sug, "description", "Need new procurement process for capital expenditures over 50k. Current manual approval chain takes too long.");
+    insert_prop(&conn, bc_sug, "submitted_date", "2026-01-15");
+    insert_prop(&conn, bc_sug, "status", "open");
+    insert_prop(&conn, bc_sug, "submitted_by_id", &alice_id.to_string());
+    insert_relation(&conn, suggested_to_rt, bc_sug, bc_id);
+
+    // Proposal for Budget Committee
+    let bc_prop = insert_entity(&conn, "proposal", "revised_procurement_policy_2026", "Revised Procurement Policy 2026", 0);
+    insert_prop(&conn, bc_prop, "title", "Revised Procurement Policy 2026");
+    insert_prop(&conn, bc_prop, "description", "Introduce a two-stage digital approval workflow for all capital expenditure requests above 50k, with a 5-day SLA for first-stage review.");
+    insert_prop(&conn, bc_prop, "rationale", "Current process averages 18 days for approval. New workflow reduces this to 5 days while maintaining oversight.");
+    insert_prop(&conn, bc_prop, "submitted_date", "2026-01-28");
+    insert_prop(&conn, bc_prop, "status", "draft");
+    insert_prop(&conn, bc_prop, "submitted_by_id", &charlie_id.to_string());
+    insert_relation(&conn, submitted_to_rt, bc_prop, bc_id);
+
+    // Agenda point for Budget Committee
+    let bc_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_03_05_bc", "Q1 2026 Budget Review", 0);
+    insert_prop(&conn, bc_agenda, "title", "Q1 2026 Budget Review");
+    insert_prop(&conn, bc_agenda, "description", "Review Q1 expenditure against plan and approve Q2 budget allocations.");
+    insert_prop(&conn, bc_agenda, "item_type", "decision");
+    insert_prop(&conn, bc_agenda, "scheduled_date", "2026-03-05");
+    insert_prop(&conn, bc_agenda, "time_allocation_minutes", "45");
+    insert_prop(&conn, bc_agenda, "status", "scheduled");
+    insert_prop(&conn, bc_agenda, "created_by", &charlie_id.to_string());
+    insert_prop(&conn, bc_agenda, "created_date", "2026-02-10T09:00:00");
+    insert_prop(&conn, bc_agenda, "tor_id", &bc_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, bc_agenda, bc_id);
+
+    // ToR 2: Safety Review Board (working days / daily standup style, monday)
+    let srb_id = insert_entity(&conn, "tor", "safety_review_board", "Safety Review Board", 2);
+    insert_prop(&conn, srb_id, "description", "Reviews safety incidents, risk assessments, and compliance requirements");
+    insert_prop(&conn, srb_id, "status", "active");
+    insert_prop(&conn, srb_id, "meeting_cadence", "working_days");
+    insert_prop(&conn, srb_id, "cadence_time", "08:30");
+    insert_prop(&conn, srb_id, "cadence_duration_minutes", "30");
+    insert_prop(&conn, srb_id, "default_location", "Safety Operations Room");
+
+    let srb_chair = insert_entity(&conn, "tor_function", "srb_chair", "Safety Officer", 0);
+    insert_prop(&conn, srb_chair, "membership_type", "mandatory");
+    insert_relation(&conn, belongs_to_tor_rt, srb_chair, srb_id);
+    insert_relation(&conn, fills_position_rt, charlie_id, srb_chair);
+
+    // Suggestion for Safety Review Board
+    let srb_sug = insert_entity(&conn, "suggestion", "suggestion_2026_02_03_srb", "Update emergency evacuation procedures", 0);
+    insert_prop(&conn, srb_sug, "description", "Update emergency evacuation procedures to include remote workers and new building annex. Current procedures are 3 years old.");
+    insert_prop(&conn, srb_sug, "submitted_date", "2026-02-03");
+    insert_prop(&conn, srb_sug, "status", "open");
+    insert_prop(&conn, srb_sug, "submitted_by_id", &charlie_id.to_string());
+    insert_relation(&conn, suggested_to_rt, srb_sug, srb_id);
+
+    // Agenda point for Safety Review Board
+    let srb_agenda = insert_entity(&conn, "agenda_point", "agenda_2026_03_10_srb", "Quarterly Safety Assessment", 0);
+    insert_prop(&conn, srb_agenda, "title", "Quarterly Safety Assessment");
+    insert_prop(&conn, srb_agenda, "description", "Review Q1 safety incidents, near-misses, and corrective actions status.");
+    insert_prop(&conn, srb_agenda, "item_type", "informative");
+    insert_prop(&conn, srb_agenda, "scheduled_date", "2026-03-10");
+    insert_prop(&conn, srb_agenda, "time_allocation_minutes", "20");
+    insert_prop(&conn, srb_agenda, "status", "scheduled");
+    insert_prop(&conn, srb_agenda, "created_by", &charlie_id.to_string());
+    insert_prop(&conn, srb_agenda, "created_date", "2026-02-12T08:30:00");
+    insert_prop(&conn, srb_agenda, "tor_id", &srb_id.to_string());
+    insert_relation(&conn, belongs_to_tor_rt, srb_agenda, srb_id);
+
+    log::info!("ToR staging data seeded: 2 ToRs (Budget Committee, Safety Review Board) with positions, members, suggestions, proposals, and agenda points");
 }

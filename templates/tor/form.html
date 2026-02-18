@@ -57,6 +57,8 @@
                 <option value="weekly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "weekly" %}selected{% endif %}{% endif %}>Weekly</option>
                 <option value="biweekly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "biweekly" %}selected{% endif %}{% endif %}>Biweekly</option>
                 <option value="monthly" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "monthly" %}selected{% endif %}{% endif %}>Monthly</option>
+                <option value="daily" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "daily" %}selected{% endif %}{% endif %}>Every day</option>
+                <option value="working_days" {% if let Some(t) = tor %}{% if t.meeting_cadence.as_str() == "working_days" %}selected{% endif %}{% endif %}>Every working day</option>
             </select>
         </div>
 
