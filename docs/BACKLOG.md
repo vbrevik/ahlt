@@ -286,9 +286,9 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
-| T.1 | **Governance map visual graph** | Medium | Medium | Replace the table on `/governance/map` with a D3 graph (similar to ontology explorer) — nodes for ToRs, directed edges for feeds_into/escalates_to, click-through to ToR detail. |
+| T.1 | **Governance map visual graph** | Medium | Medium | Replace the flat list on `/governance/map` with a Dagre+D3 DAG — nodes for ToRs with cadence badges, directed edges for feeds_into/escalates_to, click-through to ToR detail. **Plan ready**: `~/.claude/plans/piped-roaming-pearl.md` Task 1. |
 | T.2 | **ToR vacancy warning generators** | Medium | Small | Background scheduler generators that fire warnings when mandatory positions in active ToRs are unfilled. Uses `fills_position` + `entity_properties membership_type=mandatory`. |
-| T.3 | **Meeting scheduling** | Low | Large | Create `meeting` entities linked to a ToR, with scheduled date + actual protocol steps cloned from ToR protocol template. Minutes auto-scaffold would be triggered from a meeting, not manually. |
+| T.3 | **Meeting outlook calendar** | Medium | Medium | `/tor/outlook` with day/week/month CSS grid views + `GET /api/tor/calendar` endpoint computing meeting instances from cadence rules. Hybrid: server renders initial week view, client fetch for tab/date switching. **Plan ready**: `~/.claude/plans/piped-roaming-pearl.md` Tasks 2-4. |
 | T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
 
 ---
