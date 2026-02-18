@@ -73,34 +73,21 @@
     {% endif %}
 </div>
 
-<!-- Members Section -->
+<!-- Positions Section -->
 <section class="section">
     <div class="section-header">
-        <h2>Members ({{ members.len() }})</h2>
+        <h2>Positions ({{ members.len() }})</h2>
     </div>
 
-    {% if ctx.permissions.has("tor.manage_members") && !available_users.is_empty() %}
-    <form method="post" action="/tor/{{ tor.id }}/members" class="inline-form">
-        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-        <input type="hidden" name="action" value="add">
-        <select name="user_id" required>
-            <option value="">Select user to add...</option>
-            {% for u in available_users %}
-            <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary">Add Member</button>
-    </form>
-    {% endif %}
-
     {% if members.is_empty() %}
-    <p class="empty-hint">No members assigned yet.</p>
+    <p class="empty-hint">No positions defined yet. Add functions first, then assign people.</p>
     {% else %}
     <table class="table">
         <thead>
             <tr>
-                <th>Member</th>
-                <th>Functions</th>
+                <th>Position</th>
+                <th>Type</th>
+                <th>Current Holder</th>
                 {% if ctx.permissions.has("tor.manage_members") %}
                 <th>Actions</th>
                 {% endif %}
@@ -109,25 +96,50 @@
         <tbody>
         {% for member in members %}
             <tr>
-                <td><strong>{{ member.user_label }}</strong> <code class="mono-type">{{ member.user_name }}</code></td>
+                <td><strong>{{ member.position_label }}</strong> <code class="mono-type">{{ member.position_name }}</code></td>
                 <td>
-                    {% if member.functions.is_empty() %}
-                    <span class="text-muted">None</span>
+                    {% if member.membership_type.as_str() == "mandatory" %}
+                    <span class="badge badge-error">Mandatory</span>
                     {% else %}
-                    {% for func in member.functions %}
-                    <span class="badge badge-role">{{ func.label }}</span>
-                    {% endfor %}
+                    <span class="badge badge-muted">Optional</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if let Some(label) = member.holder_label %}
+                    <strong>{{ label }}</strong>
+                    {% else %}
+                        {% if member.membership_type.as_str() == "mandatory" %}
+                        <span class="badge badge-warning">Vacant — mandatory position</span>
+                        {% else %}
+                        <span class="text-muted">Vacant</span>
+                        {% endif %}
                     {% endif %}
                 </td>
                 {% if ctx.permissions.has("tor.manage_members") %}
                 <td class="actions">
+                    {% if member.holder_id.is_some() %}
                     <form method="post" action="/tor/{{ tor.id }}/members" class="inline"
-                          onsubmit="return confirm('Remove this member?')">
+                          onsubmit="return confirm('Vacate this position?')">
                         <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
-                        <input type="hidden" name="action" value="remove">
-                        <input type="hidden" name="user_id" value="{{ member.user_id }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                        <input type="hidden" name="action" value="vacate">
+                        <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Vacate</button>
                     </form>
+                    {% else %}
+                    <form method="post" action="/tor/{{ tor.id }}/members" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="action" value="assign">
+                        <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                        <input type="hidden" name="membership_type" value="{{ member.membership_type }}">
+                        <select name="user_id" required>
+                            <option value="">Assign...</option>
+                            {% for u in available_users %}
+                            <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Assign</button>
+                    </form>
+                    {% endif %}
                 </td>
                 {% endif %}
             </tr>

@@ -20,37 +20,56 @@ pub async fn manage_members(
     let conn = pool.get()?;
 
     let action = form.get("action").map(|s| s.as_str()).unwrap_or("");
-    let user_id: i64 = form.get("user_id")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0);
-
-    if user_id == 0 {
-        let _ = session.insert("flash", "Please select a user");
-        return Ok(HttpResponse::SeeOther()
-            .insert_header(("Location", format!("/tor/{tor_id}")))
-            .finish());
-    }
-
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
 
     match action {
-        "add" => {
-            tor::add_member(&conn, user_id, tor_id)?;
+        "assign" => {
+            let user_id: i64 = form.get("user_id")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+            let position_id: i64 = form.get("position_id")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+            let membership_type = form.get("membership_type")
+                .map(|s| s.as_str())
+                .unwrap_or("optional");
+
+            if user_id == 0 || position_id == 0 {
+                let _ = session.insert("flash", "Please select a user and position");
+                return Ok(HttpResponse::SeeOther()
+                    .insert_header(("Location", format!("/tor/{tor_id}")))
+                    .finish());
+            }
+
+            tor::assign_to_position(&conn, user_id, position_id, membership_type)?;
             let details = serde_json::json!({
                 "user_id": user_id,
-                "summary": format!("Added member to ToR")
+                "position_id": position_id,
+                "membership_type": membership_type,
+                "summary": "Assigned user to position"
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.member_added", "tor", tor_id, details);
-            let _ = session.insert("flash", "Member added successfully");
+            let _ = crate::audit::log(&conn, current_user_id, "tor.position_assigned", "tor", tor_id, details);
+            let _ = session.insert("flash", "User assigned to position");
         }
-        "remove" => {
-            tor::remove_member(&conn, user_id, tor_id)?;
+        "vacate" => {
+            let position_id: i64 = form.get("position_id")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+
+            if position_id == 0 {
+                let _ = session.insert("flash", "Invalid position");
+                return Ok(HttpResponse::SeeOther()
+                    .insert_header(("Location", format!("/tor/{tor_id}")))
+                    .finish());
+            }
+
+            tor::vacate_position(&conn, position_id)?;
             let details = serde_json::json!({
-                "user_id": user_id,
-                "summary": format!("Removed member from ToR")
+                "position_id": position_id,
+                "summary": "Vacated position"
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.member_removed", "tor", tor_id, details);
-            let _ = session.insert("flash", "Member removed");
+            let _ = crate::audit::log(&conn, current_user_id, "tor.position_vacated", "tor", tor_id, details);
+            let _ = session.insert("flash", "Position vacated");
         }
         _ => {
             let _ = session.insert("flash", "Unknown action");
