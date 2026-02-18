@@ -130,6 +130,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // Governance map — before parameterized /tor/{id} routes
                     .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
+                    // Workflow index
+                    .route("/workflow", web::get().to(handlers::workflow_handlers::index))
                     // ToR CRUD — /tor/new BEFORE /tor/{id}
                     .route("/tor", web::get().to(handlers::tor_handlers::list))
                     .route("/tor/new", web::get().to(handlers::tor_handlers::new_form))
