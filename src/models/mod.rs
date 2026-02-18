@@ -1,6 +1,7 @@
 pub mod agenda_point;
 pub mod audit;
 pub mod coa;
+pub mod data_manager;
 pub mod entity;
 pub mod minutes;
 pub mod nav_item;

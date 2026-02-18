@@ -143,6 +143,13 @@ pub struct SettingsTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "admin/data_manager.html")]
+pub struct DataManagerTemplate {
+    pub ctx: PageContext,
+    pub entity_types: Vec<String>,
+}
+
+#[derive(Template)]
 #[template(path = "account.html")]
 pub struct AccountTemplate {
     pub ctx: PageContext,

@@ -110,6 +110,11 @@ async fn main() -> std::io::Result<()> {
                     .wrap(actix_web::middleware::from_fn(auth::middleware::require_auth))
                     .route("/dashboard", web::get().to(handlers::dashboard::index))
                     .route("/logout", web::post().to(handlers::auth_handlers::logout))
+                    // Data Manager — import/export API + admin page
+                    .route("/data-manager", web::get().to(handlers::data_handlers::data_manager_page))
+                    .route("/api/data/import", web::post().to(handlers::data_handlers::import_data))
+                    .route("/api/data/export", web::get().to(handlers::data_handlers::export_data))
+                    .route("/api/data/schema", web::get().to(handlers::data_handlers::schema))
                     // User CRUD — /users/new BEFORE /users/{id} to avoid routing conflict
                     .route("/users", web::get().to(handlers::user_handlers::list))
                     .route("/users/new", web::get().to(handlers::user_handlers::new_form))
