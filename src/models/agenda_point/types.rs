@@ -12,6 +12,19 @@ pub struct AgendaPointListItem {
     pub tor_id: i64,
 }
 
+/// Agenda point as shown in the cross-ToR workflow index view.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossTorAgendaItem {
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub id: i64,
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub scheduled_date: String,
+    pub item_type: String,
+}
+
 /// Full agenda point detail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgendaPointDetail {

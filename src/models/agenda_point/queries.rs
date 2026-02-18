@@ -52,6 +52,75 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<AgendaPoin
     Ok(items)
 }
 
+/// Find all agenda points across all ToRs (or filtered to ToRs a user fills a position in).
+///
+/// `user_id = None`  → returns every agenda point across all ToRs.
+/// `user_id = Some(id)` → returns only agenda points for ToRs the user fills a position in.
+pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec<CrossTorAgendaItem>, AppError> {
+    let base_sql = "SELECT tor.id AS tor_id, tor.label AS tor_name, e.id, \
+                           COALESCE(p_title.value, '') AS title, \
+                           COALESCE(p_desc.value, '') AS description, \
+                           COALESCE(p_status.value, 'scheduled') AS status, \
+                           COALESCE(p_sched.value, '') AS scheduled_date, \
+                           COALESCE(p_type.value, 'informative') AS item_type \
+                    FROM entities e \
+                    JOIN relations r ON e.id = r.source_id \
+                    JOIN entities rt ON r.relation_type_id = rt.id AND rt.name = 'belongs_to_tor' \
+                    JOIN entities tor ON tor.id = r.target_id AND tor.entity_type = 'tor' \
+                    LEFT JOIN entity_properties p_title \
+                        ON e.id = p_title.entity_id AND p_title.key = 'title' \
+                    LEFT JOIN entity_properties p_desc \
+                        ON e.id = p_desc.entity_id AND p_desc.key = 'description' \
+                    LEFT JOIN entity_properties p_status \
+                        ON e.id = p_status.entity_id AND p_status.key = 'status' \
+                    LEFT JOIN entity_properties p_sched \
+                        ON e.id = p_sched.entity_id AND p_sched.key = 'scheduled_date' \
+                    LEFT JOIN entity_properties p_type \
+                        ON e.id = p_type.entity_id AND p_type.key = 'item_type' \
+                    WHERE e.entity_type = 'agenda_point'";
+
+    let row_to_item = |row: &rusqlite::Row<'_>| {
+        Ok(CrossTorAgendaItem {
+            tor_id: row.get("tor_id")?,
+            tor_name: row.get("tor_name")?,
+            id: row.get("id")?,
+            title: row.get("title")?,
+            description: row.get("description")?,
+            status: row.get("status")?,
+            scheduled_date: row.get("scheduled_date")?,
+            item_type: row.get("item_type")?,
+        })
+    };
+
+    let items = if let Some(uid) = user_id {
+        let sql = format!(
+            "{} AND EXISTS (\
+                SELECT 1 FROM relations r_fills \
+                JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
+                WHERE r_fills.source_id = ?1 \
+                  AND r_tor.target_id = tor.id \
+                  AND r_fills.relation_type_id = (\
+                      SELECT id FROM entities \
+                      WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+                  AND r_tor.relation_type_id = (\
+                      SELECT id FROM entities \
+                      WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor')\
+            ) ORDER BY tor.label ASC, scheduled_date ASC",
+            base_sql
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map(params![uid], row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        let sql = format!("{} ORDER BY tor.label ASC, scheduled_date ASC", base_sql);
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_map([], row_to_item)?
+            .collect::<Result<Vec<_>, _>>()?
+    };
+
+    Ok(items)
+}
+
 /// Find a single agenda point by its entity id.
 pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<AgendaPointDetail>, AppError> {
     let mut stmt = conn.prepare(
