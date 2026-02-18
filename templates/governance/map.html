@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Governance Map — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Governance Map</h1>
+    <a href="/tor" class="btn btn-secondary">All ToRs</a>
+</div>
+
+{% if tors.is_empty() %}
+<div class="empty-state">
+    <p>No Terms of Reference defined yet.</p>
+    <a href="/tor/new" class="btn btn-primary">Create your first ToR</a>
+</div>
+{% else %}
+
+{% if dependencies.is_empty() %}
+<div class="empty-state">
+    <p>No dependencies defined between ToRs. Add dependencies from individual <a href="/tor">ToR detail pages</a>.</p>
+</div>
+{% else %}
+<section class="section">
+    <div class="section-header">
+        <h2>Dependencies ({{ dependencies.len() }})</h2>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Source ToR</th>
+                <th>Relationship</th>
+                <th>Target ToR</th>
+                <th>Blocking</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for dep in dependencies %}
+            <tr>
+                <td><a href="/tor/{{ dep.source_tor_id }}"><strong>{{ dep.source_tor_label }}</strong></a></td>
+                <td>
+                    {% if dep.relation_type.as_str() == "feeds_into" %}
+                    <span class="badge" style="background:#3b82f6;color:#fff;">Feeds Into →</span>
+                    {% else %}
+                    <span class="badge" style="background:#f59e0b;color:#fff;">Escalates To ↑</span>
+                    {% endif %}
+                </td>
+                <td><a href="/tor/{{ dep.target_tor_id }}"><strong>{{ dep.target_tor_label }}</strong></a></td>
+                <td>
+                    {% if dep.is_blocking %}
+                    <span class="badge badge-error">Blocking</span>
+                    {% else %}
+                    <span class="text-muted">No</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+
+<section class="section">
+    <div class="section-header">
+        <h2>All Terms of Reference ({{ tors.len() }})</h2>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Label</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in tors %}
+            <tr>
+                <td><a href="/tor/{{ t.0 }}"><strong>{{ t.2 }}</strong></a></td>
+                <td><code class="mono-type">{{ t.1 }}</code></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+{% endif %}
+{% endblock %}

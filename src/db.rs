@@ -299,6 +299,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_gov_tor_id, "url", "/tor");
     insert_prop(&conn, nav_gov_tor_id, "parent", "governance");
 
+    // Governance -> Map: sidebar child
+    let nav_gov_map_id = insert_entity(&conn, "nav_item", "governance.map", "Governance Map", 2);
+    insert_prop(&conn, nav_gov_map_id, "url", "/governance/map");
+    insert_prop(&conn, nav_gov_map_id, "parent", "governance");
+
     // --- Audit settings ---
     let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
     insert_prop(&conn, audit_enabled_id, "value", "true");

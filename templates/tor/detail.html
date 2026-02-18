@@ -19,6 +19,7 @@
     <h1>{{ tor.label }}</h1>
     <div class="page-actions">
         {% if ctx.permissions.has("tor.edit") %}
+        <a href="/tor/{{ tor.id }}/templates" class="btn btn-sm">Presentation Templates</a>
         <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
         {% endif %}
         <a href="/tor" class="btn btn-sm">Back to List</a>

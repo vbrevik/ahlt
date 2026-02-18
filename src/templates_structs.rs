@@ -10,7 +10,9 @@ use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDeta
 use crate::models::setting::{self, SettingDisplay};
 use crate::models::nav_item::{self, NavModule, NavSidebarItem};
 use crate::models::audit::AuditEntryPage;
-use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem, TorDependency};
+use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem, TorDependency, GovernanceMapEntry};
+use crate::models::presentation_template::{PresentationTemplate, TemplateSlide};
+use crate::models::minutes::{Minutes, MinutesSection};
 use crate::models::protocol::ProtocolStep;
 use crate::models::suggestion::SuggestionListItem;
 use crate::models::proposal::{ProposalListItem, ProposalDetail};
@@ -195,6 +197,29 @@ pub struct TorDetailTemplate {
     pub upstream_deps: Vec<TorDependency>,
     pub downstream_deps: Vec<TorDependency>,
     pub other_tors: Vec<(i64, String, String)>,
+}
+
+// --- Governance Map template ---
+
+#[derive(Template)]
+#[template(path = "governance/map.html")]
+pub struct GovernanceMapTemplate {
+    pub ctx: PageContext,
+    pub tors: Vec<(i64, String, String)>,
+    pub dependencies: Vec<GovernanceMapEntry>,
+}
+
+// --- Presentation template management ---
+
+#[derive(Template)]
+#[template(path = "tor/presentation_templates.html")]
+pub struct PresentationTemplatesTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_label: String,
+    pub templates: Vec<PresentationTemplate>,
+    pub selected_template: Option<PresentationTemplate>,
+    pub slides: Vec<TemplateSlide>,
 }
 
 // --- Workflow templates ---
@@ -411,4 +436,14 @@ pub struct RoleBuilderForm {
     pub permission_ids: String, // JSON array
     pub csrf_token: String,
     pub role_id: Option<String>,
+}
+
+// --- Minutes templates ---
+
+#[derive(Template)]
+#[template(path = "minutes/view.html")]
+pub struct MinutesViewTemplate {
+    pub ctx: PageContext,
+    pub minutes: Minutes,
+    pub sections: Vec<MinutesSection>,
 }

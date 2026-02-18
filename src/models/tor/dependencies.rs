@@ -132,6 +132,64 @@ pub fn remove_dependency(conn: &Connection, relation_id: i64) -> rusqlite::Resul
     Ok(())
 }
 
+/// A dependency entry for the governance map.
+#[derive(Debug, Clone)]
+pub struct GovernanceMapEntry {
+    pub source_tor_id: i64,
+    pub source_tor_label: String,
+    pub target_tor_id: i64,
+    pub target_tor_label: String,
+    pub relation_type: String,  // "feeds_into" or "escalates_to"
+    pub is_blocking: bool,
+}
+
+/// Find all inter-ToR dependencies for the governance map.
+pub fn find_all_dependencies(conn: &Connection) -> rusqlite::Result<Vec<GovernanceMapEntry>> {
+    let mut stmt = conn.prepare(
+        "SELECT src.id AS source_id, src.label AS source_label, \
+                tgt.id AS target_id, tgt.label AS target_label, \
+                rt.name AS relation_type, \
+                COALESCE(rp.value, 'false') AS is_blocking \
+         FROM relations r \
+         JOIN entities rt ON r.relation_type_id = rt.id \
+         JOIN entities src ON r.source_id = src.id \
+         JOIN entities tgt ON r.target_id = tgt.id \
+         LEFT JOIN relation_properties rp ON r.id = rp.relation_id AND rp.key = 'is_blocking' \
+         WHERE rt.name IN ('feeds_into', 'escalates_to') \
+           AND src.entity_type = 'tor' \
+           AND tgt.entity_type = 'tor' \
+         ORDER BY src.label, tgt.label",
+    )?;
+
+    let entries = stmt
+        .query_map([], |row| {
+            Ok(GovernanceMapEntry {
+                source_tor_id: row.get("source_id")?,
+                source_tor_label: row.get("source_label")?,
+                target_tor_id: row.get("target_id")?,
+                target_tor_label: row.get("target_label")?,
+                relation_type: row.get("relation_type")?,
+                is_blocking: row.get::<_, String>("is_blocking")? == "true",
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(entries)
+}
+
+/// Find all active ToRs (for the map's row/column headers).
+pub fn find_all_tors(conn: &Connection) -> rusqlite::Result<Vec<(i64, String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, label FROM entities WHERE entity_type = 'tor' AND is_active = 1 ORDER BY label",
+    )?;
+    let tors = stmt
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tors)
+}
+
 /// Find all other ToRs (for dependency selection dropdown).
 pub fn find_other_tors(conn: &Connection, exclude_tor_id: i64) -> rusqlite::Result<Vec<(i64, String, String)>> {
     let mut stmt = conn.prepare(

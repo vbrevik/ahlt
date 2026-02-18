@@ -128,6 +128,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/builder/update", web::post().to(handlers::role_builder_handlers::update_role))
                     .route("/roles/builder/{id}/edit", web::get().to(handlers::role_builder_handlers::edit_form))
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
+                    // Governance map — before parameterized /tor/{id} routes
+                    .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
                     // ToR CRUD — /tor/new BEFORE /tor/{id}
                     .route("/tor", web::get().to(handlers::tor_handlers::list))
                     .route("/tor/new", web::get().to(handlers::tor_handlers::new_form))
@@ -145,6 +147,13 @@ async fn main() -> std::io::Result<()> {
                     // ToR dependency management
                     .route("/tor/{id}/dependencies", web::post().to(handlers::tor_handlers::handle_add_dependency))
                     .route("/tor/{id}/dependencies/{relation_id}/delete", web::post().to(handlers::tor_handlers::handle_remove_dependency))
+                    // Presentation template management
+                    .route("/tor/{id}/templates", web::get().to(handlers::tor_handlers::list_templates))
+                    .route("/tor/{id}/templates", web::post().to(handlers::tor_handlers::create_template))
+                    .route("/tor/{id}/templates/{template_id}/delete", web::post().to(handlers::tor_handlers::delete_template))
+                    .route("/tor/{id}/templates/{template_id}/slides", web::post().to(handlers::tor_handlers::handle_add_slide))
+                    .route("/tor/{id}/templates/{template_id}/slides/{slide_id}/delete", web::post().to(handlers::tor_handlers::handle_delete_slide))
+                    .route("/tor/{id}/templates/{template_id}/slides/{slide_id}/move", web::post().to(handlers::tor_handlers::handle_move_slide))
                     // Workflow view
                     .route("/tor/{id}/workflow", web::get().to(handlers::workflow_handlers::view))
                     // Suggestion workflow
@@ -189,6 +198,11 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/input", web::post().to(handlers::opinion_handlers::submit))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/decide", web::get().to(handlers::opinion_handlers::decision_form))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/decide", web::post().to(handlers::opinion_handlers::record_decision))
+                    // Minutes management
+                    .route("/minutes/generate", web::post().to(handlers::minutes_handlers::generate_minutes))
+                    .route("/minutes/{id}", web::get().to(handlers::minutes_handlers::view_minutes))
+                    .route("/minutes/{id}/sections/{section_id}", web::post().to(handlers::minutes_handlers::update_section))
+                    .route("/minutes/{id}/status", web::post().to(handlers::minutes_handlers::update_minutes_status))
                     // Warnings — /warnings before /warnings/{id}
                     .route("/warnings", web::get().to(handlers::warning_handlers::list::list))
                     .route("/warnings/{id}", web::get().to(handlers::warning_handlers::detail::detail))
