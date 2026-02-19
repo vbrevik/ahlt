@@ -15,13 +15,19 @@
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
-<h1>Change Password</h1>
+<div class="tabs" role="tablist">
+    <button class="tab-button active" role="tab" aria-selected="true" aria-controls="security">Security</button>
+    <button class="tab-button" role="tab" aria-selected="false" aria-controls="preferences">Preferences</button>
+</div>
 
-{% for err in errors %}
-<div class="alert alert-error">{{ err }}</div>
-{% endfor %}
+<div id="security" class="tab-panel" role="tabpanel">
+    <h1>Change Password</h1>
 
-<form method="post" action="/account" class="form-card">
+    {% for err in errors %}
+    <div class="alert alert-error">{{ err }}</div>
+    {% endfor %}
+
+    <form method="post" action="/account" class="form-card">
     <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
     <div class="form-group">
         <label for="current_password">Current Password</label>
@@ -39,5 +45,65 @@
         <button type="submit" class="btn btn-primary">Change Password</button>
         <a href="/dashboard" class="btn">Cancel</a>
     </div>
-</form>
+    </form>
+</div>
+
+<div id="preferences" class="tab-panel hidden" role="tabpanel">
+    <h1>Preferences</h1>
+    
+    <div class="form-card">
+        <div class="form-group">
+            <label for="theme-preference">Theme</label>
+            <div class="form-help">Choose your preferred color theme</div>
+            <div class="theme-options">
+                <button type="button" class="theme-btn" data-theme="light" title="Light theme">
+                    <span class="theme-icon">☀️</span>
+                    <span class="theme-label">Light</span>
+                </button>
+                <button type="button" class="theme-btn" data-theme="dark" title="Dark theme">
+                    <span class="theme-icon">🌙</span>
+                    <span class="theme-label">Dark</span>
+                </button>
+                <button type="button" class="theme-btn" data-theme="auto" title="Auto (system preference)">
+                    <span class="theme-icon">⚙️</span>
+                    <span class="theme-label">Auto</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tab switching
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('[role="tab"]').forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            document.querySelectorAll('[role="tabpanel"]').forEach(p => {
+                p.classList.add('hidden');
+            });
+            
+            tab.classList.add('active');
+            tab.setAttribute('aria-selected', 'true');
+            const panelId = tab.getAttribute('aria-controls');
+            document.getElementById(panelId).classList.remove('hidden');
+        });
+    });
+    
+    // Theme selection
+    const currentTheme = localStorage.getItem('theme-preference') || 'auto';
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        const theme = btn.getAttribute('data-theme');
+        if (theme === currentTheme) {
+            btn.classList.add('active');
+        }
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            window.toggleTheme(theme);
+        });
+    });
+</script>
 {% endblock %}

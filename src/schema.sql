@@ -39,3 +39,4 @@ CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
 CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_id, relation_type_id);
 CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_id, relation_type_id);
 CREATE INDEX IF NOT EXISTS idx_properties_entity ON entity_properties(entity_id);
+CREATE INDEX IF NOT EXISTS idx_properties_entity_key ON entity_properties(entity_id, key);

@@ -56,6 +56,44 @@
     --duration-slow: 300ms;
 }
 
+/* === Dark Mode === */
+:root.dark {
+    --bg: #1c1917;
+    --bg-subtle: #292524;
+    --surface: #2d2723;
+    --surface-hover: #3f3935;
+
+    --border: #44403c;
+    --border-strong: #57534e;
+
+    --text: #fafaf9;
+    --text-secondary: #d6d3d1;
+    --text-muted: #78716f;
+
+    --primary: #fafaf9;
+    --primary-hover: #f5f3f0;
+    --accent: #fbbf24;
+    --accent-subtle: rgba(251, 191, 36, 0.12);
+    --accent-hover: #f59e0b;
+
+    --success: #4ade80;
+    --success-bg: #164e63;
+    --success-border: #16a34a;
+    --danger: #f87171;
+    --danger-bg: #7f1d1d;
+    --danger-border: #dc2626;
+    --danger-hover: #fca5a5;
+
+    --nav-bg: #0f0d0b;
+    --nav-text: #78716f;
+    --nav-text-hover: #fafaf9;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
 /* === Reset & Base === */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -4041,4 +4079,97 @@ fieldset legend {
     .outlook-month-cell {
         min-height: 56px;
     }
+}
+
+/* === Tabs === */
+.tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+
+.tab-button:hover {
+    color: var(--text);
+}
+
+.tab-button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+    display: block;
+}
+
+.tab-panel.hidden {
+    display: none;
+}
+
+/* === Theme Selection === */
+.theme-options {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+}
+
+.theme-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface-hover);
+}
+
+.theme-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
+.theme-icon {
+    font-size: 1.5rem;
+    display: block;
+}
+
+.theme-label {
+    font-size: 0.875rem;
+    display: block;
+}
+
+.form-help {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+/* === Utility === */
+.hidden {
+    display: none;
 }
