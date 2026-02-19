@@ -375,6 +375,19 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Responsive UI**: Two-column grid layout (avatar + display name sections, stacks on mobile)
 - **Build**: PASS | **Tests**: 141 passing (unchanged)
 
+### Minutes Export (T.4)
+- **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
+- **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
+- **URL**: GET `/meetings/{id}/export` returns inline HTML for preview or download
+- **Content**: All minutes sections displayed with semantic structure (header + sections + footer)
+- **Section Types**: Attendance (👥), Protocol (📋), Agenda Items (📝), Decisions (✅), Action Items (🎯)
+- **Print Styling**: CSS optimized for print with page breaks on sections, no headers/footers repeated
+- **Filename**: Content-Disposition set to `inline; filename="minutes-{id}.html"`
+- **Permission**: Requires `minutes.view` permission; validates user access
+- **Audit Logging**: Export action logged with minutes ID, format, and audit trail
+- **No Dependencies**: Pure HTML/CSS, no external PDF library needed
+- **Build**: PASS | **Tests**: 141 passing (unchanged)
+
 ---
 
 ## Remaining Backlog
@@ -398,7 +411,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.6 | ~~**Dashboard widgets**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
 | T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| T.4 | **Minutes export (HTML/PDF print)** | Low | Medium | Export approved minutes as printable HTML template (browser print-to-PDF). Requires dedicated minutes model with sections. Currently blocked on minutes feature architecture. |
+| T.4 | ~~**Minutes export (HTML/PDF print)**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 
 ---
 
@@ -408,7 +421,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 DONE                                    CANDIDATES (pick next)
 ════                                    ══════════════════════
 Epic 1: Ontology Foundation             F.3  More entity types (medium, variable)
-Epic 2: Data-Driven Nav                 T.4  Minutes export (blocked on model)
+Epic 2: Data-Driven Nav                 
 5.1–5.4 Security                        
 4.1 Role Management                     
 4.2 Menu Builder                        
@@ -431,6 +444,7 @@ ToR Expansion (13 tasks)
 T.1 Governance Map Visual Graph         
 T.2 ToR Vacancy Warning Generators      
 T.3 Meeting Outlook Calendar            
+T.4 Minutes export (HTML/print)         
 Data Manager Seed Refactor              
 F.1 Workflow Builder UI                 
 F.2 REST API v1 Layer (Users + Entities)
