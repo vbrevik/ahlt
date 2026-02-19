@@ -158,3 +158,128 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
         None => Ok(None),
     }
 }
+
+/// Agenda point associated with a meeting.
+#[derive(Debug, Clone)]
+pub struct MeetingAgendaPoint {
+    pub id: i64,
+    pub name: String,
+    pub label: String,
+    pub item_type: String,
+    pub status: String,
+}
+
+/// Assign an agenda point to a meeting (idempotent — ignores duplicates).
+///
+/// Creates a `scheduled_for_meeting` relation: source = agenda_point, target = meeting.
+pub fn assign_agenda(
+    conn: &Connection,
+    meeting_id: i64,
+    agenda_point_id: i64,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
+         VALUES (\
+             (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting'), \
+             ?1, ?2\
+         )",
+        params![agenda_point_id, meeting_id],
+    )?;
+    Ok(())
+}
+
+/// Remove an agenda point from a meeting.
+///
+/// Deletes the `scheduled_for_meeting` relation between the agenda point and meeting.
+pub fn remove_agenda(
+    conn: &Connection,
+    meeting_id: i64,
+    agenda_point_id: i64,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "DELETE FROM relations \
+         WHERE source_id = ?1 AND target_id = ?2 \
+           AND relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting')",
+        params![agenda_point_id, meeting_id],
+    )?;
+    Ok(())
+}
+
+/// Find all agenda points assigned to a meeting via `scheduled_for_meeting`.
+pub fn find_agenda_points(
+    conn: &Connection,
+    meeting_id: i64,
+) -> rusqlite::Result<Vec<MeetingAgendaPoint>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name, e.label, \
+                COALESCE(p_type.value, '') AS item_type, \
+                COALESCE(p_status.value, '') AS status \
+         FROM entities e \
+         JOIN relations r ON r.source_id = e.id \
+             AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting') \
+             AND r.target_id = ?1 \
+         LEFT JOIN entity_properties p_type ON e.id = p_type.entity_id AND p_type.key = 'item_type' \
+         LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
+         WHERE e.entity_type = 'agenda_point' \
+         ORDER BY e.label ASC",
+    )?;
+    let rows = stmt.query_map(params![meeting_id], |row| {
+        Ok(MeetingAgendaPoint {
+            id: row.get("id")?,
+            name: row.get("name")?,
+            label: row.get("label")?,
+            item_type: row.get("item_type")?,
+            status: row.get("status")?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Find agenda points belonging to a ToR that are NOT assigned to ANY meeting.
+pub fn find_unassigned_agenda_points(
+    conn: &Connection,
+    tor_id: i64,
+) -> rusqlite::Result<Vec<MeetingAgendaPoint>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name, e.label, \
+                COALESCE(p_type.value, '') AS item_type, \
+                COALESCE(p_status.value, '') AS status \
+         FROM entities e \
+         JOIN relations r_tor ON r_tor.source_id = e.id \
+             AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+             AND r_tor.target_id = ?1 \
+         LEFT JOIN entity_properties p_type ON e.id = p_type.entity_id AND p_type.key = 'item_type' \
+         LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
+         WHERE e.entity_type = 'agenda_point' \
+           AND NOT EXISTS ( \
+               SELECT 1 FROM relations r_sched \
+               WHERE r_sched.source_id = e.id \
+                 AND r_sched.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting') \
+           ) \
+         ORDER BY e.label ASC",
+    )?;
+    let rows = stmt.query_map(params![tor_id], |row| {
+        Ok(MeetingAgendaPoint {
+            id: row.get("id")?,
+            name: row.get("name")?,
+            label: row.get("label")?,
+            item_type: row.get("item_type")?,
+            status: row.get("status")?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Update a meeting's status property (upsert).
+pub fn update_status(
+    conn: &Connection,
+    meeting_id: i64,
+    status: &str,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'status', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![meeting_id, status],
+    )?;
+    Ok(())
+}

@@ -30,7 +30,6 @@ fn insert_prop(conn: &rusqlite::Connection, entity_id: i64, key: &str, value: &s
     .expect("Failed to insert property");
 }
 
-#[allow(dead_code)]
 fn insert_relation(
     conn: &rusqlite::Connection,
     relation_type_id: i64,
@@ -171,4 +170,70 @@ fn test_find_upcoming_all_cross_tor() {
     assert_eq!(upcoming.len(), 2);
     assert_eq!(upcoming[0].meeting_date, "2026-04-01");
     assert_eq!(upcoming[1].meeting_date, "2026-04-02");
+}
+
+#[test]
+fn test_assign_agenda_to_meeting() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, _, scheduled_for_meeting_rt) = setup_tor_with_relation_types(&conn);
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let agenda_id = insert_entity(&conn, "agenda_point", "test-agenda", "Test Agenda Point");
+    ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda_id).expect("Failed to assign agenda");
+    let rel_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM relations WHERE source_id = ?1 AND target_id = ?2 AND relation_type_id = ?3",
+        rusqlite::params![agenda_id, meeting_id, scheduled_for_meeting_rt], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(rel_count, 1);
+    let meetings = ahlt::models::meeting::find_by_tor(&conn, tor_id).unwrap();
+    assert_eq!(meetings[0].agenda_count, 1);
+}
+
+#[test]
+fn test_remove_agenda_from_meeting() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let agenda_id = insert_entity(&conn, "agenda_point", "test-agenda", "Test Agenda Point");
+    ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda_id).unwrap();
+    ahlt::models::meeting::remove_agenda(&conn, meeting_id, agenda_id).expect("Failed to remove agenda");
+    let meetings = ahlt::models::meeting::find_by_tor(&conn, tor_id).unwrap();
+    assert_eq!(meetings[0].agenda_count, 0);
+}
+
+#[test]
+fn test_find_meeting_agenda_points() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let agenda1 = insert_entity(&conn, "agenda_point", "agenda-1", "First Point");
+    let agenda2 = insert_entity(&conn, "agenda_point", "agenda-2", "Second Point");
+    ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda1).unwrap();
+    ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda2).unwrap();
+    let points = ahlt::models::meeting::find_agenda_points(&conn, meeting_id).expect("Query failed");
+    assert_eq!(points.len(), 2);
+}
+
+#[test]
+fn test_update_meeting_status() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::update_status(&conn, meeting_id, "confirmed").expect("Failed to update status");
+    let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id).unwrap().unwrap();
+    assert_eq!(detail.status, "confirmed");
+}
+
+#[test]
+fn test_find_unassigned_agenda_points() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, belongs_to_tor_rt, _) = setup_tor_with_relation_types(&conn);
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let agenda1 = insert_entity(&conn, "agenda_point", "agenda-1", "First Point");
+    insert_relation(&conn, belongs_to_tor_rt, agenda1, tor_id);
+    let agenda2 = insert_entity(&conn, "agenda_point", "agenda-2", "Second Point");
+    insert_relation(&conn, belongs_to_tor_rt, agenda2, tor_id);
+    ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda1).unwrap();
+    let unassigned = ahlt::models::meeting::find_unassigned_agenda_points(&conn, tor_id).expect("Query failed");
+    assert_eq!(unassigned.len(), 1);
+    assert_eq!(unassigned[0].id, agenda2);
 }
