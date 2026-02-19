@@ -90,9 +90,11 @@ pub async fn ws_connect(
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 
     // Register this connection
+    // If lock is poisoned, silently skip registration (connection will still function for outbound only)
     {
-        let mut map = conn_map.write().unwrap();
-        map.entry(user_id).or_default().push(tx);
+        if let Ok(mut map) = conn_map.write() {
+            map.entry(user_id).or_default().push(tx);
+        }
     }
 
     let conn_map_clone = conn_map.into_inner().clone();
