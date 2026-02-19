@@ -2,101 +2,21 @@
 
 Ontology-based entity management system built with Actix-web, Askama templates, and SQLite.
 
+**Documentation**: All project documentation must be stored in the `docs/` folder.
+
 ## Quick Start
 
 ```bash
-# Build and run
-cargo run
-
-# Development with auto-reload
-cargo watch -x run
-
-# Run tests
-cargo test
-
-# Check for compilation errors
-cargo check
-
-# Run linter
-cargo clippy
+cargo run                  # Build and run
+cargo watch -x run         # Dev with auto-reload
+APP_ENV=staging cargo run  # Run with staging data (ToR, governance, meetings)
+cargo test                 # Run tests
+cargo check                # Check compilation
+cargo clippy               # Linter
 ```
 
 **Access**: http://localhost:8080
 **Default login**: admin / (password set during initial setup)
-
-## Why This File Matters
-
-**Time saved with upfront context**: Having this CLAUDE.md from day one would have prevented these common time sinks:
-
-### 1. Template Debugging (Save: ~2-3 hours per issue)
-Without knowing Askama's quirks upfront:
-- Spent time debugging `ref` in `if let` patterns before discovering they're not supported
-- Hit template scope issues with included partials multiple times
-- Discovered `Vec<String>::contains()` limitation the hard way through compilation errors
-- Each issue required 30-60 minutes to diagnose and fix
-
-**With CLAUDE.md**: Check gotchas section first, avoid entire debugging cycles.
-
-### 2. Error Pattern Design (Save: ~4-6 hours)
-Without documented patterns:
-- Designed AppError enum from scratch through trial and error
-- Discovered which error variants were needed incrementally
-- Had to refactor session helpers multiple times to get error types right
-- Learned `?` operator compatibility through compilation failures
-
-**With CLAUDE.md**: See established AppError pattern, copy proven approach immediately.
-
-### 3. Route Registration (Save: ~1-2 hours)
-Without knowing route order matters:
-- Debugged why `/users/new` was being caught by `/users/{id}`
-- Tried multiple workarounds before discovering registration order matters
-- Similar issue with other parameterized routes
-
-**With CLAUDE.md**: Register specific routes before parameterized ones from the start.
-
-### 4. Form Handling with Checkboxes (Save: ~3-4 hours)
-Without knowing `serde_urlencoded` limitation:
-- Spent time figuring out why role permissions checkboxes weren't working
-- Tried various `web::Form` struct patterns
-- Eventually wrote custom `parse_form_body()` function
-- Had to refactor role creation/update handlers
-
-**With CLAUDE.md**: Use custom parser for duplicate keys from the start.
-
-### 5. Database Connection Setup (Save: ~1-2 hours)
-Without knowing SQLite pragma requirements:
-- Debugged foreign key CASCADE not working (forgot `PRAGMA foreign_keys=ON`)
-- Hit concurrency issues before discovering WAL mode
-- Discovered pragmas must be set per-connection, not once
-
-**With CLAUDE.md**: Set up connection manager correctly on first try.
-
-### 6. EAV Pattern Understanding (Save: ~2-3 hours)
-Without documented architecture:
-- Had to reverse-engineer entity/property/relation model from queries
-- Misunderstood entity type discriminator initially
-- Confused about why entity IDs aren't sequential per type
-
-**With CLAUDE.md**: Understand EAV design immediately, write queries correctly.
-
-### 7. Session Helper Patterns (Save: ~2-3 hours)
-Without knowing centralized helpers exist:
-- Duplicated `get_user_id()` logic across multiple handlers
-- Inconsistent permission check patterns
-- Each handler implemented session access differently
-
-**With CLAUDE.md**: Use established session helpers from `auth/session.rs` immediately.
-
-### 8. Template Rendering Approach (Save: ~1-2 hours during refactoring)
-Without `render()` helper documented:
-- Wrote manual `tmpl.render()` + `HttpResponse::Ok()` in every handler
-- Inconsistent error handling for template errors
-- Had to refactor all handlers to use helper during cleanup
-
-**With CLAUDE.md**: Use `render()` helper from the start, avoid refactoring work.
-
-**Total time saved**: ~18-28 hours across these common issues
-**Additional benefit**: Faster onboarding for new contributors/sessions
 
 ## Architecture
 
@@ -111,61 +31,52 @@ Without `render()` helper documented:
 
 ```
 src/
-├── main.rs           # App configuration, routing, middleware
-├── db.rs            # Database pool initialization
-├── errors.rs        # AppError enum, ResponseError trait, render() helper
-├── auth/            # Authentication & authorization
-│   ├── mod.rs       # Password hashing, login
-│   ├── session.rs   # Session helpers (get_user_id, require_permission, etc.)
-│   └── csrf.rs      # CSRF token validation
-├── models/          # Database models & queries
-│   ├── ontology/    # EAV ontology model (Tasks 23)
-│   │   ├── mod.rs
-│   │   ├── schema.rs    # Schema metadata and graph data
-│   │   ├── instance.rs  # Instance graph visualization
-│   │   └── entities.rs  # Entity CRUD operations
-│   ├── user/        # User model (Task 24)
-│   │   ├── mod.rs
-│   │   ├── types.rs     # UserDisplay, UserListItem, etc.
-│   │   └── queries.rs   # Database query functions
-│   ├── role/        # Role model (Task 25)
-│   │   ├── mod.rs
-│   │   ├── types.rs     # RoleDisplay, PermissionCheckbox, etc.
-│   │   └── queries.rs   # Database query functions
-│   ├── audit.rs     # Audit log queries
-│   ├── nav_item.rs  # Navigation menu building
-│   └── setting.rs   # Application settings
-├── handlers/        # HTTP request handlers (all use AppError pattern)
-│   ├── user_handlers/   # User CRUD handlers (Task 26)
-│   │   ├── mod.rs
-│   │   ├── list.rs      # List and search
-│   │   └── crud.rs      # Create, edit, update, delete
-│   ├── role_handlers/   # Role CRUD handlers (Task 27)
-│   │   ├── mod.rs
-│   │   ├── helpers.rs   # Form parsing utilities
-│   │   ├── list.rs      # List handler
-│   │   └── crud.rs      # Create, edit, update, delete
-│   ├── account_handlers.rs
-│   ├── settings_handlers.rs
-│   ├── ontology_handlers.rs
-│   ├── audit_handlers.rs
-│   ├── auth_handlers.rs
-│   └── dashboard.rs
-├── audit/           # Audit logging subsystem
-│   └── mod.rs       # Log CRUD actions, retention cleanup
-└── templates_structs.rs  # Template context types
+├── main.rs              # App config, routing, middleware
+├── lib.rs               # Library crate root (pub mod declarations)
+├── db.rs                # Database pool initialization + seed data
+├── errors.rs            # AppError enum, render() helper
+├── schema.sql           # Embedded SQLite schema
+├── templates_structs.rs # Template context types
+├── auth/                # Authentication (login, session helpers, CSRF)
+├── audit/               # Audit logging subsystem
+├── warnings/            # Warning system (generators, scheduler, queries)
+├── models/              # Database models & queries
+│   ├── entity.rs        # Core EAV entity CRUD
+│   ├── relation.rs      # Core EAV relation CRUD
+│   ├── nav_item.rs      # Navigation menu building
+│   ├── user/            # User types + queries
+│   ├── role/            # Role types + queries
+│   ├── ontology/        # EAV ontology (schema, instance, entities)
+│   ├── workflow/        # Workflow engine (types, queries)
+│   ├── suggestion/      # Suggestion pipeline
+│   ├── proposal/        # Proposal pipeline
+│   ├── tor/             # Terms of Reference
+│   ├── agenda_point/    # Meeting agenda points
+│   ├── minutes/         # Meeting minutes
+│   └── data_manager/    # JSON import/export
+└── handlers/            # HTTP request handlers
+    ├── mod.rs           # Handler module declarations
+    ├── user_handlers/   # User CRUD (list, crud)
+    ├── role_handlers/   # Role CRUD (helpers, list, crud)
+    ├── workflow_handlers.rs
+    ├── workflow_builder_handlers.rs
+    ├── suggestion_handlers.rs
+    ├── proposal_handlers.rs
+    ├── tor_handlers/    # Terms of Reference
+    ├── agenda_handlers.rs
+    ├── governance_handlers/
+    └── ...              # auth, account, settings, audit, dashboard, etc.
 
-templates/          # Askama HTML templates
-static/            # CSS, fonts, client-side JS
-data/              # SQLite database file (app.db)
-docs/plans/        # Design & implementation documentation
+templates/               # Askama HTML templates
+static/                  # CSS (BEM naming), fonts, client-side JS
+data/                    # SQLite databases (per APP_ENV)
+data/seed/               # JSON seed fixtures (ontology.json, staging.json)
+docs/plans/              # Design & implementation documentation
 ```
 
 ### Key Patterns
 
-**1. AppError Pattern** (established in Tasks 1-21 refactoring)
-
-All handlers return `Result<HttpResponse, AppError>`:
+**AppError Pattern** — All handlers return `Result<HttpResponse, AppError>`:
 
 ```rust
 pub async fn handler(
@@ -180,51 +91,24 @@ pub async fn handler(
 }
 ```
 
-**AppError variants**:
-- `Db(rusqlite::Error)` - Database errors
-- `Pool(r2d2::Error)` - Connection pool errors
-- `Template(askama::Error)` - Template rendering errors
-- `Hash(String)` - Password hashing errors
-- `NotFound` - 404 errors
-- `PermissionDenied(String)` - 403 errors
-- `Session(String)` - Session errors
-- `Csrf(String)` - CSRF validation errors
+**AppError variants**: `Db`, `Pool`, `Template`, `Hash`, `NotFound`, `PermissionDenied`, `Session`, `Csrf`
 
-**2. Session Helpers** (src/auth/session.rs)
+**Session Helpers** (`src/auth/session.rs`):
+`require_permission()`, `get_user_id()`, `get_username()`, `get_permissions()`
 
-```rust
-require_permission(&session, "code")?;  // Returns AppError::PermissionDenied
-let user_id = get_user_id(&session)?;    // Returns AppError::Session
-let username = get_username(&session)?;
-let permissions = get_permissions(&session)?;
-```
+**Template Rendering**: Use `render(tmpl)` helper — converts `askama::Error` to `AppError` automatically.
 
-**3. Template Rendering**
-
-Use the `render()` helper instead of manual rendering:
-
-```rust
-let tmpl = MyTemplate { ctx, data };
-render(tmpl)  // Automatically converts askama::Error to AppError
-```
-
-**4. EAV Ontology Pattern**
-
-Everything is an entity with properties and relations:
+**EAV Ontology Pattern** — Everything is an entity with properties and relations:
 
 ```sql
 entities (id, entity_type, name, created_at)
-entity_properties (entity_id, key, value)  -- EAV for flexible schema
+entity_properties (entity_id, key, value)  -- Flexible schema
 relations (id, relation_type_id, from_entity_id, to_entity_id)
 ```
 
-Entity types: `user`, `role`, `permission`, `nav_item`, `nav_module`, `relation_type`
-
 ### Database
 
-**Location**: `data/app.db`
-
-**Initialization**: Automatic on first run (creates schema + admin user)
+**Location**: `data/{APP_ENV}/app.db` (default: `data/dev/app.db`, staging: `data/staging/app.db`)
 
 **Pragmas** (set per-connection via r2d2 init):
 ```sql
@@ -232,180 +116,27 @@ PRAGMA foreign_keys = ON;  -- Required for CASCADE deletes
 PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
 ```
 
-**Important constraints**:
-- Foreign keys CASCADE delete properties and relations when entity deleted
-- UNIQUE constraints on usernames, role names
-- Autoincrement IDs shared across all entity types (non-sequential per type)
-
-## Gotchas & Quirks
-
-### Askama 0.14
-
-❌ **No `ref` in `if let`**:
-```rust
-// Wrong
-{% if let Some(ref x) = val %}
-
-// Correct
-{% if let Some(x) = val %}
-```
-
-❌ **Included templates share parent scope**: Every template struct must carry fields used by included partials (e.g. `username`, `permissions` for nav)
-
-❌ **String equality in loops**: Use `.as_str()` on both sides
-```rust
-{% if field.as_str() == item.as_str() %}
-```
-
-❌ **Can't call `Vec<String>::contains()` with `&str`**: Create wrapper types with template-friendly methods (e.g. `Permissions::has(&str)`)
-
-❌ **No `&&` in `{% if %}` conditions**: Askama 0.14 doesn't support `{% if a && b %}`. Use nested `{% if a %}{% if b %}...{% endif %}{% endif %}` instead.
-
-❌ **No array indexing `arr[i]`**: Can't write `steps[idx-1]` to find neighbours. Load all items in the handler, find the target by ID, determine its neighbour server-side, then swap.
-
-### Actix-web 4
-
-⚠️ **Route order matters**: `/users/new` must be registered BEFORE `/users/{id}` or path param swallows "new"
-
-⚠️ **Session cookie key**: `Key::generate()` invalidates all sessions on restart - load from env in production
-
-⚠️ **`serde_urlencoded` doesn't support duplicate keys**: HTML checkboxes with same `name` fail with `web::Form`. Use custom `parse_form_body()` for repeated fields (see role permissions checkboxes)
-
-⚠️ **Middleware `from_fn` needs `'static`**: `Next<impl MessageBody + 'static>`, not without lifetime
-
-### SQLite + r2d2
-
-⚠️ **Create parent dirs first**: `fs::create_dir_all("data")` before pool init
-
-⚠️ **WAL pragma is per-connection**: Set via `SqliteConnectionManager::file(path).with_init(...)`
-
-⚠️ **`COALESCE(col, '')` required in LEFT JOINs**: rusqlite `row.get()` fails on NULL for non-Option types
-
-⚠️ **Dynamic SQL table aliases must be consistent**: Search clause `e.name LIKE ?1` requires count query to use `FROM entities e` not just `FROM entities`
-
-## Development Workflow
-
-### Refactoring Workflow
-
-**For large-scale changes** (e.g., migrating error patterns):
-
-1. **Phase 1**: Build infrastructure (AppError enum, helpers) - expect breaking changes
-2. **Phase 2**: Quick wins (clippy fixes, dead code removal)
-3. **Phase 3**: Migrate incrementally (file by file, handler by handler)
-   - Implement changes
-   - Spec compliance review (did it meet requirements?)
-   - Code quality review (validation, audit logging, edge cases)
-   - Fix issues, re-review
-4. **Phase 4**: File splitting and polish
-
-**Avoid**: Trying to refactor everything at once. Incremental with reviews prevents issues.
-
-### Code Review Checklist
-
-When adding/modifying handlers, verify:
-
-**CRUD Consistency:**
-- ✅ Create and Update handlers have **matching validation** (name, email, etc.)
-- ✅ Create, Update, Delete handlers have **audit logging** (if meaningful data change)
-- ✅ Update handler validates required fields (don't trust form data)
-- ✅ Delete handler captures entity details **before** deletion for audit log
-
-**Error Handling:**
-- ✅ All database queries use `?` operator (no `.unwrap_or_default()` on critical data)
-- ✅ Template rendering uses `render()` helper
-- ✅ Permission checks happen first (before any business logic)
-- ✅ CSRF validation on all mutations (POST/PUT/DELETE)
-
-### Adding a New Handler
-
-1. Create handler function in appropriate file (e.g. `src/handlers/user_handlers.rs`)
-2. Use `Result<HttpResponse, AppError>` return type
-3. Check permissions first: `require_permission(&session, "code")?`
-4. Validate CSRF for mutations: `csrf::validate_csrf(&session, &token)?`
-5. Get DB connection: `let conn = pool.get()?`
-6. Build page context: `let ctx = PageContext::build(&session, &conn, "/path")?`
-7. Business logic with `?` for error propagation
-8. Return `render(tmpl)` for HTML or `Ok(HttpResponse::SeeOther()...` for redirects
-
-### Adding Audit Logging
-
-```rust
-let current_user_id = get_user_id(&session).unwrap_or(0);
-let details = serde_json::json!({
-    "field": value,
-    "summary": "Short description"
-});
-let _ = audit::log(&conn, current_user_id, "action.name", "target_type", target_id, details);
-```
-
-### Database Migrations
-
-During rapid development: delete `data/app.db` and re-seed. For production, write migration scripts in `src/db.rs`.
+**Constraints**: Foreign keys CASCADE on entity delete. UNIQUE on usernames, role names. Autoincrement IDs shared across all entity types.
 
 ## Testing
 
 ```bash
-# Run all tests
-cargo test
-
-# Run specific test
-cargo test test_name
-
-# Run with output
-cargo test -- --nocapture
+cargo test                    # All tests
+cargo test test_name          # Specific test
+cargo test -- --nocapture     # With output
 ```
-
-## Recent Refactoring
-
-### Phase 3: Handler Migration (Tasks 1-21)
-
-**Completed**: All handlers migrated to AppError pattern
-- ✅ User handlers (6)
-- ✅ Role handlers (6)
-- ✅ Audit handlers (1)
-- ✅ Account handlers (2)
-- ✅ Settings handlers (2)
-- ✅ Ontology handlers (6)
-- ✅ Auth handlers (3)
-- ✅ Dashboard (1)
-
-**Impact**: ~280 lines of boilerplate eliminated, consistent error handling with `?` operator
-
-### Phase 4: File Splitting (Tasks 23-28)
-
-**Completed**: Large files split into focused modules
-- ✅ Task 23: `models/ontology.rs` (471 lines) → 4 modules (schema, instance, entities)
-- ✅ Task 24: `models/user.rs` (370 lines) → 3 modules (types, queries)
-- ✅ Task 25: `models/role.rs` (323 lines) → 3 modules (types, queries)
-- ✅ Task 26: `handlers/user_handlers.rs` (236 lines) → 3 modules (list, crud)
-- ✅ Task 27: `handlers/role_handlers.rs` → 4 modules (helpers, list, crud)
-
-**Impact**: Better code organization, clearer separation of concerns, easier navigation
-
-See `docs/plans/` for detailed refactoring documentation.
 
 ## Troubleshooting
 
-**Build errors after git pull**: Run `cargo clean && cargo build`
-
-**Database locked errors**: Check for zombie connections in debugger. WAL mode helps but doesn't eliminate all locking.
-
-**Template not found**: Askama requires templates at compile time. Run `cargo clean` after adding new templates.
-
-**Session cookie issues**: Check browser dev tools → Application → Cookies. Clear cookies if testing login flow changes.
+- **Build errors after git pull**: `cargo clean && cargo build`
+- **Database locked**: Check for zombie connections. WAL mode helps but doesn't eliminate all locking.
+- **Template not found**: Askama compiles templates. Run `cargo clean` after adding new templates.
+- **Session cookie issues**: Clear cookies in browser dev tools → Application → Cookies.
 
 ## Verification Commands
 
 ```bash
-# Check build status concisely
-cargo check 2>&1 | tail -10
-
-# Find specific compilation errors
-cargo build 2>&1 | grep -E "file_name|pattern"
-
-# Verify zero errors (should output "Finished")
-cargo build 2>&1 | tail -1
-
-# Recent commit history
-git log --oneline -20
+cargo check 2>&1 | tail -10          # Quick build check
+cargo build 2>&1 | tail -1           # Verify "Finished"
+git log --oneline -20                # Recent commits
 ```
