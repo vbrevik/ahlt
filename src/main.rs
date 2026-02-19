@@ -136,6 +136,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/users/{id}/edit", web::get().to(handlers::user_handlers::edit_form))
                     .route("/users/{id}", web::post().to(handlers::user_handlers::update))
                     .route("/users/{id}/delete", web::post().to(handlers::user_handlers::delete))
+                    .route("/users/bulk-delete", web::post().to(handlers::user_handlers::bulk_delete))
                     // Role CRUD — /roles/new BEFORE /roles/{id}
                     .route("/roles", web::get().to(handlers::role_handlers::list))
                     .route("/roles/new", web::get().to(handlers::role_handlers::new_form))

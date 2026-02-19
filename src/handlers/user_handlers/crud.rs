@@ -360,3 +360,111 @@ pub async fn delete(
         }
     }
 }
+
+
+/// Bulk delete multiple users
+#[derive(serde::Deserialize)]
+pub struct BulkDeleteForm {
+    pub csrf_token: String,
+    pub user_ids: String, // JSON array string: "[1, 2, 3]"
+}
+
+pub async fn bulk_delete(
+    pool: web::Data<DbPool>,
+    session: Session,
+    form: web::Form<BulkDeleteForm>,
+    conn_map: web::Data<ConnectionMap>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.delete")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let current_user_id = get_user_id(&session).unwrap_or(0);
+    
+    // Parse the JSON array of user IDs
+    let user_ids: Vec<i64> = match serde_json::from_str(&form.user_ids) {
+        Ok(ids) => ids,
+        Err(_) => {
+            let _ = session.insert("flash", "Invalid user IDs");
+            return Ok(HttpResponse::SeeOther()
+                .insert_header(("Location", "/users"))
+                .finish());
+        }
+    };
+
+    if user_ids.is_empty() {
+        let _ = session.insert("flash", "No users selected");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", "/users"))
+            .finish());
+    }
+
+    let conn = pool.get()?;
+    let mut deleted_count = 0;
+    let mut error_count = 0;
+
+    for id in user_ids {
+        // Self-deletion protection
+        if id == current_user_id {
+            error_count += 1;
+            continue;
+        }
+
+        // Last-admin protection
+        if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
+            if target.role_name == "admin" {
+                let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
+                if admin_count <= 1 {
+                    error_count += 1;
+                    continue;
+                }
+            }
+        }
+
+        // Fetch user details before deletion for audit log
+        let user_details = user::find_display_by_id(&conn, id).ok().flatten();
+
+        if user::delete(&conn, id).is_ok() {
+            deleted_count += 1;
+
+            // Audit log
+            if let Some(deleted_user) = user_details {
+                let details = serde_json::json!({
+                    "username": deleted_user.username,
+                    "summary": format!("Deleted user '{}' (bulk delete)", deleted_user.username)
+                });
+                let _ = crate::audit::log(&conn, current_user_id, "user.deleted",
+                                          "user", id, details);
+
+                // Generate warning for admins
+                let msg = format!("User '{}' was deleted", deleted_user.username);
+                if let Ok(wid) = crate::warnings::create_warning(
+                    &conn, "medium", "governance", "event.user.deleted", &msg, "", "system"
+                ) {
+                    let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                    if !admins.is_empty() {
+                        let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                        crate::handlers::warning_handlers::ws::notify_users(
+                            &conn_map, &pool, &admins, wid, "medium", &msg,
+                        );
+                    }
+                }
+            }
+        } else {
+            error_count += 1;
+        }
+    }
+
+    // Build summary message
+    let msg = if error_count == 0 {
+        format!("Deleted {} user{}", deleted_count, if deleted_count == 1 { "" } else { "s" })
+    } else if deleted_count == 0 {
+        "Could not delete selected users".to_string()
+    } else {
+        format!("Deleted {} user{} ({} failed)", deleted_count, if deleted_count == 1 { "" } else { "s" }, error_count)
+    };
+
+    let _ = session.insert("flash", &msg);
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", "/users"))
+        .finish())
+}
