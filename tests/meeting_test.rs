@@ -143,3 +143,32 @@ fn test_find_meeting_by_id_not_found() {
     let result = ahlt::models::meeting::find_by_id(&conn, 99999).expect("Query failed");
     assert!(result.is_none());
 }
+
+#[test]
+fn test_find_meetings_by_tor() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
+    ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id, "2026-04-08", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id, "2025-01-01", "Test ToR", "", "").unwrap();
+    let meetings = ahlt::models::meeting::find_by_tor(&conn, tor_id).expect("Query failed");
+    assert_eq!(meetings.len(), 3);
+    assert_eq!(meetings[0].meeting_date, "2026-04-08");
+    assert_eq!(meetings[1].meeting_date, "2026-04-01");
+    assert_eq!(meetings[2].meeting_date, "2025-01-01");
+}
+
+#[test]
+fn test_find_upcoming_all_cross_tor() {
+    let (_dir, conn) = setup_test_db();
+    let (tor_id1, _, _) = setup_tor_with_relation_types(&conn);
+    let tor_id2 = insert_entity(&conn, "tor", "test-tor-2", "Test ToR 2");
+    insert_prop(&conn, tor_id2, "status", "active");
+    ahlt::models::meeting::create(&conn, tor_id1, "2026-04-01", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id2, "2026-04-02", "Test ToR 2", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id1, "2025-01-01", "Test ToR", "", "").unwrap();
+    let upcoming = ahlt::models::meeting::find_upcoming_all(&conn, "2026-03-01").expect("Query failed");
+    assert_eq!(upcoming.len(), 2);
+    assert_eq!(upcoming[0].meeting_date, "2026-04-01");
+    assert_eq!(upcoming[1].meeting_date, "2026-04-02");
+}

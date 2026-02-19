@@ -54,6 +54,68 @@ pub fn create(
     Ok(meeting_id)
 }
 
+/// Base SELECT columns for meeting list queries (with inline subqueries for agenda_count and has_minutes).
+const MEETING_LIST_SELECT: &str = "\
+SELECT e.id, e.name, e.label, \
+       COALESCE(p_date.value, '') AS meeting_date, \
+       COALESCE(p_status.value, 'projected') AS status, \
+       tor.id AS tor_id, tor.name AS tor_name, tor.label AS tor_label, \
+       (SELECT COUNT(*) FROM relations r_agenda \
+        WHERE r_agenda.target_id = e.id \
+          AND r_agenda.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting') \
+       ) AS agenda_count, \
+       EXISTS(SELECT 1 FROM relations r_min \
+        WHERE r_min.source_id = e.id \
+          AND r_min.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
+       ) AS has_minutes \
+FROM entities e \
+LEFT JOIN entity_properties p_date ON e.id = p_date.entity_id AND p_date.key = 'meeting_date' \
+LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
+JOIN relations r_tor ON e.id = r_tor.source_id \
+    AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+JOIN entities tor ON r_tor.target_id = tor.id \
+WHERE e.entity_type = 'meeting'";
+
+fn map_meeting_list_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<MeetingListItem> {
+    Ok(MeetingListItem {
+        id: row.get("id")?,
+        name: row.get("name")?,
+        label: row.get("label")?,
+        meeting_date: row.get("meeting_date")?,
+        status: row.get("status")?,
+        tor_id: row.get("tor_id")?,
+        tor_name: row.get("tor_name")?,
+        tor_label: row.get("tor_label")?,
+        agenda_count: row.get("agenda_count")?,
+        has_minutes: row.get("has_minutes")?,
+    })
+}
+
+/// Find all meetings belonging to a specific ToR, ordered by date DESCENDING (newest first).
+pub fn find_by_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Vec<MeetingListItem>> {
+    let sql = format!(
+        "{} AND tor.id = ?1 ORDER BY p_date.value DESC",
+        MEETING_LIST_SELECT
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![tor_id], map_meeting_list_row)?;
+    rows.collect()
+}
+
+/// Find all upcoming meetings across all ToRs from a date cutoff, ordered by date ASCENDING (soonest first).
+pub fn find_upcoming_all(
+    conn: &Connection,
+    from_date: &str,
+) -> rusqlite::Result<Vec<MeetingListItem>> {
+    let sql = format!(
+        "{} AND p_date.value >= ?1 ORDER BY p_date.value ASC",
+        MEETING_LIST_SELECT
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![from_date], map_meeting_list_row)?;
+    rows.collect()
+}
+
 /// Find a meeting by its entity ID. Returns full detail including ToR info.
 pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<MeetingDetail>> {
     let mut stmt = conn.prepare(
