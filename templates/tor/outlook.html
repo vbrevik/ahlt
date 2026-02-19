@@ -282,10 +282,13 @@
             pill.classList.add('outlook-event--confirmed');
             if (badge.parentNode) { badge.parentNode.removeChild(badge); }
         })
-        .catch(function() {
+        .catch(function(err) {
             // Restore badge on error so user can retry
             badge.classList.remove('outlook-event-confirm-badge--loading');
             badge.textContent = '\u2713';
+            
+            // Log error for debugging
+            console.error('Failed to confirm meeting:', err);
         });
     }
 

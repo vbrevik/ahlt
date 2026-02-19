@@ -177,37 +177,111 @@ pub async fn confirm_calendar(
     path: web::Path<i64>,
     form: web::Form<CalendarConfirmForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
-    csrf::validate_csrf(&session, &form.csrf_token)?;
+    // Check permission and CSRF first
+    match require_permission(&session, "tor.edit") {
+        Err(_) => {
+            return Ok(HttpResponse::Forbidden()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
+        }
+        Ok(_) => {}
+    }
+
+    match csrf::validate_csrf(&session, &form.csrf_token) {
+        Err(_) => {
+            return Ok(HttpResponse::Forbidden()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": "CSRF token invalid"}).to_string()));
+        }
+        Ok(_) => {}
+    }
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
+    let conn = match pool.get() {
+        Ok(c) => c,
+        Err(_) => {
+            return Ok(HttpResponse::InternalServerError()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": "Database error"}).to_string()));
+        }
+    };
     let current_user_id = get_user_id(&session).unwrap_or(0);
 
+    // Validate date format
     if chrono::NaiveDate::parse_from_str(&form.meeting_date, "%Y-%m-%d").is_err() {
-        return Err(AppError::PermissionDenied(
-            "Invalid meeting_date format, expected YYYY-MM-DD".to_string(),
-        ));
+        return Ok(HttpResponse::BadRequest()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "Invalid meeting_date format, expected YYYY-MM-DD"}).to_string()));
+    }
+
+    // Validate date is in the future
+    let parsed_date = match chrono::NaiveDate::parse_from_str(&form.meeting_date, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(HttpResponse::BadRequest()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": "Invalid date"}).to_string()));
+        }
+    };
+    let today = chrono::Local::now().naive_local().date();
+    if parsed_date <= today {
+        return Ok(HttpResponse::BadRequest()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "Cannot confirm meetings in the past"}).to_string()));
     }
 
     let meeting_id = if let Some(mid) = form.meeting_id {
         // Meeting already exists — verify ownership then update status
-        let existing = meeting::find_by_id(&conn, mid)?.ok_or(AppError::NotFound)?;
+        let existing = match meeting::find_by_id(&conn, mid) {
+            Ok(Some(m)) => m,
+            Ok(None) => {
+                return Ok(HttpResponse::NotFound()
+                    .content_type("application/json")
+                    .body(serde_json::json!({"ok": false, "error": "Meeting not found"}).to_string()));
+            }
+            Err(_) => {
+                return Ok(HttpResponse::InternalServerError()
+                    .content_type("application/json")
+                    .body(serde_json::json!({"ok": false, "error": "Database error"}).to_string()));
+            }
+        };
+
         if existing.tor_id != tor_id {
-            return Err(AppError::NotFound);
+            return Ok(HttpResponse::NotFound()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": "Meeting not found"}).to_string()));
         }
         if existing.status != "projected" {
-            return Err(AppError::PermissionDenied(
-                format!("Meeting is already '{}' and cannot be confirmed", existing.status),
-            ));
+            return Ok(HttpResponse::BadRequest()
+                .content_type("application/json")
+                .body(serde_json::json!({"ok": false, "error": format!("Meeting is already '{}' and cannot be confirmed", existing.status)}).to_string()));
         }
-        meeting::update_status(&conn, mid, "confirmed")?;
-        mid
+        match meeting::update_status(&conn, mid, "confirmed") {
+            Ok(_) => mid,
+            Err(_) => {
+                return Ok(HttpResponse::InternalServerError()
+                    .content_type("application/json")
+                    .body(serde_json::json!({"ok": false, "error": "Failed to update meeting"}).to_string()));
+            }
+        }
     } else {
         // No persisted meeting yet — create it and confirm in one step
-        let mid = meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "")?;
-        meeting::update_status(&conn, mid, "confirmed")?;
-        mid
+        let mid = match meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "") {
+            Ok(id) => id,
+            Err(_) => {
+                return Ok(HttpResponse::InternalServerError()
+                    .content_type("application/json")
+                    .body(serde_json::json!({"ok": false, "error": "Failed to create meeting"}).to_string()));
+            }
+        };
+        match meeting::update_status(&conn, mid, "confirmed") {
+            Ok(_) => mid,
+            Err(_) => {
+                return Ok(HttpResponse::InternalServerError()
+                    .content_type("application/json")
+                    .body(serde_json::json!({"ok": false, "error": "Failed to confirm meeting"}).to_string()));
+            }
+        }
     };
 
     let details = serde_json::json!({
