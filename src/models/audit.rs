@@ -135,6 +135,18 @@ pub fn find_paginated(
     })
 }
 
+/// Fetch the N most recent audit entries (for dashboard activity feed).
+pub fn find_recent(conn: &Connection, limit: i64) -> rusqlite::Result<Vec<AuditEntry>> {
+    let sql = format!(
+        "{} ORDER BY e.created_at DESC LIMIT ?1",
+        SELECT_AUDIT_DISPLAY
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let entries = stmt.query_map(params![limit], row_to_audit_entry)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(entries)
+}
+
 /// Create an audit entry in the database
 pub fn create(
     conn: &Connection,

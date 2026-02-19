@@ -3,6 +3,17 @@ use crate::errors::AppError;
 use crate::models::{entity, relation};
 use super::types::*;
 
+/// Count proposals with a given status (e.g. "draft", "submitted", "approved").
+pub fn count_by_status(conn: &Connection, status: &str) -> i64 {
+    conn.query_row(
+        "SELECT COUNT(*) FROM entities e
+         JOIN entity_properties p ON e.id = p.entity_id AND p.key = 'status'
+         WHERE e.entity_type = 'proposal' AND p.value = ?1",
+        params![status],
+        |row| row.get(0),
+    ).unwrap_or(0)
+}
+
 /// Generate a slug-style name from a title: lowercase, spaces to underscores,
 /// keep only alphanumeric and underscores.
 fn name_from_title(title: &str) -> String {

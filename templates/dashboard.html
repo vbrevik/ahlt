@@ -11,47 +11,141 @@
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
-<div class="dashboard-greeting">
-    <h1>Welcome back, {{ ctx.username }}</h1>
-    <p class="text-secondary">Here's an overview of your {{ ctx.app_name }} workspace.</p>
-</div>
-
-<div class="card-grid dashboard-stats">
-    <div class="card">
-        <div class="card-label">Total Users</div>
-        <div class="card-value">{{ user_count }}</div>
+{# ── Greeting ── #}
+<section class="dashboard-hero">
+    <div class="dashboard-hero__text">
+        <h1 class="dashboard-hero__title">{{ greeting }}</h1>
+        <p class="dashboard-hero__subtitle">
+            <span class="dashboard-hero__role">{{ role_label }}</span>
+        </p>
     </div>
-    <div class="card">
-        <div class="card-label">Your Role</div>
-        <div class="card-value">{{ role_label }}</div>
-    </div>
-</div>
+</section>
 
-<h2>Quick Actions</h2>
-<div class="card-grid dashboard-actions">
-    {% if ctx.permissions.has("users.list") %}
-    <a href="/users" class="card card-action">
-        <div class="card-action-title">Manage Users</div>
-        <div class="card-action-desc">View, create, and edit user accounts</div>
-    </a>
+{# ── Stats ribbon ── #}
+<section class="dashboard-ribbon">
+    <div class="dashboard-ribbon__item">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="dashboard-ribbon__value">{{ user_count }}</span>
+        <span class="dashboard-ribbon__label">Users</span>
+    </div>
+    <div class="dashboard-ribbon__item">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+        <span class="dashboard-ribbon__value">{{ role_count }}</span>
+        <span class="dashboard-ribbon__label">Roles</span>
+    </div>
+    <div class="dashboard-ribbon__item">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span class="dashboard-ribbon__value">{{ proposal_count }}</span>
+        <span class="dashboard-ribbon__label">Pending proposals</span>
+    </div>
+    <div class="dashboard-ribbon__item">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span class="dashboard-ribbon__value">{{ tor_position_count }}</span>
+        <span class="dashboard-ribbon__label">ToR positions</span>
+    </div>
+    {% if ctx.warning_count > 0 %}
+    <div class="dashboard-ribbon__item dashboard-ribbon__item--alert">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="dashboard-ribbon__value">{{ ctx.warning_count }}</span>
+        <span class="dashboard-ribbon__label">Warnings</span>
+    </div>
     {% endif %}
-    {% if ctx.permissions.has("roles.manage") %}
-    <a href="/roles" class="card card-action">
-        <div class="card-action-title">Manage Roles</div>
-        <div class="card-action-desc">Configure roles and permission assignments</div>
-    </a>
-    {% endif %}
-    {% if ctx.permissions.has("settings.manage") %}
-    <a href="/settings" class="card card-action">
-        <div class="card-action-title">Settings</div>
-        <div class="card-action-desc">Application name, audit logging, and more</div>
-    </a>
-    {% endif %}
+    <div class="dashboard-ribbon__item">
+        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span class="dashboard-ribbon__value">{{ audit_entry_count }}</span>
+        <span class="dashboard-ribbon__label">Audit entries</span>
+    </div>
+</section>
+
+{# ── Two-column: Activity + Actions ── #}
+<div class="dashboard-columns">
+
+    {# Left: Recent Activity #}
     {% if ctx.permissions.has("audit.view") %}
-    <a href="/audit" class="card card-action">
-        <div class="card-action-title">Audit Log</div>
-        <div class="card-action-desc">Review system activity and changes</div>
-    </a>
+    <section class="dashboard-activity">
+        <div class="dashboard-activity__header">
+            <h2 class="dashboard-activity__title">Recent Activity</h2>
+            <a href="/audit" class="dashboard-activity__link">View full log &rarr;</a>
+        </div>
+        {% if recent_activity.is_empty() %}
+        <p class="dashboard-activity__empty">No activity recorded yet.</p>
+        {% else %}
+        <ul class="dashboard-activity__list">
+            {% for entry in recent_activity %}
+            <li class="dashboard-activity__item">
+                <div class="dashboard-activity__avatar">{{ entry.username.chars().next().unwrap_or('?').to_uppercase().to_string() }}</div>
+                <div class="dashboard-activity__body">
+                    <span class="dashboard-activity__user">{{ entry.username }}</span>
+                    <span class="dashboard-activity__action">{{ entry.summary }}</span>
+                </div>
+                <time class="dashboard-activity__time">{{ entry.created_at }}</time>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
     {% endif %}
+
+    {# Right: Quick Actions #}
+    <section class="dashboard-shortcuts">
+        <h2 class="dashboard-shortcuts__title">Quick Actions</h2>
+        <div class="dashboard-shortcuts__list">
+            {% if ctx.permissions.has("users.list") %}
+            <a href="/users" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Manage Users</div>
+                    <div class="dashboard-shortcut__desc">View, create, and edit accounts</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if ctx.permissions.has("roles.manage") %}
+            <a href="/roles" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Manage Roles</div>
+                    <div class="dashboard-shortcut__desc">Configure permissions</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if ctx.permissions.has("settings.manage") %}
+            <a href="/settings" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Settings</div>
+                    <div class="dashboard-shortcut__desc">App configuration</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if ctx.permissions.has("audit.view") %}
+            <a href="/audit" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Audit Log</div>
+                    <div class="dashboard-shortcut__desc">Review system activity</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if ctx.permissions.has("governance.view") %}
+            <a href="/governance/map" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Governance Map</div>
+                    <div class="dashboard-shortcut__desc">View organisation structure</div>
+                </div>
+            </a>
+            {% endif %}
+            {% if ctx.permissions.has("warnings.view") %}
+            <a href="/warnings" class="dashboard-shortcut">
+                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                    <div class="dashboard-shortcut__label">Warnings</div>
+                    <div class="dashboard-shortcut__desc">Review system warnings</div>
+                </div>
+            </a>
+            {% endif %}
+        </div>
+    </section>
+
 </div>
 {% endblock %}
