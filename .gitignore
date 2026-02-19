@@ -1,5 +1,7 @@
 /target
 /data
+!/data/seed/
+!/data/seed/*.json
 *.db
 .env
 *.png

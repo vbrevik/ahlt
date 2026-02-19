@@ -1,0 +1,1379 @@
+{
+  "entities": [
+    {
+      "entity_type": "relation_type",
+      "name": "has_role",
+      "label": "Has Role",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "has_permission",
+      "label": "Has Permission",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "requires_permission",
+      "label": "Requires Permission",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "member_of",
+      "label": "Member Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "has_tor_role",
+      "label": "Has ToR Role",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "belongs_to_tor",
+      "label": "Belongs to ToR",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "fills_position",
+      "label": "Fills Position",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "protocol_of",
+      "label": "Protocol Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "feeds_into",
+      "label": "Feeds Into",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "escalates_to",
+      "label": "Escalates To",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "minutes_of",
+      "label": "Minutes Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "section_of",
+      "label": "Section Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "template_of",
+      "label": "Template Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "slide_of",
+      "label": "Slide Of",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "requires_template",
+      "label": "Requires Template",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "suggested_to",
+      "label": "Suggested To",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "spawns_proposal",
+      "label": "Spawns Proposal",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "submitted_to",
+      "label": "Submitted To",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "transition_from",
+      "label": "Transition From",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "transition_to",
+      "label": "Transition To",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "considers_coa",
+      "label": "Considers COA",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "originates_from",
+      "label": "Originates From",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "has_section",
+      "label": "Has Section",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "has_subsection",
+      "label": "Has Subsection",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "agenda_submitted_to",
+      "label": "Agenda Submitted To",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "spawns_agenda_point",
+      "label": "Spawns Agenda Point",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "opinion_by",
+      "label": "Opinion By",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "opinion_on",
+      "label": "Opinion On",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "prefers_coa",
+      "label": "Prefers COA",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "presents",
+      "label": "Presents",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "targets_user",
+      "label": "Targets User",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "for_warning",
+      "label": "For Warning",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "for_user",
+      "label": "For User",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "on_receipt",
+      "label": "On Receipt",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "relation_type",
+      "name": "forwarded_to_user",
+      "label": "Forwarded To User",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
+      "entity_type": "role",
+      "name": "admin",
+      "label": "Administrator",
+      "sort_order": 1,
+      "properties": {
+        "description": "Full system access"
+      }
+    },
+    {
+      "entity_type": "role",
+      "name": "user",
+      "label": "User",
+      "sort_order": 2,
+      "properties": {
+        "is_default": "1",
+        "description": "Standard user access"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "dashboard.view",
+      "label": "View Dashboard",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Dashboard"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "users.list",
+      "label": "List Users",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Users"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "users.create",
+      "label": "Create Users",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Users"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "users.edit",
+      "label": "Edit Users",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Users"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "users.delete",
+      "label": "Delete Users",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Users"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "roles.manage",
+      "label": "Manage Roles",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Roles"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "settings.manage",
+      "label": "Manage Settings",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Settings"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "audit.view",
+      "label": "View Audit Log",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Admin"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "tor.list",
+      "label": "List Terms of Reference",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "tor.create",
+      "label": "Create Terms of Reference",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "tor.edit",
+      "label": "Edit Terms of Reference",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "tor.manage_members",
+      "label": "Manage ToR Members",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "suggestion.view",
+      "label": "View suggestions in member ToRs",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "suggestion.create",
+      "label": "Submit new suggestions",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "suggestion.review",
+      "label": "Accept or reject suggestions",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.view",
+      "label": "View proposals in member ToRs",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.create",
+      "label": "Create new proposals",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.submit",
+      "label": "Submit draft proposals for review",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.edit",
+      "label": "Edit draft proposals",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.review",
+      "label": "Move proposals to under_review status",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "proposal.approve",
+      "label": "Approve or reject proposals under review",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.view",
+      "label": "View Agenda",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.create",
+      "label": "Create Agenda Points",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.queue",
+      "label": "Queue Proposals for Agenda",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.manage",
+      "label": "Manage Agenda Status",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.participate",
+      "label": "Participate in Meeting",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "agenda.decide",
+      "label": "Make Final Decisions",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "coa.create",
+      "label": "Create Courses of Action",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "coa.edit",
+      "label": "Edit Courses of Action",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Workflow"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "workflow.manage",
+      "label": "Manage Workflow System",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "warnings.view",
+      "label": "View Warnings",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Admin"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "minutes.generate",
+      "label": "Generate Meeting Minutes",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "minutes.edit",
+      "label": "Edit Meeting Minutes",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "minutes.approve",
+      "label": "Approve Meeting Minutes",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "user",
+      "name": "admin",
+      "label": "Administrator",
+      "sort_order": 0,
+      "properties": {
+        "email": "admin@example.com"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "dashboard",
+      "label": "Dashboard",
+      "sort_order": 1,
+      "properties": {
+        "url": "/dashboard"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin",
+      "label": "Admin",
+      "sort_order": 2,
+      "properties": {
+        "url": "/users"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.users",
+      "label": "Users",
+      "sort_order": 1,
+      "properties": {
+        "parent": "admin",
+        "url": "/users"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.roles",
+      "label": "Roles",
+      "sort_order": 2,
+      "properties": {
+        "url": "/roles",
+        "parent": "admin"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.ontology",
+      "label": "Ontology",
+      "sort_order": 3,
+      "properties": {
+        "url": "/ontology",
+        "parent": "admin"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "app.name",
+      "label": "Application Name",
+      "sort_order": 1,
+      "properties": {
+        "value": "Ahlt",
+        "description": "The name displayed in the navbar and page titles",
+        "setting_type": "text"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "app.description",
+      "label": "Application Description",
+      "sort_order": 2,
+      "properties": {
+        "value": "Administration Platform",
+        "setting_type": "text",
+        "description": "A short description of this application"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.settings",
+      "label": "Settings",
+      "sort_order": 4,
+      "properties": {
+        "parent": "admin",
+        "url": "/settings"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.audit",
+      "label": "Audit Log",
+      "sort_order": 5,
+      "properties": {
+        "url": "/audit",
+        "parent": "admin"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.menu_builder",
+      "label": "Menu Builder",
+      "sort_order": 6,
+      "properties": {
+        "url": "/menu-builder",
+        "parent": "admin"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.warnings",
+      "label": "Warnings",
+      "sort_order": 7,
+      "properties": {
+        "parent": "admin",
+        "url": "/warnings"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.role_builder",
+      "label": "Role Builder",
+      "sort_order": 8,
+      "properties": {
+        "url": "/roles/builder",
+        "parent": "admin"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "admin.data_manager",
+      "label": "Data Manager",
+      "sort_order": 9,
+      "properties": {
+        "parent": "admin",
+        "url": "/data-manager"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "governance",
+      "label": "Governance",
+      "sort_order": 3,
+      "properties": {
+        "url": "/tor"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "governance.tor",
+      "label": "Terms of Reference",
+      "sort_order": 1,
+      "properties": {
+        "parent": "governance",
+        "url": "/tor"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "governance.map",
+      "label": "Governance Map",
+      "sort_order": 2,
+      "properties": {
+        "url": "/governance/map",
+        "parent": "governance"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "governance.outlook",
+      "label": "Meeting Outlook",
+      "sort_order": 3,
+      "properties": {
+        "url": "/tor/outlook",
+        "parent": "governance"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "audit.enabled",
+      "label": "Enable Audit Logging",
+      "sort_order": 3,
+      "properties": {
+        "value": "true",
+        "setting_type": "boolean",
+        "description": "Master toggle for audit logging (database and filesystem)"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "audit.log_path",
+      "label": "Audit Log Directory",
+      "sort_order": 4,
+      "properties": {
+        "value": "data/audit/",
+        "description": "Directory path for audit log files (absolute or relative)",
+        "setting_type": "text"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "audit.retention_days",
+      "label": "Audit Retention (Days)",
+      "sort_order": 5,
+      "properties": {
+        "value": "90",
+        "setting_type": "number",
+        "description": "Days to keep audit entries in database (0 = forever)"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "warnings.retention_resolved_days",
+      "label": "Warning Retention (Resolved)",
+      "sort_order": 6,
+      "properties": {
+        "value": "30",
+        "description": "Days to keep resolved warnings before deletion",
+        "setting_type": "number"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "warnings.retention_info_days",
+      "label": "Warning Auto-Resolve (Info)",
+      "sort_order": 7,
+      "properties": {
+        "setting_type": "number",
+        "description": "Days before info-severity warnings are auto-resolved",
+        "value": "90"
+      }
+    },
+    {
+      "entity_type": "setting",
+      "name": "warnings.retention_deleted_days",
+      "label": "Warning Retention (Deleted)",
+      "sort_order": 8,
+      "properties": {
+        "setting_type": "number",
+        "description": "Days to keep fully-dismissed warnings before deletion",
+        "value": "7"
+      }
+    },
+    {
+      "entity_type": "nav_item",
+      "name": "governance.workflow",
+      "label": "Item Workflow",
+      "sort_order": 2,
+      "properties": {
+        "url": "/workflow",
+        "parent": "governance"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "suggestion.open",
+      "label": "Open",
+      "sort_order": 1,
+      "properties": {
+        "order": "1",
+        "status_code": "open",
+        "is_initial": "true",
+        "label": "Open",
+        "entity_type_scope": "suggestion"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "suggestion.accepted",
+      "label": "Accepted",
+      "sort_order": 2,
+      "properties": {
+        "is_terminal": "true",
+        "entity_type_scope": "suggestion",
+        "status_code": "accepted",
+        "label": "Accepted",
+        "order": "2"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "suggestion.rejected",
+      "label": "Rejected",
+      "sort_order": 3,
+      "properties": {
+        "status_code": "rejected",
+        "order": "3",
+        "is_terminal": "true",
+        "entity_type_scope": "suggestion",
+        "label": "Rejected"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "suggestion.open_to_accepted",
+      "label": "Accept",
+      "sort_order": 0,
+      "properties": {
+        "required_permission": "suggestion.review",
+        "to_status_code": "accepted",
+        "entity_type_scope": "suggestion",
+        "from_status_code": "open",
+        "requires_outcome": "false",
+        "transition_label": "Accept"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "suggestion.open_to_rejected",
+      "label": "Reject",
+      "sort_order": 0,
+      "properties": {
+        "from_status_code": "open",
+        "required_permission": "suggestion.review",
+        "requires_outcome": "true",
+        "transition_label": "Reject",
+        "entity_type_scope": "suggestion",
+        "to_status_code": "rejected"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "suggestion.accepted_to_rejected",
+      "label": "Reverse",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Reverse",
+        "requires_outcome": "false",
+        "from_status_code": "accepted",
+        "required_permission": "suggestion.review",
+        "to_status_code": "rejected",
+        "entity_type_scope": "suggestion"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "proposal.draft",
+      "label": "Draft",
+      "sort_order": 1,
+      "properties": {
+        "label": "Draft",
+        "status_code": "draft",
+        "entity_type_scope": "proposal",
+        "is_initial": "true",
+        "order": "1"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "proposal.submitted",
+      "label": "Submitted",
+      "sort_order": 2,
+      "properties": {
+        "status_code": "submitted",
+        "entity_type_scope": "proposal",
+        "label": "Submitted",
+        "order": "2"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "proposal.under_review",
+      "label": "Under Review",
+      "sort_order": 3,
+      "properties": {
+        "order": "3",
+        "label": "Under Review",
+        "status_code": "under_review",
+        "entity_type_scope": "proposal"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "proposal.approved",
+      "label": "Approved",
+      "sort_order": 4,
+      "properties": {
+        "order": "4",
+        "is_terminal": "true",
+        "entity_type_scope": "proposal",
+        "label": "Approved",
+        "status_code": "approved"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "proposal.rejected",
+      "label": "Rejected",
+      "sort_order": 5,
+      "properties": {
+        "status_code": "rejected",
+        "label": "Rejected",
+        "is_terminal": "true",
+        "entity_type_scope": "proposal",
+        "order": "5"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "proposal.draft_to_submitted",
+      "label": "Submit",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Submit",
+        "required_permission": "proposal.submit",
+        "entity_type_scope": "proposal",
+        "from_status_code": "draft",
+        "to_status_code": "submitted",
+        "requires_outcome": "false"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "proposal.submitted_to_review",
+      "label": "Start Review",
+      "sort_order": 0,
+      "properties": {
+        "entity_type_scope": "proposal",
+        "required_permission": "proposal.review",
+        "from_status_code": "submitted",
+        "transition_label": "Start Review",
+        "requires_outcome": "false",
+        "to_status_code": "under_review"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "proposal.review_to_approved",
+      "label": "Approve",
+      "sort_order": 0,
+      "properties": {
+        "from_status_code": "under_review",
+        "transition_label": "Approve",
+        "required_permission": "proposal.approve",
+        "to_status_code": "approved",
+        "requires_outcome": "false",
+        "entity_type_scope": "proposal"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "proposal.draft_to_rejected",
+      "label": "Reject",
+      "sort_order": 0,
+      "properties": {
+        "to_status_code": "rejected",
+        "transition_label": "Reject",
+        "required_permission": "proposal.approve",
+        "entity_type_scope": "proposal",
+        "requires_outcome": "true",
+        "from_status_code": "draft"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "proposal.review_to_rejected",
+      "label": "Reject",
+      "sort_order": 0,
+      "properties": {
+        "entity_type_scope": "proposal",
+        "from_status_code": "under_review",
+        "transition_label": "Reject",
+        "requires_outcome": "true",
+        "required_permission": "proposal.approve",
+        "to_status_code": "rejected"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:users.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:users.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:users.delete"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:roles.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:settings.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:audit.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:tor.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:tor.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:tor.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:tor.manage_members"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:suggestion.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:suggestion.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:suggestion.review"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.submit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.review"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:proposal.approve"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.queue"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.participate"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:agenda.decide"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:coa.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:coa.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:workflow.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:warnings.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:minutes.generate"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:minutes.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:minutes.approve"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:user",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:user",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "has_role",
+      "source": "user:admin",
+      "target": "role:admin"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:dashboard",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.users",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.roles",
+      "target": "permission:roles.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.ontology",
+      "target": "permission:settings.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.settings",
+      "target": "permission:settings.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.audit",
+      "target": "permission:audit.view"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.menu_builder",
+      "target": "permission:roles.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.role_builder",
+      "target": "permission:roles.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.data_manager",
+      "target": "permission:settings.manage"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:admin.warnings",
+      "target": "permission:warnings.view"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:governance.tor",
+      "target": "permission:tor.list"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:governance.map",
+      "target": "permission:tor.list"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:governance.outlook",
+      "target": "permission:tor.list"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:governance.workflow",
+      "target": "permission:suggestion.view"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:suggestion.open_to_accepted",
+      "target": "workflow_status:suggestion.open"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:suggestion.open_to_accepted",
+      "target": "workflow_status:suggestion.accepted"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:suggestion.open_to_rejected",
+      "target": "workflow_status:suggestion.open"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:suggestion.open_to_rejected",
+      "target": "workflow_status:suggestion.rejected"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:suggestion.accepted_to_rejected",
+      "target": "workflow_status:suggestion.accepted"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:suggestion.accepted_to_rejected",
+      "target": "workflow_status:suggestion.rejected"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:proposal.draft_to_submitted",
+      "target": "workflow_status:proposal.draft"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:proposal.draft_to_submitted",
+      "target": "workflow_status:proposal.submitted"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:proposal.submitted_to_review",
+      "target": "workflow_status:proposal.submitted"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:proposal.submitted_to_review",
+      "target": "workflow_status:proposal.under_review"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:proposal.review_to_approved",
+      "target": "workflow_status:proposal.under_review"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:proposal.review_to_approved",
+      "target": "workflow_status:proposal.approved"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:proposal.draft_to_rejected",
+      "target": "workflow_status:proposal.draft"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:proposal.draft_to_rejected",
+      "target": "workflow_status:proposal.rejected"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:proposal.review_to_rejected",
+      "target": "workflow_status:proposal.under_review"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:proposal.review_to_rejected",
+      "target": "workflow_status:proposal.rejected"
+    }
+  ]
+}

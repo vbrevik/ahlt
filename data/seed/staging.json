@@ -1,0 +1,1007 @@
+{
+  "entities": [
+    {
+      "entity_type": "role",
+      "name": "editor",
+      "label": "Editor",
+      "sort_order": 3,
+      "properties": {
+        "description": "Can create and edit content"
+      }
+    },
+    {
+      "entity_type": "role",
+      "name": "viewer",
+      "label": "Viewer",
+      "sort_order": 4,
+      "properties": {
+        "description": "Read-only access"
+      }
+    },
+    {
+      "entity_type": "role",
+      "name": "manager",
+      "label": "Manager",
+      "sort_order": 5,
+      "properties": {
+        "description": "Can manage governance workflows"
+      }
+    },
+    {
+      "entity_type": "user",
+      "name": "alice",
+      "label": "Alice Editor",
+      "sort_order": 0,
+      "properties": {
+        "email": "alice@example.com"
+      }
+    },
+    {
+      "entity_type": "user",
+      "name": "bob",
+      "label": "Bob Viewer",
+      "sort_order": 0,
+      "properties": {
+        "email": "bob@example.com"
+      }
+    },
+    {
+      "entity_type": "user",
+      "name": "charlie",
+      "label": "Charlie Manager",
+      "sort_order": 0,
+      "properties": {
+        "email": "charlie@example.com"
+      }
+    },
+    {
+      "entity_type": "user",
+      "name": "diana",
+      "label": "Diana Admin",
+      "sort_order": 0,
+      "properties": {
+        "email": "diana@example.com"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "budget_committee",
+      "label": "Budget Committee",
+      "sort_order": 1,
+      "properties": {
+        "cadence_day": "wednesday",
+        "cadence_duration_minutes": "90",
+        "meeting_cadence": "monthly",
+        "cadence_time": "10:00",
+        "description": "Oversees budget planning and expenditure approvals",
+        "default_location": "Conference Room A",
+        "status": "active"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "bc_chair",
+      "label": "Chair",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "bc_member",
+      "label": "Member",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "optional"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_01_15_bc",
+      "label": "Need new procurement process for capital expenditures",
+      "sort_order": 0,
+      "properties": {
+        "submitted_date": "2026-01-15",
+        "description": "Need new procurement process for capital expenditures over 50k. Current manual approval chain takes too long.",
+        "status": "open",
+        "submitted_by_id": "116"
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "revised_procurement_policy_2026",
+      "label": "Revised Procurement Policy 2026",
+      "sort_order": 0,
+      "properties": {
+        "title": "Revised Procurement Policy 2026",
+        "submitted_by_id": "118",
+        "rationale": "Current process averages 18 days for approval. New workflow reduces this to 5 days while maintaining oversight.",
+        "status": "draft",
+        "submitted_date": "2026-01-28",
+        "description": "Introduce a two-stage digital approval workflow for all capital expenditure requests above 50k, with a 5-day SLA for first-stage review."
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_03_05_bc",
+      "label": "Q1 2026 Budget Review",
+      "sort_order": 0,
+      "properties": {
+        "created_date": "2026-02-10T09:00:00",
+        "scheduled_date": "2026-03-05",
+        "created_by": "118",
+        "status": "scheduled",
+        "time_allocation_minutes": "45",
+        "tor_id": "120",
+        "description": "Review Q1 expenditure against plan and approve Q2 budget allocations.",
+        "title": "Q1 2026 Budget Review",
+        "item_type": "decision"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "safety_review_board",
+      "label": "Safety Review Board",
+      "sort_order": 2,
+      "properties": {
+        "status": "active",
+        "description": "Reviews safety incidents, risk assessments, and compliance requirements",
+        "cadence_time": "08:30",
+        "cadence_duration_minutes": "30",
+        "meeting_cadence": "working_days",
+        "default_location": "Safety Operations Room"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "srb_chair",
+      "label": "Safety Officer",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_02_03_srb",
+      "label": "Update emergency evacuation procedures",
+      "sort_order": 0,
+      "properties": {
+        "submitted_date": "2026-02-03",
+        "submitted_by_id": "118",
+        "description": "Update emergency evacuation procedures to include remote workers and new building annex. Current procedures are 3 years old.",
+        "status": "open"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_03_10_srb",
+      "label": "Quarterly Safety Assessment",
+      "sort_order": 0,
+      "properties": {
+        "description": "Review Q1 safety incidents, near-misses, and corrective actions status.",
+        "created_by": "118",
+        "tor_id": "126",
+        "scheduled_date": "2026-03-10",
+        "title": "Quarterly Safety Assessment",
+        "created_date": "2026-02-12T08:30:00",
+        "time_allocation_minutes": "20",
+        "status": "scheduled",
+        "item_type": "informative"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "sprint_planning",
+      "label": "Sprint Planning",
+      "sort_order": 3,
+      "properties": {
+        "cadence_day": "monday",
+        "default_location": "Team Room",
+        "status": "active",
+        "meeting_cadence": "biweekly",
+        "description": "Biweekly sprint planning session to define sprint goal and select backlog items",
+        "cadence_time": "09:00",
+        "cadence_duration_minutes": "120"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "sp_scrum_master",
+      "label": "Scrum Master",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "sp_product_owner",
+      "label": "Product Owner",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_01_20_sp",
+      "label": "Add estimation session before sprint planning",
+      "sort_order": 0,
+      "properties": {
+        "description": "Run a 30-minute async estimation session the day before sprint planning so team members can pre-size stories. This would cut planning duration significantly.",
+        "submitted_date": "2026-01-20",
+        "status": "open",
+        "submitted_by_id": "116"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_03_03_sp",
+      "label": "Sprint 14 Planning",
+      "sort_order": 0,
+      "properties": {
+        "time_allocation_minutes": "120",
+        "description": "Define sprint 14 goal, review velocity from sprint 13, and select backlog items for the sprint.",
+        "item_type": "decision",
+        "created_date": "2026-02-17T09:00:00",
+        "created_by": "118",
+        "title": "Sprint 14 Planning",
+        "tor_id": "130",
+        "status": "scheduled",
+        "scheduled_date": "2026-03-03"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "daily_standup",
+      "label": "Daily Standup",
+      "sort_order": 4,
+      "properties": {
+        "description": "Short daily synchronisation \u2014 what did I do yesterday, what am I doing today, any blockers",
+        "meeting_cadence": "working_days",
+        "status": "active",
+        "cadence_duration_minutes": "15",
+        "default_location": "Team Room",
+        "cadence_time": "09:15"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "ds_team_lead",
+      "label": "Team Lead",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "ds_developer",
+      "label": "Developer",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "optional"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_02_19_ds",
+      "label": "Daily sync \u2014 blockers and progress",
+      "sort_order": 0,
+      "properties": {
+        "title": "Daily sync \u2014 blockers and progress",
+        "item_type": "informative",
+        "description": "Each team member: yesterday, today, blockers. Parking lot for follow-ups.",
+        "time_allocation_minutes": "15",
+        "scheduled_date": "2026-02-19",
+        "created_by": "118",
+        "created_date": "2026-02-18T17:00:00",
+        "status": "scheduled",
+        "tor_id": "135"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "sprint_review",
+      "label": "Sprint Review",
+      "sort_order": 5,
+      "properties": {
+        "meeting_cadence": "biweekly",
+        "cadence_duration_minutes": "60",
+        "cadence_time": "14:00",
+        "description": "End-of-sprint demo of completed work to stakeholders; gather feedback before retrospective",
+        "status": "active",
+        "cadence_day": "friday",
+        "default_location": "Presentation Room"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "sr_product_owner",
+      "label": "Product Owner",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "sr_scrum_master",
+      "label": "Scrum Master",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "optional"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_02_07_sr",
+      "label": "Invite external stakeholders to sprint reviews",
+      "sort_order": 0,
+      "properties": {
+        "description": "Expand sprint review attendance to include key external stakeholders (customers, legal, compliance). Currently only internal team attends.",
+        "submitted_date": "2026-02-07",
+        "status": "open",
+        "submitted_by_id": "118"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_02_28_sr",
+      "label": "Sprint 13 Demo & Stakeholder Feedback",
+      "sort_order": 0,
+      "properties": {
+        "tor_id": "139",
+        "scheduled_date": "2026-02-28",
+        "title": "Sprint 13 Demo & Stakeholder Feedback",
+        "created_by": "116",
+        "description": "Demo completed features from sprint 13. Collect acceptance decisions from Product Owner and feedback from attendees.",
+        "item_type": "informative",
+        "status": "scheduled",
+        "time_allocation_minutes": "45",
+        "created_date": "2026-02-20T13:00:00"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "sprint_retrospective",
+      "label": "Sprint Retrospective",
+      "sort_order": 6,
+      "properties": {
+        "cadence_duration_minutes": "60",
+        "meeting_cadence": "biweekly",
+        "status": "active",
+        "description": "Team reflects on the sprint process \u2014 what went well, what to improve, action items",
+        "cadence_day": "friday",
+        "default_location": "Team Room",
+        "cadence_time": "15:30"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "retro_scrum_master",
+      "label": "Scrum Master",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "retro_developer",
+      "label": "Developer",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "optional"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_02_01_retro",
+      "label": "Use async retro board before the meeting",
+      "sort_order": 0,
+      "properties": {
+        "submitted_by_id": "116",
+        "description": "Fill in retro board (went well / improve / action items) asynchronously 24h before the meeting so time is spent on discussion rather than writing.",
+        "submitted_date": "2026-02-01",
+        "status": "accepted"
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "async_retro_board_process",
+      "label": "Async Retrospective Board Process",
+      "sort_order": 0,
+      "properties": {
+        "title": "Async Retrospective Board Process",
+        "rationale": "Eliminates 20-25 minutes of silent writing time per retro, increases meeting quality, and gives quieter team members time to contribute thoughtfully.",
+        "submitted_date": "2026-02-08",
+        "description": "Team uses a shared digital board (e.g. Miro) populated at least 24 hours before each retrospective. The live meeting focuses entirely on prioritising action items.",
+        "status": "submitted",
+        "submitted_by_id": "116"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_02_28_retro",
+      "label": "Sprint 13 Retrospective",
+      "sort_order": 0,
+      "properties": {
+        "status": "scheduled",
+        "description": "Review action items from sprint 12 retro, discuss sprint 13 highlights and pain points, define 1-2 improvement actions for sprint 14.",
+        "time_allocation_minutes": "60",
+        "item_type": "decision",
+        "title": "Sprint 13 Retrospective",
+        "created_by": "118",
+        "scheduled_date": "2026-02-28",
+        "created_date": "2026-02-20T14:00:00",
+        "tor_id": "144"
+      }
+    },
+    {
+      "entity_type": "tor",
+      "name": "backlog_refinement",
+      "label": "Backlog Refinement",
+      "sort_order": 7,
+      "properties": {
+        "description": "Weekly grooming session to clarify, estimate, and prioritise upcoming backlog items so they are sprint-ready",
+        "default_location": "Team Room",
+        "cadence_duration_minutes": "60",
+        "cadence_time": "13:00",
+        "meeting_cadence": "weekly",
+        "cadence_day": "wednesday",
+        "status": "active"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "br_product_owner",
+      "label": "Product Owner",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "mandatory"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "br_developer",
+      "label": "Developer",
+      "sort_order": 0,
+      "properties": {
+        "membership_type": "optional"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_2026_01_27_br",
+      "label": "Create a Definition of Ready checklist",
+      "sort_order": 0,
+      "properties": {
+        "description": "Define formal acceptance criteria for stories entering the sprint \u2014 acceptance criteria written, dependencies identified, estimated. Stops half-baked stories reaching planning.",
+        "status": "accepted",
+        "submitted_date": "2026-01-27",
+        "submitted_by_id": "118"
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "definition_of_ready_checklist",
+      "label": "Definition of Ready Checklist",
+      "sort_order": 0,
+      "properties": {
+        "status": "submitted",
+        "submitted_by_id": "118",
+        "title": "Definition of Ready Checklist",
+        "description": "Adopt a 4-point Definition of Ready: (1) acceptance criteria written, (2) external dependencies identified, (3) story estimated in points, (4) UI mockup attached if applicable. Stories not meeting all 4 criteria cannot enter sprint planning.",
+        "rationale": "Sprint 11 had 3 stories pulled mid-sprint due to unclear requirements. A DoR prevents unready stories from reaching planning.",
+        "submitted_date": "2026-02-03"
+      }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_2026_02_25_br",
+      "label": "Refine sprint 14 backlog candidates",
+      "sort_order": 0,
+      "properties": {
+        "scheduled_date": "2026-02-25",
+        "item_type": "informative",
+        "created_date": "2026-02-18T12:00:00",
+        "time_allocation_minutes": "60",
+        "description": "Clarify and estimate 8-10 candidate stories for sprint 14. Apply Definition of Ready criteria; park items that don't qualify.",
+        "created_by": "116",
+        "tor_id": "150",
+        "status": "scheduled",
+        "title": "Refine sprint 14 backlog candidates"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:users.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:users.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:suggestion.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:suggestion.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:proposal.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:proposal.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:proposal.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:proposal.submit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:editor",
+      "target": "permission:settings.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:viewer",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:viewer",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:dashboard.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:users.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:users.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:users.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:tor.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:tor.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:tor.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:tor.manage_members"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:suggestion.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:suggestion.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:suggestion.review"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.submit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.review"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:proposal.approve"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.queue"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.manage"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.participate"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:agenda.decide"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:coa.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:manager",
+      "target": "permission:coa.edit"
+    },
+    {
+      "relation_type": "has_role",
+      "source": "user:alice",
+      "target": "role:editor"
+    },
+    {
+      "relation_type": "has_role",
+      "source": "user:bob",
+      "target": "role:viewer"
+    },
+    {
+      "relation_type": "has_role",
+      "source": "user:charlie",
+      "target": "role:manager"
+    },
+    {
+      "relation_type": "has_role",
+      "source": "user:diana",
+      "target": "role:admin"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:bc_chair",
+      "target": "tor:budget_committee"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:bc_chair"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:bc_member",
+      "target": "tor:budget_committee"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:bc_member"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_01_15_bc",
+      "target": "tor:budget_committee"
+    },
+    {
+      "relation_type": "submitted_to",
+      "source": "proposal:revised_procurement_policy_2026",
+      "target": "tor:budget_committee"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_03_05_bc",
+      "target": "tor:budget_committee"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:srb_chair",
+      "target": "tor:safety_review_board"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:srb_chair"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_02_03_srb",
+      "target": "tor:safety_review_board"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_03_10_srb",
+      "target": "tor:safety_review_board"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:sp_scrum_master",
+      "target": "tor:sprint_planning"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:sp_scrum_master"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:sp_product_owner",
+      "target": "tor:sprint_planning"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:sp_product_owner"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_01_20_sp",
+      "target": "tor:sprint_planning"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_03_03_sp",
+      "target": "tor:sprint_planning"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:ds_team_lead",
+      "target": "tor:daily_standup"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:ds_team_lead"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:ds_developer",
+      "target": "tor:daily_standup"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:ds_developer"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_02_19_ds",
+      "target": "tor:daily_standup"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:sr_product_owner",
+      "target": "tor:sprint_review"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:sr_product_owner"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:sr_scrum_master",
+      "target": "tor:sprint_review"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:sr_scrum_master"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_02_07_sr",
+      "target": "tor:sprint_review"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_02_28_sr",
+      "target": "tor:sprint_review"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:retro_scrum_master",
+      "target": "tor:sprint_retrospective"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:retro_scrum_master"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:retro_developer",
+      "target": "tor:sprint_retrospective"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:retro_developer"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_02_01_retro",
+      "target": "tor:sprint_retrospective"
+    },
+    {
+      "relation_type": "submitted_to",
+      "source": "proposal:async_retro_board_process",
+      "target": "tor:sprint_retrospective"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_02_28_retro",
+      "target": "tor:sprint_retrospective"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:br_product_owner",
+      "target": "tor:backlog_refinement"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:alice",
+      "target": "tor_function:br_product_owner"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "tor_function:br_developer",
+      "target": "tor:backlog_refinement"
+    },
+    {
+      "relation_type": "fills_position",
+      "source": "user:charlie",
+      "target": "tor_function:br_developer"
+    },
+    {
+      "relation_type": "suggested_to",
+      "source": "suggestion:suggestion_2026_01_27_br",
+      "target": "tor:backlog_refinement"
+    },
+    {
+      "relation_type": "submitted_to",
+      "source": "proposal:definition_of_ready_checklist",
+      "target": "tor:backlog_refinement"
+    },
+    {
+      "relation_type": "belongs_to_tor",
+      "source": "agenda_point:agenda_2026_02_25_br",
+      "target": "tor:backlog_refinement"
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:backlog_refinement",
+      "target": "tor:sprint_planning",
+      "properties": {
+        "output_types": "sprint-ready backlog items",
+        "description": "Groomed and estimated stories from refinement enter sprint planning",
+        "is_blocking": "true"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:sprint_planning",
+      "target": "tor:daily_standup",
+      "properties": {
+        "description": "Daily standup tracks progress against sprint planning commitments",
+        "output_types": "sprint goal, task assignments"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:sprint_planning",
+      "target": "tor:sprint_review",
+      "properties": {
+        "output_types": "sprint commitments, acceptance criteria",
+        "description": "Sprint review verifies completed work against planning commitments"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:daily_standup",
+      "target": "tor:sprint_review",
+      "properties": {
+        "description": "Resolved blockers and daily progress updates lead to deliverables shown in review",
+        "output_types": "blocker resolutions, daily progress"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:sprint_review",
+      "target": "tor:sprint_retrospective",
+      "properties": {
+        "output_types": "accepted items, stakeholder feedback",
+        "description": "Retrospective begins only after sprint review is complete and feedback is gathered",
+        "is_blocking": "true"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:sprint_retrospective",
+      "target": "tor:sprint_planning",
+      "properties": {
+        "output_types": "improvement actions, process changes",
+        "description": "Agreed retrospective actions are addressed in the next sprint planning session"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:backlog_refinement",
+      "target": "tor:sprint_review",
+      "properties": {
+        "output_types": "defined acceptance criteria",
+        "description": "Acceptance criteria agreed in refinement used to verify completion at sprint review"
+      }
+    }
+  ]
+}
