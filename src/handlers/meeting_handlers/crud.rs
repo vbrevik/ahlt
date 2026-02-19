@@ -26,6 +26,14 @@ pub struct ConfirmForm {
 }
 
 #[derive(serde::Deserialize)]
+pub struct CalendarConfirmForm {
+    pub csrf_token: String,
+    pub meeting_date: String,
+    pub tor_name: String,
+    pub meeting_id: Option<i64>,
+}
+
+#[derive(serde::Deserialize)]
 pub struct TransitionForm {
     pub csrf_token: String,
     pub new_status: String,
@@ -151,6 +159,64 @@ pub async fn confirm(
             format!("/tor/{}/meetings/{}", tor_id, meeting_id),
         ))
         .finish())
+}
+
+// ---------------------------------------------------------------------------
+// POST — confirm from calendar (returns JSON)
+// ---------------------------------------------------------------------------
+
+/// POST /api/tor/{id}/meetings/confirm-calendar — confirm a meeting from the calendar view.
+///
+/// Returns JSON `{"ok":true,"meeting_id":N}` on success.
+/// Handles two cases:
+///   - meeting_id present  → meeting already exists as "projected", just update status
+///   - meeting_id absent   → cadence slot, create the meeting entity then confirm it
+pub async fn confirm_calendar(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<i64>,
+    form: web::Form<CalendarConfirmForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "tor.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let tor_id = path.into_inner();
+    let conn = pool.get()?;
+    let current_user_id = get_user_id(&session).unwrap_or(0);
+
+    let meeting_id = if let Some(mid) = form.meeting_id {
+        // Meeting already exists — verify ownership then update status
+        let existing = meeting::find_by_id(&conn, mid)?.ok_or(AppError::NotFound)?;
+        if existing.tor_id != tor_id {
+            return Err(AppError::NotFound);
+        }
+        meeting::update_status(&conn, mid, "confirmed")?;
+        mid
+    } else {
+        // No persisted meeting yet — create it and confirm in one step
+        let mid = meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "")?;
+        meeting::update_status(&conn, mid, "confirmed")?;
+        mid
+    };
+
+    let details = serde_json::json!({
+        "meeting_id": meeting_id,
+        "tor_id": tor_id,
+        "meeting_date": &form.meeting_date,
+        "summary": format!("Meeting confirmed for {} on {}", &form.tor_name, &form.meeting_date),
+    });
+    let _ = crate::audit::log(
+        &conn,
+        current_user_id,
+        "meeting.confirmed",
+        "meeting",
+        meeting_id,
+        details,
+    );
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(serde_json::json!({"ok": true, "meeting_id": meeting_id}).to_string()))
 }
 
 // ---------------------------------------------------------------------------
