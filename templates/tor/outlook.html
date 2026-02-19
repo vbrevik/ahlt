@@ -235,57 +235,58 @@
         content.appendChild(link);
         pill.appendChild(content);
         
-        // Add confirm button for projected meetings
-        if (evt.meeting_status === 'projected' && evt.meeting_id) {
-            var btnContainer = document.createElement('div');
-            btnContainer.className = 'outlook-event-actions';
-            
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'outlook-confirm-btn';
-            btn.textContent = 'Confirm';
-            btn.title = 'Confirm this meeting';
-            
-            btn.addEventListener('click', function(e) {
+        // Add confirm badge for future unconfirmed meetings
+        if (evt.date > TODAY && evt.meeting_status !== 'confirmed') {
+            var badge = document.createElement('button');
+            badge.type = 'button';
+            badge.className = 'outlook-event-confirm-badge';
+            badge.textContent = '\u2713';
+            badge.title = 'Confirm this meeting';
+            badge.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                confirmMeeting(evt);
+                confirmMeetingAjax(evt, pill, badge);
             });
-            
-            btnContainer.appendChild(btn);
-            pill.appendChild(btnContainer);
+            pill.appendChild(badge);
         }
         
         return { pill: pill, slots: slots };
     }
     
-    function confirmMeeting(evt) {
-        // Fetch CSRF token from page
-        var csrfTokenEl = document.getElementById('csrf_token');
-        var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
-        
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/tor/' + evt.tor_id + '/meetings/confirm';
-        form.style.display = 'none';
-        
-        var fields = {
-            'csrf_token': csrfToken,
-            'meeting_date': evt.date,
-            'tor_name': evt.tor_label,
-            'location': evt.location || ''
-        };
-        
-        for (var key in fields) {
-            var input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = fields[key];
-            form.appendChild(input);
+    function confirmMeetingAjax(evt, pill, badge) {
+        var csrfToken = document.getElementById('csrf_token').value;
+        badge.classList.add('outlook-event-confirm-badge--loading');
+        badge.textContent = '\u22ef';  // ellipsis while loading
+
+        var body = 'csrf_token=' + encodeURIComponent(csrfToken) +
+                   '&meeting_date=' + encodeURIComponent(evt.date) +
+                   '&tor_name=' + encodeURIComponent(evt.tor_label);
+        if (evt.meeting_id) {
+            body += '&meeting_id=' + encodeURIComponent(evt.meeting_id);
         }
-        
-        document.body.appendChild(form);
-        form.submit();
+
+        fetch('/api/tor/' + evt.tor_id + '/meetings/confirm-calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body,
+            credentials: 'same-origin'
+        })
+        .then(function(r) {
+            if (!r.ok) { throw new Error('Server error ' + r.status); }
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data.ok) { throw new Error(data.error || 'Unknown error'); }
+            // Success: update pill in place
+            pill.classList.remove('outlook-event--projected');
+            pill.classList.add('outlook-event--confirmed');
+            if (badge.parentNode) { badge.parentNode.removeChild(badge); }
+        })
+        .catch(function() {
+            // Restore badge on error so user can retry
+            badge.classList.remove('outlook-event-confirm-badge--loading');
+            badge.textContent = '\u2713';
+        });
     }
 
     // --- WEEK VIEW ---
