@@ -222,6 +222,14 @@ async fn main() -> std::io::Result<()> {
                     .route("/minutes/{id}", web::get().to(handlers::minutes_handlers::view_minutes))
                     .route("/minutes/{id}/sections/{section_id}", web::post().to(handlers::minutes_handlers::update_section))
                     .route("/minutes/{id}/status", web::post().to(handlers::minutes_handlers::update_minutes_status))
+                    // Meeting management — confirm BEFORE {mid} to avoid path param conflict
+                    .route("/meetings", web::get().to(handlers::meeting_handlers::list))
+                    .route("/tor/{id}/meetings/confirm", web::post().to(handlers::meeting_handlers::confirm))
+                    .route("/tor/{id}/meetings/{mid}", web::get().to(handlers::meeting_handlers::detail))
+                    .route("/tor/{id}/meetings/{mid}/transition", web::post().to(handlers::meeting_handlers::transition))
+                    .route("/tor/{id}/meetings/{mid}/agenda/assign", web::post().to(handlers::meeting_handlers::assign_agenda))
+                    .route("/tor/{id}/meetings/{mid}/agenda/remove", web::post().to(handlers::meeting_handlers::remove_agenda))
+                    .route("/tor/{id}/meetings/{mid}/minutes/generate", web::post().to(handlers::meeting_handlers::generate_minutes))
                     // Warnings — /warnings before /warnings/{id}
                     .route("/warnings", web::get().to(handlers::warning_handlers::list::list))
                     .route("/warnings/{id}", web::get().to(handlers::warning_handlers::detail::detail))

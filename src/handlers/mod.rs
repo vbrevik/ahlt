@@ -6,6 +6,7 @@ pub mod coa_handlers;
 pub mod dashboard;
 pub mod data_handlers;
 pub mod governance_handlers;
+pub mod meeting_handlers;
 pub mod menu_builder_handlers;
 pub mod minutes_handlers;
 pub mod ontology_handlers;
