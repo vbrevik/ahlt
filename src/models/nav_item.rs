@@ -102,14 +102,26 @@ pub fn find_navigation(
     // Build sidebar: children of active module, filtered by permissions
     let sidebar: Vec<NavSidebarItem> = match &active_module_name {
         Some(module_name) => {
-            children.iter()
+            let filtered: Vec<_> = children.iter()
                 .filter(|(_, c)| c.parent == *module_name)
                 .filter(|(_, c)| c.permission_code.is_empty() || permissions.has(&c.permission_code))
+                .collect();
+
+            // Longest-prefix match: only the most specific matching URL is active
+            let best_match_len = filtered.iter()
+                .filter(|(_, c)| current_path.starts_with(&c.url))
+                .map(|(_, c)| c.url.len())
+                .max()
+                .unwrap_or(0);
+
+            filtered.into_iter()
                 .map(|(_, c)| {
+                    let is_active = c.url.len() == best_match_len
+                        && current_path.starts_with(&c.url);
                     NavSidebarItem {
                         label: c.label.clone(),
                         url: c.url.clone(),
-                        is_active: current_path.starts_with(&c.url),
+                        is_active,
                     }
                 })
                 .collect()
