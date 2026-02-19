@@ -362,6 +362,19 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Components**: All pages, forms, graphs, and navigation render correctly in both themes
 - **Build**: PASS | **Tests**: 141 passing (unchanged)
 
+### User Profile Enhancements (F.5)
+- **Avatar Upload**: Users can upload JPEG/PNG profile images (max 200KB)
+- **Avatar Storage**: Profile images stored as base64 data URIs in entity_properties (no external file storage)
+- **Avatar Display**: Profile image appears in navbar avatar dropdown and account page preview
+- **Avatar Management**: Users can delete their avatar with confirmation; placeholder emoji shows when none present
+- **Display Name Editing**: Users can update their display name via form on Profile tab
+- **Profile Tab**: New "Profile" tab on `/account` page (default active), separate from Security/Preferences
+- **Client-Side Validation**: File type (JPEG/PNG) and size (max 200KB) validated before upload
+- **Error Handling**: Clear error messages for validation failures (wrong type, too large)
+- **Audit Logging**: All profile changes logged (avatar upload/delete, display name updates)
+- **Responsive UI**: Two-column grid layout (avatar + display name sections, stacks on mobile)
+- **Build**: PASS | **Tests**: 141 passing (unchanged)
+
 ---
 
 ## Remaining Backlog
@@ -381,11 +394,11 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.2 | ~~**REST API layer**~~ | ~~Medium~~ | ~~Large~~ | **DONE** — see Completed Work |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 | F.4 | ~~**Dark mode**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
+| F.5 | ~~**User profile enhancements**~~ | ~~Low~~ | ~~Small~~ | **DONE** — see Completed Work |
 | F.6 | ~~**Dashboard widgets**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
 | T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
+| T.4 | **Minutes export (HTML/PDF print)** | Low | Medium | Export approved minutes as printable HTML template (browser print-to-PDF). Requires dedicated minutes model with sections. Currently blocked on minutes feature architecture. |
 
 ---
 
@@ -395,34 +408,35 @@ All domain objects share three generic tables — no dedicated tables per type:
 DONE                                    CANDIDATES (pick next)
 ════                                    ══════════════════════
 Epic 1: Ontology Foundation             F.3  More entity types (medium, variable)
-Epic 2: Data-Driven Nav                 F.5  User profile enhancements (low, small)
-5.1–5.4 Security                        T.4  Minutes export PDF/Word (low, medium)
-4.1 Role Management
-4.2 Menu Builder
-4.3 Roles Builder
-3.1–3.3 App Settings
-6.1–6.6 UX features
-7.1–7.3 Housekeeping
-Ontology Explorer
-Phase 2a: Item Pipeline
-Phase 2b: Workflows + Governance
-Warnings System
-Production Deployment
-Code Cleanup (Tasks 1-28)
-H.1 Rate Limiting
-H.2 Input Validation
-H.3 WebSocket error handling
-H.4 Test coverage expansion (141 tests)
-H.5 Composite DB index
-ToR Expansion (13 tasks)
-T.1 Governance Map Visual Graph
-T.3 Meeting Outlook Calendar
-T.2 ToR Vacancy Warning Generators
-Data Manager Seed Refactor
-F.1 Workflow Builder UI
-F.2 REST API v1 Layer (Users + Entities CRUD)
-F.4 Dark mode theme system
-F.6 Dashboard Redesign
+Epic 2: Data-Driven Nav                 T.4  Minutes export (blocked on model)
+5.1–5.4 Security                        
+4.1 Role Management                     
+4.2 Menu Builder                        
+4.3 Roles Builder                       
+3.1–3.3 App Settings                    
+6.1–6.6 UX features                     
+7.1–7.3 Housekeeping                    
+Ontology Explorer                       
+Phase 2a: Item Pipeline                 
+Phase 2b: Workflows + Governance        
+Warnings System                         
+Production Deployment                   
+Code Cleanup (Tasks 1-28)               
+H.1 Rate Limiting                       
+H.2 Input Validation                    
+H.3 WebSocket error handling            
+H.4 Test coverage expansion (141 tests) 
+H.5 Composite DB index                  
+ToR Expansion (13 tasks)                
+T.1 Governance Map Visual Graph         
+T.2 ToR Vacancy Warning Generators      
+T.3 Meeting Outlook Calendar            
+Data Manager Seed Refactor              
+F.1 Workflow Builder UI                 
+F.2 REST API v1 Layer (Users + Entities)
+F.4 Dark mode theme system              
+F.5 User profile enhancements           
+F.6 Dashboard Redesign                  
 ```
 
 ---
