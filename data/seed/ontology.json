@@ -253,6 +253,13 @@
       "properties": {}
     },
     {
+      "entity_type": "relation_type",
+      "name": "scoped_to_tor",
+      "label": "Scoped To ToR",
+      "sort_order": 0,
+      "properties": {}
+    },
+    {
       "entity_type": "role",
       "name": "admin",
       "label": "Administrator",
@@ -584,6 +591,51 @@
       "sort_order": 0,
       "properties": {
         "group_name": "Governance"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "document.list",
+      "label": "List Documents",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Documents"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "document.create",
+      "label": "Create Documents",
+      "sort_order": 1,
+      "properties": {
+        "group_name": "Documents"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "document.view",
+      "label": "View Document Details",
+      "sort_order": 2,
+      "properties": {
+        "group_name": "Documents"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "document.edit",
+      "label": "Edit Documents",
+      "sort_order": 3,
+      "properties": {
+        "group_name": "Documents"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "document.delete",
+      "label": "Delete Documents",
+      "sort_order": 4,
+      "properties": {
+        "group_name": "Documents"
       }
     },
     {

@@ -3648,10 +3648,13 @@ fieldset legend {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.4);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+}
+.dm-editor-overlay:not([hidden]) {
+    display: flex;
 }
 .dm-editor-modal {
     width: min(640px, 90vw);
@@ -3686,11 +3689,14 @@ fieldset legend {
     position: fixed;
     inset: 0;
     background: rgba(255,255,255,0.7);
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 1001;
+}
+.dm-loading:not([hidden]) {
+    display: flex;
 }
 .dm-spinner {
     width: 2rem;
@@ -3701,6 +3707,13 @@ fieldset legend {
     animation: dm-spin 0.6s linear infinite;
 }
 @keyframes dm-spin { to { transform: rotate(360deg); } }
+.dm-loading-status {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0;
+    min-height: 1.2em;
+}
 
 /* === Meeting Outlook Calendar === */
 .outlook-controls {

@@ -32,7 +32,7 @@
                 <div class="dm-drop-icon">&#8593;</div>
                 <p class="dm-drop-text">Drop a <strong>.json</strong> or <strong>.jsonld</strong> file here</p>
                 <p class="dm-drop-subtext">or click to browse</p>
-                <input type="file" id="import-file" accept=".json,.jsonld" hidden aria-hidden="true">
+                <input type="file" id="import-file" accept=".json,.jsonld" hidden aria-hidden="true" multiple>
             </div>
 
             <div id="file-name" class="dm-file-name" hidden></div>
@@ -149,13 +149,48 @@
 <div id="loading" class="dm-loading" hidden>
     <div class="dm-spinner"></div>
     <p>Processing...</p>
+    <p id="loading-status" class="dm-loading-status"></p>
 </div>
 
 <script>
 (function() {
     var csrfToken = '{{ ctx.csrf_token }}';
+    var FETCH_TIMEOUT_MS = 60000;
+
+    // Helper function for fetch with timeout using AbortController
+    function fetchWithTimeout(url, options, ms) {
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, ms);
+        
+        if (!options) options = {};
+        options.signal = controller.signal;
+        
+        return fetch(url, options).catch(function(e) {
+            if (e.name === 'AbortError') {
+                var timeoutErr = new Error('Request timed out. The server may be busy.');
+                timeoutErr.isTimeout = true;
+                throw timeoutErr;
+            }
+            throw e;
+        }).finally(function() {
+            clearTimeout(timeoutId);
+        });
+    }
+    var CHUNK_SIZE = 100;
     var pendingErrors = [];
     var cumulativeCounts = { created: 0, updated: 0, skipped: 0 };
+
+    function chunkArray(arr, size) {
+        var chunks = [];
+        for (var i = 0; i < arr.length; i += size) {
+            chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+    function updateLoadingStatus(msg) {
+        document.getElementById('loading-status').textContent = msg;
+    }
 
     // DOM refs
     var dropZone = document.getElementById('drop-zone');
@@ -172,7 +207,7 @@
     var editorJson = document.getElementById('editor-json');
     var editorError = document.getElementById('editor-error');
     var typeAll = document.getElementById('type-all');
-    var selectedFile = null;
+    var fileQueue = [];
     var editingIndex = -1;
 
     // ── Drop Zone ──────────────────────────────────────────────
@@ -192,15 +227,19 @@
     dropZone.addEventListener('drop', function(e) {
         e.preventDefault();
         dropZone.classList.remove('dm-drop-active');
-        if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files.length) selectFiles(e.dataTransfer.files);
     });
     fileInput.addEventListener('change', function() {
-        if (fileInput.files.length) selectFile(fileInput.files[0]);
+        if (fileInput.files.length) selectFiles(fileInput.files);
     });
 
-    function selectFile(file) {
-        selectedFile = file;
-        fileNameEl.textContent = file.name;
+    function selectFiles(files) {
+        fileQueue = Array.from(files);
+        if (fileQueue.length === 1) {
+            fileNameEl.textContent = fileQueue[0].name;
+        } else {
+            fileNameEl.textContent = fileQueue.length + ' file(s) selected';
+        }
         fileNameEl.hidden = false;
         btnImport.disabled = false;
     }
@@ -210,49 +249,124 @@
     btnImport.addEventListener('click', handleImport);
 
     function handleImport() {
-        if (!selectedFile) return;
+        if (fileQueue.length === 0) return;
         showLoading(true);
+        updateLoadingStatus('');
 
-        selectedFile.text().then(function(text) {
-            var payload;
-            try {
-                payload = JSON.parse(text);
-            } catch (e) {
-                alert('Invalid JSON file: ' + e.message);
-                showLoading(false);
-                return;
-            }
+        var files = fileQueue.slice();
+        var mode = conflictMode.value;
 
-            // Inject conflict_mode and csrf_token
-            if (payload['@context'] || payload['@graph']) {
-                payload['ahlt:conflict_mode'] = conflictMode.value;
-                payload['csrf_token'] = csrfToken;
-            } else {
-                payload.conflict_mode = conflictMode.value;
-                payload.csrf_token = csrfToken;
-            }
-
-            return fetch('/api/data/import', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-        }).then(function(resp) {
-            if (!resp) return;
-            if (!resp.ok) {
-                return resp.text().then(function(t) { alert('Import failed: ' + t); });
-            }
-            return resp.json().then(function(result) {
-                cumulativeCounts.created += result.created;
-                cumulativeCounts.updated += result.updated;
-                cumulativeCounts.skipped += result.skipped;
-                displayResult(result);
-            });
+        importFiles(files, mode).then(function() {
+            // Reset queue after successful import
+            fileQueue = [];
+            fileNameEl.hidden = true;
+            btnImport.disabled = true;
+            fileInput.value = '';
         }).catch(function(e) {
-            alert('Import error: ' + e.message);
+            if (e.isTimeout) {
+                alert(e.message);
+            } else {
+                alert('Import error: ' + e.message);
+            }
         }).finally(function() {
             showLoading(false);
+            updateLoadingStatus('');
         });
+    }
+
+    function importFiles(files, mode) {
+        var fileIdx = 0;
+
+        function processNextFile() {
+            if (fileIdx >= files.length) return Promise.resolve();
+
+            var file = files[fileIdx];
+            var fileNum = fileIdx + 1;
+            fileIdx++;
+
+            return file.text().then(function(text) {
+                var parsed;
+                try {
+                    parsed = JSON.parse(text);
+                } catch (e) {
+                    alert('Invalid JSON in ' + file.name + ': ' + e.message);
+                    return processNextFile();
+                }
+
+                // JSON-LD format: send as single request (no chunking)
+                if (parsed['@context'] || parsed['@graph']) {
+                    updateLoadingStatus('File ' + fileNum + ' of ' + files.length + ' (JSON-LD)\u2026');
+                    parsed['ahlt:conflict_mode'] = mode;
+                    parsed['csrf_token'] = csrfToken;
+                    return fetchWithTimeout('/api/data/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(parsed),
+                    }, FETCH_TIMEOUT_MS).then(function(resp) {
+                        if (!resp.ok) {
+                            return resp.text().then(function(t) {
+                                alert('Import failed (' + file.name + '): ' + t);
+                            });
+                        }
+                        return resp.json().then(function(result) {
+                            cumulativeCounts.created += result.created;
+                            cumulativeCounts.updated += result.updated;
+                            cumulativeCounts.skipped += result.skipped;
+                            displayResult(result);
+                        });
+                    }).then(processNextFile);
+                }
+
+                // Native format: chunk entities, send relations only with last chunk
+                var entities = Array.isArray(parsed.entities) ? parsed.entities : [];
+                var relations = Array.isArray(parsed.relations) ? parsed.relations : [];
+                var entityChunks = chunkArray(entities, CHUNK_SIZE);
+                if (entityChunks.length === 0) entityChunks = [[]];
+
+                var chunkIdx = 0;
+
+                function processNextChunk() {
+                    if (chunkIdx >= entityChunks.length) return Promise.resolve();
+
+                    var chunk = entityChunks[chunkIdx];
+                    var chunkNum = chunkIdx + 1;
+                    var isLastChunk = chunkNum === entityChunks.length;
+                    chunkIdx++;
+
+                    updateLoadingStatus('File ' + fileNum + ' of ' + files.length +
+                        ', chunk ' + chunkNum + ' of ' + entityChunks.length + '\u2026');
+
+                    var payload = {
+                        conflict_mode: mode,
+                        entities: chunk,
+                        relations: isLastChunk ? relations : [],
+                        csrf_token: csrfToken,
+                    };
+
+                    return fetchWithTimeout('/api/data/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    }, FETCH_TIMEOUT_MS).then(function(resp) {
+                        if (!resp.ok) {
+                            return resp.text().then(function(t) {
+                                alert('Import failed (' + file.name + ', chunk ' + chunkNum + '): ' + t);
+                            });
+                        }
+                        return resp.json().then(function(result) {
+                            cumulativeCounts.created += result.created;
+                            cumulativeCounts.updated += result.updated;
+                            cumulativeCounts.skipped += result.skipped;
+                            if (isLastChunk) displayResult(result);
+                        });
+                    }).then(processNextChunk);
+                }
+
+                return processNextChunk().then(processNextFile);
+            });
+        }
+
+        return processNextFile();
     }
 
     function displayResult(result) {
@@ -367,11 +481,11 @@
         });
 
         var payload = { conflict_mode: mode, entities: entities, relations: relations, csrf_token: csrfToken };
-        fetch('/api/data/import', {
+        fetchWithTimeout('/api/data/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).then(function(resp) {
+        }, FETCH_TIMEOUT_MS).then(function(resp) {
             if (resp.ok) {
                 return resp.json().then(function(result) {
                     cumulativeCounts.created += result.created;
@@ -383,7 +497,11 @@
                 return resp.text().then(function(t) { alert('Retry failed: ' + t); });
             }
         }).catch(function(e) {
-            alert('Retry error: ' + e.message);
+            if (e.isTimeout) {
+                alert(e.message);
+            } else {
+                alert('Retry error: ' + e.message);
+            }
         }).finally(function() {
             showLoading(false);
         });
@@ -400,11 +518,11 @@
             csrf_token: csrfToken,
         };
 
-        fetch('/api/data/import', {
+        fetchWithTimeout('/api/data/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).then(function(resp) {
+        }, FETCH_TIMEOUT_MS).then(function(resp) {
             if (resp.ok) {
                 return resp.json().then(function(result) {
                     cumulativeCounts.created += result.created;
@@ -422,7 +540,11 @@
                 return resp.text().then(function(t) { alert('Force upsert failed: ' + t); });
             }
         }).catch(function(e) {
-            alert('Error: ' + e.message);
+            if (e.isTimeout) {
+                alert(e.message);
+            } else {
+                alert('Error: ' + e.message);
+            }
         }).finally(function() {
             showLoading(false);
         });
@@ -464,11 +586,11 @@
         };
 
         showLoading(true);
-        fetch('/api/data/import', {
+        fetchWithTimeout('/api/data/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        }).then(function(resp) {
+        }, FETCH_TIMEOUT_MS).then(function(resp) {
             if (resp.ok) {
                 return resp.json().then(function(result) {
                     cumulativeCounts.created += result.created;
@@ -490,7 +612,11 @@
                 });
             }
         }).catch(function(e) {
-            editorError.textContent = 'Error: ' + e.message;
+            if (e.isTimeout) {
+                editorError.textContent = e.message;
+            } else {
+                editorError.textContent = 'Error: ' + e.message;
+            }
             editorError.hidden = false;
         }).finally(function() {
             showLoading(false);
@@ -525,7 +651,7 @@
         params.set('format', format);
         if (checkedTypes.length > 0) params.set('types', checkedTypes.join(','));
 
-        fetch('/api/data/export?' + params.toString()).then(function(resp) {
+        fetchWithTimeout('/api/data/export?' + params.toString(), {}, FETCH_TIMEOUT_MS).then(function(resp) {
             if (!resp.ok) {
                 return resp.text().then(function(t) { alert('Export failed: ' + t); });
             }
@@ -542,7 +668,11 @@
                 URL.revokeObjectURL(url);
             });
         }).catch(function(e) {
-            alert('Export error: ' + e.message);
+            if (e.isTimeout) {
+                alert(e.message);
+            } else {
+                alert('Export error: ' + e.message);
+            }
         }).finally(function() {
             showLoading(false);
         });

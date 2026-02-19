@@ -70,8 +70,10 @@ pub async fn import_data(
             .map_err(|e| AppError::Session(format!("Invalid import payload: {}", e)))?
     };
 
-    let result = import::import_data(&conn, &payload)
-        .map_err(|e| AppError::Session(format!("Import failed: {}", e)))?;
+    let result = web::block(move || import::import_data(&conn, &payload))
+        .await
+        .map_err(|e| AppError::Session(format!("Import thread error: {e}")))?
+        .map_err(|e| AppError::Session(format!("Import failed: {e}")))?;
 
     Ok(HttpResponse::Ok().json(result))
 }

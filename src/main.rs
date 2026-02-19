@@ -112,9 +112,21 @@ async fn main() -> std::io::Result<()> {
                     .route("/logout", web::post().to(handlers::auth_handlers::logout))
                     // Data Manager — import/export API + admin page
                     .route("/data-manager", web::get().to(handlers::data_handlers::data_manager_page))
-                    .route("/api/data/import", web::post().to(handlers::data_handlers::import_data))
-                    .route("/api/data/export", web::get().to(handlers::data_handlers::export_data))
-                    .route("/api/data/schema", web::get().to(handlers::data_handlers::schema))
+                    .service(
+                        web::scope("/api/data")
+                            .app_data(web::JsonConfig::default().limit(50 * 1024 * 1024))
+                            .route("/import", web::post().to(handlers::data_handlers::import_data))
+                            .route("/export", web::get().to(handlers::data_handlers::export_data))
+                            .route("/schema", web::get().to(handlers::data_handlers::schema))
+                    )
+                    // Documents CRUD — /documents/new BEFORE /documents/{id}
+                    .route("/documents", web::get().to(handlers::document_handlers::list))
+                    .route("/documents/new", web::get().to(handlers::document_handlers::new_form))
+                    .route("/documents", web::post().to(handlers::document_handlers::create))
+                    .route("/documents/{id}", web::get().to(handlers::document_handlers::detail))
+                    .route("/documents/{id}/edit", web::get().to(handlers::document_handlers::edit_form))
+                    .route("/documents/{id}", web::post().to(handlers::document_handlers::update))
+                    .route("/documents/{id}/delete", web::post().to(handlers::document_handlers::delete))
                     // API v1 — REST endpoints for external integrations
                     .service(web::scope("/api/v1").configure(handlers::api_v1::configure))
                     // User CRUD — /users/new BEFORE /users/{id} to avoid routing conflict

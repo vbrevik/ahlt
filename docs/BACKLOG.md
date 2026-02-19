@@ -375,6 +375,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Responsive UI**: Two-column grid layout (avatar + display name sections, stacks on mobile)
 - **Build**: PASS | **Tests**: 141 passing (unchanged)
 
+### Data Manager Hardening (DM.1–DM.4)
+- **DM.1 CSS specificity fix**: `.dm-loading` and `.dm-editor-overlay` used `display:flex` as default, overriding browser's `[hidden]` attribute. Fixed by setting `display:none` default and adding `.class:not([hidden]) { display:flex }` rule. Stuck spinner on page load eliminated.
+- **DM.2 Request timeouts**: All `fetch()` calls wrapped with `fetchWithTimeout(url, opts, FETCH_TIMEOUT_MS)` helper using `AbortController`. Timeout constant `60000ms`. On abort, user sees "Request timed out. The server may be busy." and spinner hides.
+- **DM.3 web::block for import**: `import::import_data()` moved off Actix async thread via `web::block(move || ...)` to prevent worker thread starvation. Body size limit raised to 50 MB via sub-scope `app_data(web::JsonConfig::default().limit(...))`.
+- **DM.4 Batch/multi-file import**: File input now accepts `multiple` files. Entities chunked in batches of 100 (constant `CHUNK_SIZE`). Relations sent only with last chunk to respect FK order. Progress shown as "File X of N, chunk Y of Z…". File queue resets after successful import.
+- **Build**: PASS | **Tests**: 3 passing (unchanged)
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -448,9 +455,10 @@ T.4 Minutes export (HTML/print)
 Data Manager Seed Refactor              
 F.1 Workflow Builder UI                 
 F.2 REST API v1 Layer (Users + Entities)
-F.4 Dark mode theme system              
-F.5 User profile enhancements           
-F.6 Dashboard Redesign                  
+F.4 Dark mode theme system
+F.5 User profile enhancements
+F.6 Dashboard Redesign
+DM.1–DM.4 Data Manager hardening+batch
 ```
 
 ---

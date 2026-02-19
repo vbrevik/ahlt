@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.title }} - {{ ctx.app_name }}{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <h1>{{ document.title }}</h1>
+            <p class="muted" style="margin-top: 0.5rem;">
+                <span class="badge badge-secondary">{{ document.doc_type }}</span>
+                {% if document.tor_id != 0 %}
+                    · Scoped to <a href="/tor/{{ document.tor_id }}">{{ document.tor_name }}</a>
+                {% endif %}
+            </p>
+        </div>
+        <div class="controls">
+            <a href="/documents/{{ document.id }}/edit" class="btn btn-secondary">Edit</a>
+            <form method="POST" action="/documents/{{ document.id }}/delete" style="display: inline;" onsubmit="return confirm('Delete this document?');">
+                <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="panel-content">
+        <div class="metadata" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; padding: 1rem; background: var(--surface-light); border-radius: 4px;">
+            <div>
+                <dt style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Created By</dt>
+                <dd style="margin: 0.25rem 0 0 0;">{{ document.created_by_name }}</dd>
+            </div>
+            <div>
+                <dt style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Created Date</dt>
+                <dd style="margin: 0.25rem 0 0 0;">{{ document.created_date }}</dd>
+            </div>
+            {% if !document.updated_date.is_empty() %}
+                <div>
+                    <dt style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Last Updated</dt>
+                    <dd style="margin: 0.25rem 0 0 0;">{{ document.updated_date }}</dd>
+                </div>
+            {% endif %}
+            <div>
+                <dt style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Document ID</dt>
+                <dd style="margin: 0.25rem 0 0 0; font-family: var(--font-mono); font-size: 0.85rem;">#{{ document.id }}</dd>
+            </div>
+        </div>
+
+        <div class="document-body" style="line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; font-family: var(--font-mono); font-size: 0.9rem; background: var(--code-bg); padding: 1.5rem; border-radius: 4px; overflow-x: auto;">{{ document.body }}</div>
+
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <a href="/documents" class="btn btn-secondary">← Back to Documents</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

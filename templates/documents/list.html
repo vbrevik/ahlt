@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - {{ ctx.app_name }}{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h1>Documents</h1>
+        <div class="controls">
+            <a href="/documents/new" class="btn btn-primary">+ New Document</a>
+        </div>
+    </div>
+    
+    <div class="panel-content">
+        {% if !search_query.is_empty() %}
+            <p class="muted">
+                Showing {{ documents.len() }} result{% if documents.len() != 1 %}s{% endif %} 
+                for "<strong>{{ search_query }}</strong>"
+                <a href="/documents" style="margin-left: 1rem;">Clear search</a>
+            </p>
+        {% endif %}
+
+        {% if documents.is_empty() %}
+            <div class="empty-state">
+                <p>📄 No documents found.</p>
+                <a href="/documents/new" class="btn btn-secondary" style="margin-top: 1rem;">Create the first document</a>
+            </div>
+        {% else %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Created By</th>
+                        <th>Created Date</th>
+                        <th>ToR</th>
+                        <th style="width: 150px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <a href="/documents/{{ doc.id }}">{{ doc.title }}</a>
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">{{ doc.doc_type }}</span>
+                            </td>
+                            <td>{{ doc.created_by_name }}</td>
+                            <td class="muted">{{ doc.created_date }}</td>
+                            <td>
+                                {% if let Some(tid) = doc.tor_id %}
+                                    {% if let Some(name) = &doc.tor_name %}<a href="/tor/{{ tid }}">{{ name }}</a>{% endif %}
+                                {% else %}
+                                    <span class="muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions">
+                                <a href="/documents/{{ doc.id }}/edit" class="btn btn-small">Edit</a>
+                                <form method="POST" action="/documents/{{ doc.id }}/delete" style="display: inline;" onsubmit="return confirm('Delete this document?');">
+                                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
