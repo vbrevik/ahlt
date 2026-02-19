@@ -1,5 +1,6 @@
 pub mod account_handlers;
 pub mod agenda_handlers;
+pub mod api_v1;
 pub mod audit_handlers;
 pub mod auth_handlers;
 pub mod coa_handlers;

@@ -115,6 +115,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/api/data/import", web::post().to(handlers::data_handlers::import_data))
                     .route("/api/data/export", web::get().to(handlers::data_handlers::export_data))
                     .route("/api/data/schema", web::get().to(handlers::data_handlers::schema))
+                    // API v1 — REST endpoints for external integrations
+                    .service(web::scope("/api/v1").configure(handlers::api_v1::configure))
                     // User CRUD — /users/new BEFORE /users/{id} to avoid routing conflict
                     .route("/users", web::get().to(handlers::user_handlers::list))
                     .route("/users/new", web::get().to(handlers::user_handlers::new_form))
