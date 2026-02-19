@@ -152,6 +152,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/new", web::get().to(handlers::tor_handlers::new_form))
                     .route("/tor/outlook", web::get().to(handlers::tor_handlers::outlook))
                     .route("/api/tor/calendar", web::get().to(handlers::tor_handlers::calendar_api))
+                    .route("/api/tor/{id}/meetings/confirm-calendar", web::post().to(handlers::meeting_handlers::confirm_calendar))
                     .route("/tor", web::post().to(handlers::tor_handlers::create))
                     .route("/tor/{id}", web::get().to(handlers::tor_handlers::detail))
                     .route("/tor/{id}/edit", web::get().to(handlers::tor_handlers::edit_form))
