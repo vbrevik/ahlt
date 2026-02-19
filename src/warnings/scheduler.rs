@@ -18,6 +18,7 @@ pub fn spawn_scheduler(pool: DbPool, conn_map: ConnectionMap, data_dir: String) 
             // Run generators
             super::generators::check_users_without_role(&conn, &conn_map, &pool);
             super::generators::check_database_size(&conn, &conn_map, &pool, &data_dir);
+            super::generators::check_tor_vacancies(&conn, &conn_map, &pool);
             // Run cleanup
             if let Err(e) = super::generators::cleanup_old_warnings(&conn) {
                 log::error!("Warning cleanup failed: {}", e);

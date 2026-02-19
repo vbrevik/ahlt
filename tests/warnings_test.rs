@@ -45,6 +45,13 @@ fn seed_users(conn: &rusqlite::Connection) -> (i64, i64) {
     (user1, user2)
 }
 
+fn seed_tor_types(conn: &rusqlite::Connection) {
+    insert_entity(conn, "relation_type", "belongs_to_tor", "Belongs To ToR");
+    insert_entity(conn, "relation_type", "fills_position", "Fills Position");
+    insert_entity(conn, "relation_type", "has_role", "Has Role");
+    insert_entity(conn, "relation_type", "has_permission", "Has Permission");
+}
+
 // --- Tests ---
 
 #[test]
@@ -243,4 +250,170 @@ fn test_event_timeline() {
     ahlt::warnings::update_receipt_status(&conn, receipt_id, "read", user1).unwrap();
     let timeline = ahlt::warnings::queries::get_receipt_timeline(&conn, receipt_id).unwrap();
     assert!(timeline.len() >= 2);
+}
+
+#[test]
+fn test_tor_vacancy_generator_creates_warning() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("test.db");
+    let pool = ahlt::db::init_pool(db_path.to_str().unwrap());
+    let conn = pool.get().unwrap();
+    conn.execute_batch(MIGRATIONS).unwrap();
+    seed_warning_types(&conn);
+    seed_tor_types(&conn);
+
+    let conn_map = ahlt::handlers::warning_handlers::ws::new_connection_map();
+
+    // Create an admin user with tor.manage_members permission
+    let admin = insert_entity(&conn, "user", "admin", "Admin");
+    let role = insert_entity(&conn, "role", "admin_role", "Admin Role");
+    let perm = insert_entity(&conn, "permission", "tor.manage_members", "Manage ToR Members");
+    // has_role: admin -> admin_role
+    let has_role_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'has_role'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![has_role_rt, admin, role],
+    ).unwrap();
+    // has_permission: admin_role -> tor.manage_members
+    let has_perm_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'has_permission'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![has_perm_rt, role, perm],
+    ).unwrap();
+
+    // Create a ToR with status=active
+    let tor = insert_entity(&conn, "tor", "test_tor", "Test Committee");
+    insert_prop(&conn, tor, "status", "active");
+
+    // Create a mandatory position linked to the ToR (vacant — no fills_position)
+    let pos = insert_entity(&conn, "tor_function", "chair", "Chair");
+    insert_prop(&conn, pos, "membership_type", "mandatory");
+    let belongs_to_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'belongs_to_tor'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![belongs_to_rt, pos, tor],
+    ).unwrap();
+
+    // Run the generator
+    ahlt::warnings::generators::check_tor_vacancies(&conn, &conn_map, &pool);
+
+    // Verify a warning was created
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action'
+         WHERE e.entity_type = 'warning' AND sa.value = 'scheduled.tor_vacancy'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(count, 1, "Expected one vacancy warning");
+
+    // Verify the warning message references the position
+    let message: String = conn.query_row(
+        "SELECT ep.value FROM entities e
+         JOIN entity_properties ep ON ep.entity_id = e.id AND ep.key = 'message'
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action'
+         WHERE e.entity_type = 'warning' AND sa.value = 'scheduled.tor_vacancy'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert!(message.contains("Chair"), "Warning should mention the vacant position");
+    assert!(message.contains("Test Committee"), "Warning should mention the ToR");
+
+    // Verify receipt was created for admin
+    let receipt_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities WHERE entity_type = 'warning_receipt'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(receipt_count, 1, "Expected one receipt for the admin user");
+
+    // Run again — dedup should prevent a second warning
+    ahlt::warnings::generators::check_tor_vacancies(&conn, &conn_map, &pool);
+    let count2: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action'
+         WHERE e.entity_type = 'warning' AND sa.value = 'scheduled.tor_vacancy'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(count2, 1, "Dedup should prevent second warning");
+}
+
+#[test]
+fn test_tor_vacancy_auto_resolves_when_filled() {
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("test.db");
+    let pool = ahlt::db::init_pool(db_path.to_str().unwrap());
+    let conn = pool.get().unwrap();
+    conn.execute_batch(MIGRATIONS).unwrap();
+    seed_warning_types(&conn);
+    seed_tor_types(&conn);
+
+    let conn_map = ahlt::handlers::warning_handlers::ws::new_connection_map();
+
+    // Minimal setup: admin with permission
+    let admin = insert_entity(&conn, "user", "admin", "Admin");
+    let role = insert_entity(&conn, "role", "admin_role", "Admin Role");
+    let perm = insert_entity(&conn, "permission", "tor.manage_members", "Manage Members");
+    let has_role_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'has_role'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![has_role_rt, admin, role],
+    ).unwrap();
+    let has_perm_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'has_permission'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![has_perm_rt, role, perm],
+    ).unwrap();
+
+    // Create ToR + vacant mandatory position
+    let tor = insert_entity(&conn, "tor", "test_tor", "Test Committee");
+    insert_prop(&conn, tor, "status", "active");
+    let pos = insert_entity(&conn, "tor_function", "chair", "Chair");
+    insert_prop(&conn, pos, "membership_type", "mandatory");
+    let belongs_to_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'belongs_to_tor'", [], |r| r.get(0),
+    ).unwrap();
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![belongs_to_rt, pos, tor],
+    ).unwrap();
+
+    // Run generator — should create warning
+    ahlt::warnings::generators::check_tor_vacancies(&conn, &conn_map, &pool);
+    let status: String = conn.query_row(
+        "SELECT ep.value FROM entities e
+         JOIN entity_properties ep ON ep.entity_id = e.id AND ep.key = 'status'
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action'
+         WHERE e.entity_type = 'warning' AND sa.value = 'scheduled.tor_vacancy'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(status, "active");
+
+    // Fill the position: create fills_position relation
+    let fills_rt: i64 = conn.query_row(
+        "SELECT id FROM entities WHERE name = 'fills_position'", [], |r| r.get(0),
+    ).unwrap();
+    let filler = insert_entity(&conn, "user", "bob", "Bob");
+    conn.execute(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
+        params![fills_rt, filler, pos],
+    ).unwrap();
+
+    // Run generator again — should auto-resolve the warning
+    ahlt::warnings::generators::check_tor_vacancies(&conn, &conn_map, &pool);
+    let status2: String = conn.query_row(
+        "SELECT ep.value FROM entities e
+         JOIN entity_properties ep ON ep.entity_id = e.id AND ep.key = 'status'
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action'
+         WHERE e.entity_type = 'warning' AND sa.value = 'scheduled.tor_vacancy'",
+        [], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(status2, "resolved", "Warning should auto-resolve when vacancy is filled");
 }

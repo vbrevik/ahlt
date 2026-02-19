@@ -112,6 +112,162 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
     }
 }
 
+/// Check for vacant mandatory positions in active ToRs.
+/// Creates one warning per ToR with unfilled mandatory positions.
+/// Auto-resolves warnings when vacancies are filled.
+pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &DbPool) {
+    // Find all active ToRs with vacant mandatory positions
+    let mut stmt = match conn.prepare(
+        "SELECT t.id AS tor_id, t.label AS tor_label,
+                f.id AS position_id, f.label AS position_label
+         FROM entities t
+         JOIN entity_properties tp ON tp.entity_id = t.id AND tp.key = 'status' AND tp.value = 'active'
+         JOIN relations r_bt ON r_bt.target_id = t.id
+             AND r_bt.relation_type_id = (
+                 SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor')
+         JOIN entities f ON f.id = r_bt.source_id AND f.entity_type = 'tor_function'
+         JOIN entity_properties fp ON fp.entity_id = f.id AND fp.key = 'membership_type' AND fp.value = 'mandatory'
+         WHERE t.entity_type = 'tor'
+           AND NOT EXISTS (
+               SELECT 1 FROM relations r_fill
+               WHERE r_fill.target_id = f.id
+                 AND r_fill.relation_type_id = (
+                     SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')
+           )
+         ORDER BY t.label, f.label"
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Generator check_tor_vacancies query failed: {}", e);
+            return;
+        }
+    };
+
+    // Group vacant positions by ToR
+    let rows: Vec<(i64, String, i64, String)> = match stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>("tor_id")?,
+            row.get::<_, String>("tor_label")?,
+            row.get::<_, i64>("position_id")?,
+            row.get::<_, String>("position_label")?,
+        ))
+    }) {
+        Ok(r) => r.filter_map(|r| r.ok()).collect(),
+        Err(_) => return,
+    };
+
+    // Build per-ToR vacancy map
+    let mut tor_vacancies: std::collections::HashMap<i64, (String, Vec<(i64, String)>)> =
+        std::collections::HashMap::new();
+    for (tor_id, tor_label, pos_id, pos_label) in &rows {
+        tor_vacancies
+            .entry(*tor_id)
+            .or_insert_with(|| (tor_label.clone(), Vec::new()))
+            .1
+            .push((*pos_id, pos_label.clone()));
+    }
+
+    let source_action = "scheduled.tor_vacancy";
+
+    // Create warnings for ToRs with vacancies
+    let target_ids = super::get_users_with_permission(conn, "tor.manage_members")
+        .unwrap_or_default();
+
+    for (tor_id, (tor_label, positions)) in &tor_vacancies {
+        let dedup_key = format!("tor_vacancy_{}", tor_id);
+        if super::warning_exists(conn, source_action, &dedup_key) {
+            continue;
+        }
+
+        let pos_names: Vec<&str> = positions.iter().map(|(_, l)| l.as_str()).collect();
+        let message = format!(
+            "{} has {} unfilled mandatory position(s): {}",
+            tor_label,
+            positions.len(),
+            pos_names.join(", ")
+        );
+        let details = serde_json::json!({
+            "dedup": dedup_key,
+            "tor_id": tor_id,
+            "tor_label": tor_label,
+            "vacant_positions": positions.iter().map(|(id, label)| {
+                serde_json::json!({ "id": id, "label": label })
+            }).collect::<Vec<_>>(),
+        })
+        .to_string();
+
+        let warning_id = match super::create_warning(
+            conn, "medium", "governance", source_action,
+            &message, &details, "system",
+        ) {
+            Ok(id) => id,
+            Err(e) => {
+                log::error!("Failed to create tor_vacancy warning for ToR {}: {}", tor_id, e);
+                continue;
+            }
+        };
+
+        if target_ids.is_empty() {
+            continue;
+        }
+
+        if super::create_receipts(conn, warning_id, &target_ids).is_ok() {
+            crate::handlers::warning_handlers::ws::notify_users(
+                conn_map, pool, &target_ids, warning_id, "medium", &message,
+            );
+        }
+    }
+
+    // Auto-resolve: find active tor_vacancy warnings for ToRs that no longer have vacancies
+    auto_resolve_tor_vacancies(conn, &tor_vacancies);
+}
+
+/// Resolve vacancy warnings for ToRs that no longer have unfilled mandatory positions.
+fn auto_resolve_tor_vacancies(
+    conn: &Connection,
+    current_vacancies: &std::collections::HashMap<i64, (String, Vec<(i64, String)>)>,
+) {
+    let source_action = "scheduled.tor_vacancy";
+
+    // Find all active tor_vacancy warnings
+    let mut stmt = match conn.prepare(
+        "SELECT e.id, det.value AS details
+         FROM entities e
+         JOIN entity_properties st ON st.entity_id = e.id AND st.key = 'status' AND st.value = 'active'
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action' AND sa.value = ?1
+         JOIN entity_properties det ON det.entity_id = e.id AND det.key = 'details'
+         WHERE e.entity_type = 'warning'"
+    ) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    let warnings: Vec<(i64, String)> = match stmt.query_map(params![source_action], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    }) {
+        Ok(r) => r.filter_map(|r| r.ok()).collect(),
+        Err(_) => return,
+    };
+
+    for (warning_id, details_str) in warnings {
+        // Extract tor_id from the warning details JSON
+        let tor_id = match serde_json::from_str::<serde_json::Value>(&details_str) {
+            Ok(v) => v.get("tor_id").and_then(|t| t.as_i64()),
+            Err(_) => continue,
+        };
+
+        if let Some(tid) = tor_id {
+            // If this ToR no longer has vacancies, resolve the warning
+            if !current_vacancies.contains_key(&tid) {
+                if let Err(e) = super::resolve_warning(conn, warning_id, 0) {
+                    log::error!("Failed to auto-resolve vacancy warning {}: {}", warning_id, e);
+                }
+                log::info!("Auto-resolved vacancy warning {} for ToR {}", warning_id, tid);
+            }
+        }
+    }
+}
+
 /// Clean up old warnings based on retention settings.
 pub fn cleanup_old_warnings(conn: &Connection) -> rusqlite::Result<()> {
     let resolved_days = get_setting_days(conn, "warnings.retention_resolved_days", 30);

@@ -284,6 +284,15 @@ All domain objects share three generic tables — no dedicated tables per type:
 - New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
 - New nav items: `governance.map` → `/governance/map`, `governance.outlook` → `/tor/outlook` under Governance module
 
+### ToR Vacancy Warning Generators (T.2)
+- New scheduled generator `check_tor_vacancies()` in `src/warnings/generators.rs`
+- Queries active ToRs for mandatory positions with no `fills_position` relation
+- Per-ToR dedup: one warning per ToR listing all vacant mandatory positions
+- Targets users with `tor.manage_members` permission, WebSocket push on creation
+- Auto-resolve: warnings auto-resolve on next scheduler tick when vacancies are filled
+- Category `governance`, severity `medium`, source_action `scheduled.tor_vacancy`
+- 2 integration tests: warning creation + dedup, auto-resolve on position fill
+
 ### Data Manager Seed Refactor
 - Replaced ~1,000 lines of procedural `seed_ontology()`/`seed_staging()` in `db.rs` with JSON fixture imports
 - Seed data now in `data/seed/ontology.json` (112 entities, 67 relations) and `data/seed/staging.json` (43 entities, 91 relations)
@@ -314,7 +323,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
-| T.2 | **ToR vacancy warning generators** | Medium | Small | Background scheduler generators that fire warnings when mandatory positions in active ToRs are unfilled. Uses `fills_position` + `entity_properties membership_type=mandatory`. |
+| T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
 | T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
 
@@ -346,6 +355,7 @@ H.2 Input Validation
 ToR Expansion (13 tasks)
 T.1 Governance Map Visual Graph
 T.3 Meeting Outlook Calendar
+T.2 ToR Vacancy Warning Generators
 Data Manager Seed Refactor
 ```
 
