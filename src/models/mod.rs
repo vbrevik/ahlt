@@ -3,6 +3,7 @@ pub mod audit;
 pub mod coa;
 pub mod data_manager;
 pub mod entity;
+pub mod meeting;
 pub mod minutes;
 pub mod nav_item;
 pub mod ontology;
