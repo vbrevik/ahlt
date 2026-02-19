@@ -116,6 +116,20 @@ pub fn find_upcoming_all(
     rows.collect()
 }
 
+/// Find all past meetings across all ToRs before a date cutoff, ordered by date DESCENDING (most recent first).
+pub fn find_past_all(
+    conn: &Connection,
+    before_date: &str,
+) -> rusqlite::Result<Vec<MeetingListItem>> {
+    let sql = format!(
+        "{} AND p_date.value < ?1 ORDER BY p_date.value DESC",
+        MEETING_LIST_SELECT
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![before_date], map_meeting_list_row)?;
+    rows.collect()
+}
+
 /// Find a meeting by its entity ID. Returns full detail including ToR info.
 pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<MeetingDetail>> {
     let mut stmt = conn.prepare(

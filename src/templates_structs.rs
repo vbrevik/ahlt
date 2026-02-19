@@ -19,6 +19,7 @@ use crate::models::proposal::{ProposalListItem, ProposalDetail, CrossTorProposal
 use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail, CrossTorAgendaItem};
 use crate::models::coa::{CoaListItem, CoaDetail};
 use crate::models::opinion::{OpinionDetail, OpinionSummary};
+use crate::models::meeting::MeetingListItem;
 use crate::models::workflow::AvailableTransition;
 use crate::warnings::queries::{WarningPage, WarningDetail, WarningRecipient, WarningTimelineEvent};
 use crate::auth::csrf;
@@ -497,4 +498,14 @@ pub struct MinutesViewTemplate {
     pub ctx: PageContext,
     pub minutes: Minutes,
     pub sections: Vec<MinutesSection>,
+}
+
+// --- Meeting list template ---
+
+#[derive(Template)]
+#[template(path = "meetings/list.html")]
+pub struct MeetingsListTemplate {
+    pub ctx: PageContext,
+    pub upcoming: Vec<MeetingListItem>,
+    pub past: Vec<MeetingListItem>,
 }

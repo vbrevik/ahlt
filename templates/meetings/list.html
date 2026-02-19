@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Meetings — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Meetings</h1>
+</div>
+
+<h2>Upcoming Meetings</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Meeting</th>
+            <th>Date</th>
+            <th>ToR</th>
+            <th>Status</th>
+            <th>Agenda Items</th>
+            <th>Minutes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if upcoming.is_empty() %}
+        <tr>
+            <td colspan="6">
+                <div class="empty-state">
+                    <div class="empty-state-title">No upcoming meetings</div>
+                    <div class="empty-state-text">There are no meetings scheduled from today onwards.</div>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        {% for item in upcoming %}
+        <tr>
+            <td><a href="/tor/{{ item.tor_id }}/meetings/{{ item.id }}">{{ item.label }}</a></td>
+            <td>{{ item.meeting_date }}</td>
+            <td><a href="/tor/{{ item.tor_id }}">{{ item.tor_label }}</a></td>
+            <td><span class="badge badge-{{ item.status }}">{{ item.status }}</span></td>
+            <td>{{ item.agenda_count }}</td>
+            <td>{% if item.has_minutes %}Yes{% else %}No{% endif %}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+    </tbody>
+</table>
+
+<h2>Past Meetings</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Meeting</th>
+            <th>Date</th>
+            <th>ToR</th>
+            <th>Status</th>
+            <th>Agenda Items</th>
+            <th>Minutes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if past.is_empty() %}
+        <tr>
+            <td colspan="6">
+                <div class="empty-state">
+                    <div class="empty-state-title">No past meetings</div>
+                    <div class="empty-state-text">There are no past meetings recorded.</div>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        {% for item in past %}
+        <tr>
+            <td><a href="/tor/{{ item.tor_id }}/meetings/{{ item.id }}">{{ item.label }}</a></td>
+            <td>{{ item.meeting_date }}</td>
+            <td><a href="/tor/{{ item.tor_id }}">{{ item.tor_label }}</a></td>
+            <td><span class="badge badge-{{ item.status }}">{{ item.status }}</span></td>
+            <td>{{ item.agenda_count }}</td>
+            <td>{% if item.has_minutes %}Yes{% else %}No{% endif %}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}
