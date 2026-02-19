@@ -184,11 +184,22 @@ pub async fn confirm_calendar(
     let conn = pool.get()?;
     let current_user_id = get_user_id(&session).unwrap_or(0);
 
+    if chrono::NaiveDate::parse_from_str(&form.meeting_date, "%Y-%m-%d").is_err() {
+        return Err(AppError::PermissionDenied(
+            "Invalid meeting_date format, expected YYYY-MM-DD".to_string(),
+        ));
+    }
+
     let meeting_id = if let Some(mid) = form.meeting_id {
         // Meeting already exists — verify ownership then update status
         let existing = meeting::find_by_id(&conn, mid)?.ok_or(AppError::NotFound)?;
         if existing.tor_id != tor_id {
             return Err(AppError::NotFound);
+        }
+        if existing.status != "projected" {
+            return Err(AppError::PermissionDenied(
+                format!("Meeting is already '{}' and cannot be confirmed", existing.status),
+            ));
         }
         meeting::update_status(&conn, mid, "confirmed")?;
         mid
