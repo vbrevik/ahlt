@@ -408,4 +408,94 @@
     </div>
     {% endif %}
 </section>
+
+<!-- Meetings Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Meetings <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ meetings.len() }}</span></h2>
+    </div>
+
+    {% if meetings.is_empty() %}
+    <p class="empty-hint">No meetings yet. Confirm a meeting date below to schedule one.</p>
+    {% else %}
+
+    {# --- Upcoming meetings (status != completed and != cancelled) --- #}
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Upcoming</div>
+        <div class="dep-flow-list">
+        {% for m in meetings %}
+        {% if m.status.as_str() != "completed" %}{% if m.status.as_str() != "cancelled" %}
+            <div class="dep-flow-row">
+                <span style="font-family:var(--font-mono);font-size:0.8125rem;min-width:6rem;">{{ m.meeting_date }}</span>
+                <a href="/tor/{{ tor.id }}/meetings/{{ m.id }}" style="color:var(--accent);text-decoration:none;font-weight:500;">{{ m.label }}</a>
+                <span class="dep-spacer"></span>
+                {% if m.status.as_str() == "confirmed" %}
+                <span class="badge badge-info">Confirmed</span>
+                {% else if m.status.as_str() == "in_progress" %}
+                <span class="badge badge-warning">In Progress</span>
+                {% else %}
+                <span class="badge badge-muted">{{ m.status }}</span>
+                {% endif %}
+                {% if m.agenda_count > 0 %}
+                <span style="font-size:0.75rem;color:var(--text-muted);">{{ m.agenda_count }} agenda</span>
+                {% endif %}
+            </div>
+        {% endif %}{% endif %}
+        {% endfor %}
+        </div>
+    </div>
+
+    {# --- Past meetings (status == completed or cancelled) --- #}
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Past</div>
+        <div class="dep-flow-list">
+        {% for m in meetings %}
+        {% if m.status.as_str() == "completed" %}
+            <div class="dep-flow-row">
+                <span style="font-family:var(--font-mono);font-size:0.8125rem;min-width:6rem;">{{ m.meeting_date }}</span>
+                <a href="/tor/{{ tor.id }}/meetings/{{ m.id }}" style="color:var(--accent);text-decoration:none;font-weight:500;">{{ m.label }}</a>
+                <span class="dep-spacer"></span>
+                <span class="badge badge-success">Completed</span>
+                {% if m.has_minutes %}
+                <span class="badge badge-info">Minutes</span>
+                {% endif %}
+                {% if m.agenda_count > 0 %}
+                <span style="font-size:0.75rem;color:var(--text-muted);">{{ m.agenda_count }} agenda</span>
+                {% endif %}
+            </div>
+        {% endif %}
+        {% if m.status.as_str() == "cancelled" %}
+            <div class="dep-flow-row">
+                <span style="font-family:var(--font-mono);font-size:0.8125rem;min-width:6rem;">{{ m.meeting_date }}</span>
+                <a href="/tor/{{ tor.id }}/meetings/{{ m.id }}" style="color:var(--accent);text-decoration:none;font-weight:500;">{{ m.label }}</a>
+                <span class="dep-spacer"></span>
+                <span class="badge badge-muted">Cancelled</span>
+                {% if m.has_minutes %}
+                <span class="badge badge-info">Minutes</span>
+                {% endif %}
+            </div>
+        {% endif %}
+        {% endfor %}
+        </div>
+    </div>
+
+    {% endif %}
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div class="form-section">
+        <h3>Confirm Meeting</h3>
+        <form method="post" action="/tor/{{ tor.id }}/meetings/confirm">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <input type="hidden" name="tor_name" value="{{ tor.label }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="meeting_date">Meeting Date</label>
+                    <input type="date" id="meeting_date" name="date" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Confirm Meeting</button>
+        </form>
+    </div>
+    {% endif %}
+</section>
 {% endblock %}

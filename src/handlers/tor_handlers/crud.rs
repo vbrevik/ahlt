@@ -4,6 +4,7 @@ use actix_web::{web, HttpResponse};
 use crate::db::DbPool;
 use crate::models::tor;
 use crate::models::protocol;
+use crate::models::meeting;
 use crate::auth::{csrf, validate};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
@@ -127,6 +128,7 @@ pub async fn detail(
             let upstream_deps = tor::find_upstream(&conn, id)?;
             let downstream_deps = tor::find_downstream(&conn, id)?;
             let other_tors = tor::find_other_tors(&conn, id)?;
+            let meetings = meeting::find_by_tor(&conn, id)?;
 
             let tmpl = TorDetailTemplate {
                 ctx,
@@ -138,6 +140,7 @@ pub async fn detail(
                 upstream_deps,
                 downstream_deps,
                 other_tors,
+                meetings,
             };
             render(tmpl)
         }

@@ -211,6 +211,7 @@ pub struct TorDetailTemplate {
     pub upstream_deps: Vec<TorDependency>,
     pub downstream_deps: Vec<TorDependency>,
     pub other_tors: Vec<(i64, String, String)>,
+    pub meetings: Vec<MeetingListItem>,
 }
 
 // --- Governance Map template ---
