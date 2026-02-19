@@ -3872,26 +3872,35 @@ fieldset legend {
     text-decoration: underline;
 }
 
-.outlook-event-actions {
-    margin-left: auto;
-    display: flex;
-    gap: 0.25rem;
-}
-
-.outlook-confirm-btn {
-    padding: 2px 4px;
-    font-size: 0.5625rem;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 2px;
+/* Calendar confirm badge — ✓ button on future unconfirmed pills */
+.outlook-event-confirm-badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: inherit;
     cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--duration) var(--ease);
+    font-size: 0.625rem;
+    line-height: 14px;
+    text-align: center;
+    padding: 0;
+    transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), color var(--duration) var(--ease);
+    z-index: 1;
 }
 
-.outlook-confirm-btn:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(0, 0, 0, 0.3);
+.outlook-event-confirm-badge:hover {
+    background: #16a34a;
+    border-color: #15803d;
+    color: #fff;
+}
+
+.outlook-event-confirm-badge--loading {
+    pointer-events: none;
+    opacity: 0.4;
 }
 
 .outlook-event-time {
