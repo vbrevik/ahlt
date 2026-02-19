@@ -3840,6 +3840,69 @@ fieldset legend {
     opacity: 0.85;
 }
 
+/* Meeting status indicators */
+.outlook-event--projected {
+    opacity: 0.7;
+    border-left-style: dashed;
+}
+
+.outlook-event--confirmed {
+    opacity: 1;
+    font-weight: 500;
+}
+
+.outlook-event-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.outlook-event-link {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+}
+
+.outlook-event-link:hover {
+    text-decoration: underline;
+}
+
+/* Calendar confirm badge — ✓ button on future unconfirmed pills */
+.outlook-event-confirm-badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.625rem;
+    line-height: 14px;
+    text-align: center;
+    padding: 0;
+    transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease), color var(--duration) var(--ease);
+    z-index: 1;
+}
+
+.outlook-event-confirm-badge:hover {
+    background: #16a34a;
+    border-color: #15803d;
+    color: #fff;
+}
+
+.outlook-event-confirm-badge--loading {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
 .outlook-event-time {
     font-family: var(--font-mono);
     font-weight: 600;
