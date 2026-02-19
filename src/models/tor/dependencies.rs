@@ -1,4 +1,5 @@
 use rusqlite::{Connection, params};
+use serde::Serialize;
 
 /// A dependency relationship between two ToRs.
 #[derive(Debug, Clone)]
@@ -203,4 +204,94 @@ pub fn find_other_tors(conn: &Connection, exclude_tor_id: i64) -> rusqlite::Resu
         })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tors)
+}
+
+// --- Governance graph (DAG visualization) ---
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphNode {
+    pub id: i64,
+    pub name: String,
+    pub label: String,
+    pub cadence: String,
+    pub cadence_day: String,
+    pub cadence_time: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphEdge {
+    pub source: i64,
+    pub target: i64,
+    pub relation_type: String,
+    pub is_blocking: bool,
+    pub output_types: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GovernanceGraphData {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+}
+
+/// Build the full graph data for the governance map DAG visualization.
+pub fn find_graph_data(conn: &Connection) -> rusqlite::Result<GovernanceGraphData> {
+    // Nodes: all active ToRs with cadence properties
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name, e.label, \
+                COALESCE(p_cad.value, '') AS cadence, \
+                COALESCE(p_day.value, '') AS cadence_day, \
+                COALESCE(p_time.value, '') AS cadence_time, \
+                COALESCE(p_status.value, 'active') AS status \
+         FROM entities e \
+         LEFT JOIN entity_properties p_cad ON e.id = p_cad.entity_id AND p_cad.key = 'meeting_cadence' \
+         LEFT JOIN entity_properties p_day ON e.id = p_day.entity_id AND p_day.key = 'cadence_day' \
+         LEFT JOIN entity_properties p_time ON e.id = p_time.entity_id AND p_time.key = 'cadence_time' \
+         LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
+         WHERE e.entity_type = 'tor' AND e.is_active = 1 \
+         ORDER BY e.label",
+    )?;
+    let nodes = stmt
+        .query_map([], |row| {
+            Ok(GraphNode {
+                id: row.get("id")?,
+                name: row.get("name")?,
+                label: row.get("label")?,
+                cadence: row.get("cadence")?,
+                cadence_day: row.get("cadence_day")?,
+                cadence_time: row.get("cadence_time")?,
+                status: row.get("status")?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Edges: all inter-ToR dependency relations
+    let mut stmt = conn.prepare(
+        "SELECT r.source_id, r.target_id, rt.name AS relation_type, \
+                COALESCE(rp_block.value, 'false') AS is_blocking, \
+                COALESCE(rp_ot.value, '') AS output_types \
+         FROM relations r \
+         JOIN entities rt ON r.relation_type_id = rt.id \
+         JOIN entities src ON r.source_id = src.id \
+         JOIN entities tgt ON r.target_id = tgt.id \
+         LEFT JOIN relation_properties rp_block ON r.id = rp_block.relation_id AND rp_block.key = 'is_blocking' \
+         LEFT JOIN relation_properties rp_ot ON r.id = rp_ot.relation_id AND rp_ot.key = 'output_types' \
+         WHERE rt.name IN ('feeds_into', 'escalates_to') \
+           AND src.entity_type = 'tor' \
+           AND tgt.entity_type = 'tor' \
+         ORDER BY src.label, tgt.label",
+    )?;
+    let edges = stmt
+        .query_map([], |row| {
+            Ok(GraphEdge {
+                source: row.get("source_id")?,
+                target: row.get("target_id")?,
+                relation_type: row.get("relation_type")?,
+                is_blocking: row.get::<_, String>("is_blocking")? == "true",
+                output_types: row.get("output_types")?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(GovernanceGraphData { nodes, edges })
 }

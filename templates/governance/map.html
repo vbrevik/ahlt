@@ -27,34 +27,32 @@
 </div>
 {% else %}
 
-{% if !dependencies.is_empty() %}
-<section class="section">
-    <div class="section-header">
-        <h2>Dependencies <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ dependencies.len() }}</span></h2>
+<div class="graph-container" style="height:500px;">
+    <div class="graph-toolbar" id="gov-toolbar">
+        <button class="btn-icon" id="gov-btn-fit" title="Fit all (F)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+        </button>
+        <button class="btn-icon" id="gov-btn-zoom-in" title="Zoom in (+)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button class="btn-icon" id="gov-btn-zoom-out" title="Zoom out (-)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button class="btn-icon" id="gov-btn-reset" title="Reset zoom (0)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <div class="toolbar-spacer"></div>
+        <span class="toolbar-stat" id="gov-stat"></span>
     </div>
-    <div class="dep-flow-list">
-    {% for dep in dependencies %}
-        <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
-            <a href="/tor/{{ dep.source_tor_id }}" class="dep-node-link">{{ dep.source_tor_label }}</a>
-            <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
-                {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
-            </span>
-            <a href="/tor/{{ dep.target_tor_id }}" class="dep-node-link">{{ dep.target_tor_label }}</a>
-            <span class="dep-spacer"></span>
-            {% if dep.is_blocking %}
-            <span class="badge badge-error">Blocking</span>
-            {% endif %}
+    <div class="graph-canvas" id="gov-canvas">
+        <div class="graph-loading" id="gov-loading">
+            <span>Loading graph&hellip;</span>
         </div>
-    {% endfor %}
     </div>
-</section>
-{% else %}
-<div class="empty-state" style="text-align:left;padding:1.5rem 0;">
-    <p style="color:var(--text-secondary);font-size:0.9375rem;">No dependencies defined between ToRs. Add dependencies from individual <a href="/tor" style="color:var(--accent);">ToR detail pages</a>.</p>
 </div>
-{% endif %}
 
-<section class="section">
+<section class="section" style="margin-top:1.5rem;">
     <div class="section-header">
         <h2>All Terms of Reference <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ tors.len() }}</span></h2>
     </div>
@@ -69,4 +67,308 @@
 </section>
 
 {% endif %}
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script>
+(function() {
+    var canvas = document.getElementById('gov-canvas');
+    if (!canvas) return;
+    var loading = document.getElementById('gov-loading');
+    var statEl = document.getElementById('gov-stat');
+
+    var EDGE_COLORS = {
+        feeds_into:   { stroke: '#2563eb', label: '#1d4ed8' },
+        escalates_to: { stroke: '#d97706', label: '#92400e' }
+    };
+    var BLOCKING_COLOR = '#b91c1c';
+    var NODE_FILL = '#ffffff';
+    var NODE_STROKE = '#d6d3d1';
+    var NODE_HOVER_STROKE = '#b45309';
+
+    var CADENCE_LABELS = {
+        daily: 'Daily', working_days: 'Work days', weekly: 'Weekly',
+        biweekly: 'Biweekly', monthly: 'Monthly', 'ad-hoc': 'Ad-hoc'
+    };
+    var STATUS_COLORS = {
+        active: '#059669', draft: '#d97706', archived: '#78716c'
+    };
+
+    var width = canvas.clientWidth;
+    var height = canvas.clientHeight || 463;
+
+    var svg = d3.select('#gov-canvas')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', [0, 0, width, height]);
+
+    // Arrow markers for each edge type
+    var defs = svg.append('defs');
+    ['feeds_into', 'escalates_to', 'blocking'].forEach(function(type) {
+        var color = type === 'blocking' ? BLOCKING_COLOR
+            : (EDGE_COLORS[type] ? EDGE_COLORS[type].stroke : '#78716c');
+        defs.append('marker')
+            .attr('id', 'gov-arrow-' + type)
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 10)
+            .attr('refY', 0)
+            .attr('markerWidth', 7)
+            .attr('markerHeight', 7)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L10,0L0,4')
+            .attr('fill', color);
+    });
+
+    var g = svg.append('g');
+
+    var zoom = d3.zoom()
+        .scaleExtent([0.2, 5])
+        .on('zoom', function(e) { g.attr('transform', e.transform); });
+    svg.call(zoom);
+
+    function fitAll(animate) {
+        var allNodes = g.selectAll('.gov-graph-node');
+        if (allNodes.empty()) return;
+        var xs = [], ys = [];
+        allNodes.each(function(d) { xs.push(d.x); ys.push(d.y); });
+        if (!xs.length) return;
+        var pad = 80;
+        var x0 = Math.min.apply(null, xs) - pad;
+        var y0 = Math.min.apply(null, ys) - pad;
+        var x1 = Math.max.apply(null, xs) + pad + 180;
+        var y1 = Math.max.apply(null, ys) + pad + 60;
+        var bw = x1 - x0, bh = y1 - y0;
+        if (bw < 1 || bh < 1) return;
+        var scale = Math.min(width / bw, height / bh, 1.5);
+        var tx = (width - bw * scale) / 2 - x0 * scale;
+        var ty = (height - bh * scale) / 2 - y0 * scale;
+        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+        if (animate) {
+            svg.transition().duration(500).call(zoom.transform, t);
+        } else {
+            svg.call(zoom.transform, t);
+        }
+    }
+
+    // Toolbar
+    document.getElementById('gov-btn-fit').addEventListener('click', function() { fitAll(true); });
+    document.getElementById('gov-btn-reset').addEventListener('click', function() {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+    });
+    document.getElementById('gov-btn-zoom-in').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
+    document.getElementById('gov-btn-zoom-out').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch (e.key.toLowerCase()) {
+            case 'f': fitAll(true); break;
+            case '0': svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity); break;
+            case '=': case '+': svg.transition().duration(300).call(zoom.scaleBy, 1.5); break;
+            case '-': svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5); break;
+        }
+    });
+
+    fetch('/api/governance/graph')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            renderGraph(data);
+        });
+
+    function renderGraph(data) {
+        var nodes = data.nodes;
+        var edges = data.edges;
+
+        statEl.textContent = nodes.length + ' ToRs \u00b7 ' + edges.length + ' dependencies';
+
+        if (!nodes.length) {
+            g.append('text')
+                .attr('x', width / 2).attr('y', height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'var(--text-muted)')
+                .attr('font-size', 14)
+                .text('No ToRs to display');
+            return;
+        }
+
+        // Build dagre graph
+        var dagreGraph = new dagre.graphlib.Graph();
+        dagreGraph.setGraph({
+            rankdir: 'LR',
+            nodesep: 40,
+            ranksep: 100,
+            marginx: 40,
+            marginy: 40
+        });
+        dagreGraph.setDefaultEdgeLabel(function() { return {}; });
+
+        var nodeW = 170, nodeH = 56;
+        nodes.forEach(function(n) {
+            dagreGraph.setNode(String(n.id), { width: nodeW, height: nodeH });
+        });
+        edges.forEach(function(e) {
+            dagreGraph.setEdge(String(e.source), String(e.target));
+        });
+
+        dagre.layout(dagreGraph);
+
+        // Read computed positions back onto our data
+        var nodeMap = {};
+        nodes.forEach(function(n) {
+            var pos = dagreGraph.node(String(n.id));
+            n.x = pos.x;
+            n.y = pos.y;
+            nodeMap[n.id] = n;
+        });
+
+        // Draw edges (paths with curves via dagre points)
+        var edgeGroup = g.append('g').attr('class', 'gov-graph-edges');
+        var line = d3.line().curve(d3.curveBasis);
+
+        edges.forEach(function(e) {
+            var dagreEdge = dagreGraph.edge(String(e.source), String(e.target));
+            var points = dagreEdge.points.map(function(p) { return [p.x, p.y]; });
+
+            var isBlocking = e.is_blocking;
+            var type = e.relation_type;
+            var edgeColor = isBlocking ? BLOCKING_COLOR
+                : (EDGE_COLORS[type] ? EDGE_COLORS[type].stroke : '#78716c');
+            var markerType = isBlocking ? 'blocking' : type;
+
+            edgeGroup.append('path')
+                .attr('d', line(points))
+                .attr('fill', 'none')
+                .attr('stroke', edgeColor)
+                .attr('stroke-width', isBlocking ? 2.5 : 1.8)
+                .attr('stroke-dasharray', type === 'escalates_to' ? '6,4' : (isBlocking ? '4,3' : 'none'))
+                .attr('marker-end', 'url(#gov-arrow-' + markerType + ')')
+                .attr('opacity', 0.75);
+
+            // Edge label at midpoint
+            var mid = points[Math.floor(points.length / 2)];
+            var labelText = type === 'feeds_into' ? 'feeds' : 'escalates';
+            if (isBlocking) labelText += ' (blocking)';
+
+            edgeGroup.append('text')
+                .attr('x', mid[0])
+                .attr('y', mid[1] - 8)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 10)
+                .attr('fill', isBlocking ? BLOCKING_COLOR : (EDGE_COLORS[type] ? EDGE_COLORS[type].label : '#78716c'))
+                .attr('font-family', 'var(--font-mono)')
+                .text(labelText);
+        });
+
+        // Draw nodes
+        var nodeGroup = g.selectAll('.gov-graph-node')
+            .data(nodes)
+            .join('g')
+            .attr('class', 'gov-graph-node')
+            .attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; })
+            .style('cursor', 'pointer')
+            .on('click', function(event, d) {
+                window.location = '/tor/' + d.id;
+            })
+            .on('mouseover', function(event, d) {
+                d3.select(this).select('rect').attr('stroke', NODE_HOVER_STROKE).attr('stroke-width', 2);
+                highlightConnected(d.id);
+            })
+            .on('mouseout', function() {
+                d3.select(this).select('rect').attr('stroke', NODE_STROKE).attr('stroke-width', 1);
+                unhighlight();
+            });
+
+        // Node rectangle
+        nodeGroup.append('rect')
+            .attr('x', -nodeW / 2)
+            .attr('y', -nodeH / 2)
+            .attr('width', nodeW)
+            .attr('height', nodeH)
+            .attr('rx', 8)
+            .attr('ry', 8)
+            .attr('fill', NODE_FILL)
+            .attr('stroke', NODE_STROKE)
+            .attr('stroke-width', 1);
+
+        // Status dot
+        nodeGroup.append('circle')
+            .attr('cx', -nodeW / 2 + 14)
+            .attr('cy', -nodeH / 2 + 16)
+            .attr('r', 4)
+            .attr('fill', function(d) { return STATUS_COLORS[d.status] || '#78716c'; });
+
+        // Label text
+        nodeGroup.append('text')
+            .attr('x', 0)
+            .attr('y', -4)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12.5)
+            .attr('font-weight', 600)
+            .attr('fill', 'var(--text)')
+            .attr('font-family', 'var(--font-body)')
+            .each(function(d) {
+                var label = d.label;
+                if (label.length > 20) label = label.substring(0, 18) + '\u2026';
+                d3.select(this).text(label);
+            });
+
+        // Cadence badge
+        nodeGroup.append('text')
+            .attr('x', 0)
+            .attr('y', 14)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 10)
+            .attr('fill', 'var(--text-muted)')
+            .attr('font-family', 'var(--font-mono)')
+            .text(function(d) {
+                var parts = [];
+                if (d.cadence) parts.push(CADENCE_LABELS[d.cadence] || d.cadence);
+                if (d.cadence_day) parts.push(d.cadence_day.charAt(0).toUpperCase() + d.cadence_day.slice(1, 3));
+                if (d.cadence_time) parts.push(d.cadence_time);
+                return parts.join(' \u00b7 ') || '';
+            });
+
+        // Highlight connected nodes on hover
+        var edgeIndex = {};
+        edges.forEach(function(e) {
+            if (!edgeIndex[e.source]) edgeIndex[e.source] = [];
+            if (!edgeIndex[e.target]) edgeIndex[e.target] = [];
+            edgeIndex[e.source].push(e.target);
+            edgeIndex[e.target].push(e.source);
+        });
+
+        function highlightConnected(id) {
+            var connected = new Set();
+            connected.add(id);
+            (edgeIndex[id] || []).forEach(function(nid) { connected.add(nid); });
+            nodeGroup.attr('opacity', function(n) { return connected.has(n.id) ? 1 : 0.25; });
+            edgeGroup.selectAll('path').attr('opacity', function() { return 0.3; });
+            edgeGroup.selectAll('text').attr('opacity', function() { return 0.3; });
+            // Re-highlight connected edges
+            edges.forEach(function(e, i) {
+                if (e.source === id || e.target === id) {
+                    edgeGroup.selectAll('path').filter(function(d, j) { return j === i; }).attr('opacity', 1);
+                    edgeGroup.selectAll('text').filter(function(d, j) { return j === i; }).attr('opacity', 1);
+                }
+            });
+        }
+
+        function unhighlight() {
+            nodeGroup.attr('opacity', 1);
+            edgeGroup.selectAll('path').attr('opacity', 0.75);
+            edgeGroup.selectAll('text').attr('opacity', 1);
+        }
+
+        // Fit to view after rendering
+        setTimeout(function() { fitAll(false); }, 50);
+    }
+})();
+</script>
 {% endblock %}

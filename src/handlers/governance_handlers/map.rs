@@ -25,3 +25,14 @@ pub async fn governance_map(
     };
     render(tmpl)
 }
+
+pub async fn governance_graph_api(
+    pool: web::Data<DbPool>,
+    session: Session,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "tor.list")?;
+
+    let conn = pool.get()?;
+    let data = tor::find_graph_data(&conn)?;
+    Ok(HttpResponse::Ok().json(data))
+}

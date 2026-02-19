@@ -260,6 +260,16 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Minutes auto-scaffold**: `Minutes` + `MinutesSection` EAV model. `generate_scaffold()` creates 5 sections from meeting data (attendance flags vacant mandatory positions). Status lifecycle: draft→pending_approval→approved (read-only once approved).
 - **Presentation templates**: `template_of`/`slide_of` relation chain. Per-ToR fixed slide templates with ordered slides and move-up/down reordering.
 - **Governance map**: Cross-ToR dependency overview at `/governance/map` with colour-coded relationship badges. Nav item added to Governance sidebar.
+
+### Governance Map Visual Graph (T.1)
+- Dagre+D3 hierarchical DAG on `/governance/map`: ToR nodes (rounded rectangles) with label, cadence badge, status dot
+- Directed edges: solid blue for `feeds_into`, dashed red for blocking, dashed amber for `escalates_to`
+- JSON API at `GET /api/governance/graph` (nodes with cadence properties + edges with relation metadata)
+- Click node → navigates to `/tor/{id}`, hover highlights connected subgraph
+- Toolbar: fit, zoom in/out, reset zoom (keyboard shortcuts F, +/-, 0)
+- Dagre 0.8.5 + D3 v7 from CDN, no new Rust dependencies
+- ToR card grid retained below graph as secondary reference
+
 - New relations seeded: `fills_position`, `protocol_of`, `feeds_into`, `escalates_to`, `minutes_of`, `section_of`, `template_of`, `slide_of`, `requires_template`
 - New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
 - New nav item: `governance.map` → `/governance/map` under Governance module
@@ -273,7 +283,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). |
-| H.4 | **Test coverage expansion** | Medium | Large | ~10 handler modules lack isolated integration tests: account, auth, dashboard, audit, menu builder, ontology, ToR, agenda, COA, opinion. Currently 45 tests / 6 files. |
+| H.4 | **Test coverage expansion** | Medium | Large | ~10 handler modules lack isolated integration tests: account, auth, dashboard, audit, menu builder, ontology, ToR, agenda, COA, opinion. Currently 50 tests / 8 files. |
 | H.5 | **Composite DB index** | Low | Small | Add `entity_properties(entity_id, key)` composite index for EAV lookup performance. |
 
 ### Features
@@ -281,12 +291,11 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via db.rs seeding. Add CRUD UI for creating/editing workflow definitions without code changes. |
-| F.2 | **REST API layer** | Medium | Large | Only 2 JSON endpoints exist (`/ontology/api/{schema,graph}`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
+| F.2 | **REST API layer** | Medium | Large | Only 3 JSON endpoints exist (`/ontology/api/{schema,graph}`, `/api/governance/graph`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
-| T.1 | **Governance map visual graph** | Medium | Medium | Replace the flat list on `/governance/map` with a Dagre+D3 DAG — nodes for ToRs with cadence badges, directed edges for feeds_into/escalates_to, click-through to ToR detail. **Plan ready**: `~/.claude/plans/piped-roaming-pearl.md` Task 1. |
 | T.2 | **ToR vacancy warning generators** | Medium | Small | Background scheduler generators that fire warnings when mandatory positions in active ToRs are unfilled. Uses `fills_position` + `entity_properties membership_type=mandatory`. |
 | T.3 | **Meeting outlook calendar** | Medium | Medium | `/tor/outlook` with day/week/month CSS grid views + `GET /api/tor/calendar` endpoint computing meeting instances from cadence rules. Hybrid: server renders initial week view, client fetch for tab/date switching. **Plan ready**: `~/.claude/plans/piped-roaming-pearl.md` Tasks 2-4. |
 | T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
@@ -317,6 +326,7 @@ Automated Testing (47 tests)
 H.1 Rate Limiting
 H.2 Input Validation
 ToR Expansion (13 tasks)
+T.1 Governance Map Visual Graph
 ```
 
 ---
