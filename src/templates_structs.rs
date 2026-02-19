@@ -19,7 +19,7 @@ use crate::models::proposal::{ProposalListItem, ProposalDetail, CrossTorProposal
 use crate::models::agenda_point::{AgendaPointListItem, AgendaPointDetail, CrossTorAgendaItem};
 use crate::models::coa::{CoaListItem, CoaDetail};
 use crate::models::opinion::{OpinionDetail, OpinionSummary};
-use crate::models::meeting::MeetingListItem;
+use crate::models::meeting::{MeetingListItem, MeetingDetail, MeetingAgendaPoint};
 use crate::models::workflow::AvailableTransition;
 use crate::warnings::queries::{WarningPage, WarningDetail, WarningRecipient, WarningTimelineEvent};
 use crate::auth::csrf;
@@ -508,4 +508,19 @@ pub struct MeetingsListTemplate {
     pub ctx: PageContext,
     pub upcoming: Vec<MeetingListItem>,
     pub past: Vec<MeetingListItem>,
+}
+
+// --- Meeting detail template ---
+
+#[derive(Template)]
+#[template(path = "meetings/detail.html")]
+pub struct MeetingDetailTemplate {
+    pub ctx: PageContext,
+    pub meeting: MeetingDetail,
+    pub agenda_points: Vec<MeetingAgendaPoint>,
+    pub unassigned_points: Vec<MeetingAgendaPoint>,
+    pub protocol_steps: Vec<ProtocolStep>,
+    pub transitions: Vec<AvailableTransition>,
+    pub minutes: Option<Minutes>,
+    pub tor_id: i64,
 }

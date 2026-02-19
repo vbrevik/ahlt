@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meeting.label }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>{{ meeting.label }}</h1>
+    <div class="page-actions">
+        {% if !transitions.is_empty() %}
+        {% for transition in transitions %}
+        <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/transition" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <input type="hidden" name="new_status" value="{{ transition.to_status_code }}">
+            <button type="submit" class="btn btn-sm btn-secondary">
+                {{ transition.transition_label }}
+            </button>
+        </form>
+        {% endfor %}
+        {% endif %}
+        <a href="/tor/{{ tor_id }}" class="btn btn-sm">Back to ToR</a>
+    </div>
+</div>
+
+<!-- Meeting Info -->
+<div class="detail-card">
+    <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">
+            {% if meeting.status.as_str() == "scheduled" %}
+            <span class="badge badge-info">Scheduled</span>
+            {% else if meeting.status.as_str() == "confirmed" %}
+            <span class="badge badge-primary">Confirmed</span>
+            {% else if meeting.status.as_str() == "in_progress" %}
+            <span class="badge badge-warning">In Progress</span>
+            {% else if meeting.status.as_str() == "completed" %}
+            <span class="badge badge-success">Completed</span>
+            {% else if meeting.status.as_str() == "cancelled" %}
+            <span class="badge badge-danger">Cancelled</span>
+            {% else %}
+            <span class="badge badge-muted">{{ meeting.status }}</span>
+            {% endif %}
+        </span>
+    </div>
+
+    <div class="detail-row">
+        <span class="detail-label">Date</span>
+        <span class="detail-value">{{ meeting.meeting_date }}</span>
+    </div>
+
+    {% if !meeting.location.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{ meeting.location }}</span>
+    </div>
+    {% endif %}
+
+    <div class="detail-row">
+        <span class="detail-label">Terms of Reference</span>
+        <span class="detail-value"><a href="/tor/{{ tor_id }}">{{ meeting.tor_label }}</a></span>
+    </div>
+
+    {% if !meeting.notes.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Notes</span>
+        <span class="detail-value">{{ meeting.notes }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Agenda Points -->
+<section class="section">
+    <div class="section-header">
+        <h2>Agenda Points ({{ agenda_points.len() }})</h2>
+    </div>
+
+    {% if agenda_points.is_empty() %}
+    <p class="empty-hint">No agenda points assigned to this meeting.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Status</th>
+                {% if meeting.status.as_str() == "confirmed" %}
+                <th>Actions</th>
+                {% else if meeting.status.as_str() == "in_progress" %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for point in agenda_points %}
+            <tr>
+                <td><a href="/tor/{{ tor_id }}/agenda-points/{{ point.id }}">{{ point.label }}</a></td>
+                <td>
+                    {% if point.item_type.as_str() == "decision" %}
+                    <span class="badge badge-warning">Decision</span>
+                    {% else %}
+                    <span class="badge badge-info">Informative</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-{{ point.status }}">{{ point.status }}</span></td>
+                {% if meeting.status.as_str() == "confirmed" %}
+                <td>
+                    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/agenda/remove" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="agenda_point_id" value="{{ point.id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </td>
+                {% else if meeting.status.as_str() == "in_progress" %}
+                <td>
+                    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/agenda/remove" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="agenda_point_id" value="{{ point.id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Assign unassigned agenda points (only for confirmed/in_progress) -->
+    {% if meeting.status.as_str() == "confirmed" %}
+    {% if !unassigned_points.is_empty() %}
+    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/agenda/assign" class="form-inline" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <select name="agenda_point_id" class="input" required>
+            <option value="">-- Select agenda point --</option>
+            {% for point in unassigned_points %}
+            <option value="{{ point.id }}">{{ point.label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Assign to Meeting</button>
+    </form>
+    {% endif %}
+    {% else if meeting.status.as_str() == "in_progress" %}
+    {% if !unassigned_points.is_empty() %}
+    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/agenda/assign" class="form-inline" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <select name="agenda_point_id" class="input" required>
+            <option value="">-- Select agenda point --</option>
+            {% for point in unassigned_points %}
+            <option value="{{ point.id }}">{{ point.label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Assign to Meeting</button>
+    </form>
+    {% endif %}
+    {% endif %}
+</section>
+
+<!-- Protocol Steps -->
+<section class="section">
+    <div class="section-header">
+        <h2>Protocol Steps ({{ protocol_steps.len() }})</h2>
+    </div>
+
+    {% if protocol_steps.is_empty() %}
+    <p class="empty-hint">No protocol steps defined for this Terms of Reference.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Step</th>
+                <th>Type</th>
+                <th>Duration</th>
+                <th>Required</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for step in protocol_steps %}
+            <tr>
+                <td>{{ step.sequence_order }}</td>
+                <td>
+                    <strong>{{ step.label }}</strong>
+                    {% if !step.description.is_empty() %}
+                    <br><small>{{ step.description }}</small>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-muted">{{ step.step_type }}</span></td>
+                <td>
+                    {% if let Some(dur) = step.default_duration_minutes %}
+                    {{ dur }} min
+                    {% else %}
+                    --
+                    {% endif %}
+                </td>
+                <td>{% if step.is_required %}Yes{% else %}No{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+<!-- Minutes -->
+<section class="section">
+    <div class="section-header">
+        <h2>Minutes</h2>
+    </div>
+
+    {% if let Some(m) = minutes %}
+    <div class="detail-card">
+        <div class="detail-row">
+            <span class="detail-label">Minutes</span>
+            <span class="detail-value"><a href="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/minutes/{{ m.id }}">{{ m.label }}</a></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value"><span class="badge badge-{{ m.status }}">{{ m.status }}</span></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Generated</span>
+            <span class="detail-value">{{ m.generated_date }}</span>
+        </div>
+    </div>
+    {% else %}
+    {% if meeting.status.as_str() == "completed" %}
+    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/minutes/generate">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <button type="submit" class="btn btn-primary">Generate Minutes</button>
+    </form>
+    {% else %}
+    <p class="empty-hint">Minutes will be available after the meeting is completed.</p>
+    {% endif %}
+    {% endif %}
+</section>
+{% endblock %}
