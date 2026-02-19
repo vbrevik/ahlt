@@ -129,6 +129,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `governance.map` | Governance Map | `governance` | `/governance/map` | `tor.list` |
 | `governance.workflow` | Item Workflow | `governance` | `/workflow` | `suggestion.view` |
 | `governance.outlook` | Meeting Outlook | `governance` | `/tor/outlook` | `tor.list` |
+| `governance.workflow_builder` | Workflow Builder | `governance` | `/workflow/builder` | `workflow.manage` |
 
 ---
 
@@ -301,6 +302,18 @@ All domain objects share three generic tables — no dedicated tables per type:
 - `include_str!` embeds fixtures at compile time — no filesystem dependency at runtime
 - To modify seed data: edit JSON fixtures, delete DB, restart server
 
+### Dashboard Redesign (F.6)
+- Full visual redesign: time-aware greeting (morning/afternoon/evening), stats cards (proposals, suggestions, ToRs, active warnings), recent activity feed from audit log
+- Replaced placeholder dashboard with real data from model queries
+
+### Workflow Builder UI (F.1)
+- List page at `/workflow/builder`: scope cards with status/transition counts
+- Detail page at `/workflow/builder/{scope}`: D3/dagre state machine graph + statuses table (add/edit/delete) + transitions table (add/edit/delete)
+- All mutations: permission checks, CSRF, audit logging
+- Nav item `governance.workflow_builder` seeded with `workflow.manage` permission
+- Sidebar longest-prefix active-state fix (was marking `/workflow` active on `/workflow/builder` pages)
+- Shared `.graph-panel` CSS: identical header panel across governance map and workflow builder (title + stat, 400px canvas, same toolbar/keyboard shortcuts)
+
 ---
 
 ## Remaining Backlog
@@ -317,12 +330,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via seed JSON fixtures or the data manager import. Add CRUD UI for creating/editing workflow definitions without manual JSON editing. |
+| F.1 | ~~**Workflow builder UI**~~ | ~~High~~ | ~~Large~~ | **DONE** — see Completed Work |
 | F.2 | **REST API layer** | Medium | Large | Only 4 JSON endpoints exist (`/ontology/api/{schema,graph}`, `/api/governance/graph`, `/api/tor/calendar`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
-| F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
+| F.6 | ~~**Dashboard widgets**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
 | T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
@@ -334,22 +347,22 @@ All domain objects share three generic tables — no dedicated tables per type:
 ```
 DONE                                    CANDIDATES (pick next)
 ════                                    ══════════════════════
-Epic 1: Ontology Foundation             F.1  Workflow builder UI (high, large effort)
-Epic 2: Data-Driven Nav                 H.4  Test coverage expansion (medium, large)
-5.1–5.4 Security                        F.2  REST API layer (medium, large)
-4.1 Role Management                     F.3  More entity types (medium, variable)
-4.2 Menu Builder                        H.3  WebSocket error handling (medium, small)
-4.3 Roles Builder                       H.5  Composite DB index (low, small)
-3.1–3.3 App Settings                    F.4  Dark mode (low, medium)
-6.1–6.6 UX features                     F.5  User profile enhancements (low, small)
-7.1–7.3 Housekeeping                    F.6  Dashboard widgets (low, medium)
+Epic 1: Ontology Foundation             H.4  Test coverage expansion (medium, large)
+Epic 2: Data-Driven Nav                 F.2  REST API layer (medium, large)
+5.1–5.4 Security                        F.3  More entity types (medium, variable)
+4.1 Role Management                     H.3  WebSocket error handling (medium, small)
+4.2 Menu Builder                        H.5  Composite DB index (low, small)
+4.3 Roles Builder                       F.4  Dark mode (low, medium)
+3.1–3.3 App Settings                    F.5  User profile enhancements (low, small)
+6.1–6.6 UX features
+7.1–7.3 Housekeeping
 Ontology Explorer
 Phase 2a: Item Pipeline
 Phase 2b: Workflows + Governance
 Warnings System
 Production Deployment
 Code Cleanup (Tasks 1-28)
-Automated Testing (47 tests)
+Automated Testing (52 tests)
 H.1 Rate Limiting
 H.2 Input Validation
 ToR Expansion (13 tasks)
@@ -357,6 +370,8 @@ T.1 Governance Map Visual Graph
 T.3 Meeting Outlook Calendar
 T.2 ToR Vacancy Warning Generators
 Data Manager Seed Refactor
+F.6 Dashboard Redesign
+F.1 Workflow Builder UI
 ```
 
 ---

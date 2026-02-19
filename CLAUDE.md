@@ -118,6 +118,8 @@ PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
 
 **Constraints**: Foreign keys CASCADE on entity delete. UNIQUE on usernames, role names. Autoincrement IDs shared across all entity types.
 
+**Shared Graph Panel CSS** — When a page contains a graph, wrap it in `.graph-panel` > `.graph-panel-header` (h2 + stat span) + `.graph-container`. These classes live in `style.css`. Do not re-define them in template `<style>` blocks.
+
 ## Testing
 
 ```bash
