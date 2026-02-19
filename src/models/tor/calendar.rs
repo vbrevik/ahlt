@@ -12,6 +12,10 @@ pub struct CalendarEvent {
     pub duration_minutes: i64,
     pub location: String,
     pub cadence: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_status: Option<String>, // "projected", "confirmed", etc.
 }
 
 /// A ToR with its cadence properties, used internally for meeting computation.
@@ -106,6 +110,8 @@ pub fn compute_meetings(
                     duration_minutes: tor.cadence_duration_minutes,
                     location: tor.default_location.clone(),
                     cadence: tor.meeting_cadence.clone(),
+                    meeting_id: None,
+                    meeting_status: None,
                 });
             }
 
@@ -113,10 +119,95 @@ pub fn compute_meetings(
         }
     }
 
+    // Add persisted meetings and merge with cadence events
+    fetch_persisted_meetings(conn, start, end, &mut events)?;
+
     // Sort by date then start_time
     events.sort_by(|a, b| a.date.cmp(&b.date).then(a.start_time.cmp(&b.start_time)));
 
     Ok(events)
+}
+
+/// Fetch persisted meetings from the database and add them to the events list.
+fn fetch_persisted_meetings(
+    conn: &Connection,
+    start: NaiveDate,
+    end: NaiveDate,
+    events: &mut Vec<CalendarEvent>,
+) -> rusqlite::Result<()> {
+    let start_str = start.format("%Y-%m-%d").to_string();
+    let end_str = end.format("%Y-%m-%d").to_string();
+
+    // First, find the relation_type_id for 'belongs_to_tor'
+    let belongs_to_tor_id: i64 = {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor'",
+        )?;
+        match stmt.query_row([], |row| row.get(0)) {
+            Ok(id) => id,
+            Err(_) => return Ok(()), // Relation type not found, skip
+        }
+    };
+
+    let mut stmt = conn.prepare(
+        "SELECT m.id, m.name, ep_date.value, ep_status.value, \
+                t.id, t.label, ep_location.value \
+         FROM entities m \
+         LEFT JOIN entity_properties ep_date ON m.id = ep_date.entity_id AND ep_date.key = 'meeting_date' \
+         LEFT JOIN entity_properties ep_status ON m.id = ep_status.entity_id AND ep_status.key = 'status' \
+         LEFT JOIN entity_properties ep_location ON m.id = ep_location.entity_id AND ep_location.key = 'location' \
+         LEFT JOIN relations r ON m.id = r.source_id AND r.relation_type_id = ?1 \
+         LEFT JOIN entities t ON r.target_id = t.id \
+         WHERE m.entity_type = 'meeting' AND ep_date.value >= ?2 AND ep_date.value <= ?3 \
+         ORDER BY ep_date.value",
+    )?;
+
+    let meetings = stmt.query_map(
+        rusqlite::params![belongs_to_tor_id, &start_str, &end_str],
+        |row| {
+        let meeting_id: i64 = row.get(0)?;
+        let date: String = row.get(2)?;
+        let status: String = row.get(3)?;
+        let tor_id: Option<i64> = row.get(4).ok();
+        let tor_label: Option<String> = row.get(5).ok();
+        let location: String = row.get(6).unwrap_or_default();
+
+        Ok((meeting_id, date, status, tor_id, tor_label, location))
+    })?;
+
+    for meeting in meetings {
+        if let Ok((meeting_id, date, status, tor_id, tor_label, location)) = meeting {
+            if let (Some(tid), Some(tlabel)) = (tor_id, tor_label) {
+                // Add or update event with meeting information
+                if let Some(event) = events.iter_mut().find(|e| {
+                    e.tor_id == tid && e.date == date && e.meeting_id.is_none()
+                }) {
+                    // Update existing cadence event with meeting data
+                    event.meeting_id = Some(meeting_id);
+                    event.meeting_status = Some(status);
+                    if !location.is_empty() {
+                        event.location = location;
+                    }
+                } else {
+                    // Add new event for persisted meeting (no matching cadence)
+                    events.push(CalendarEvent {
+                        tor_id: tid,
+                        tor_label: tlabel.clone(),
+                        tor_name: String::new(), // Not available in this query
+                        date,
+                        start_time: "09:00".to_string(), // Default if not in meeting properties
+                        duration_minutes: 60, // Default duration
+                        location,
+                        cadence: String::new(),
+                        meeting_id: Some(meeting_id),
+                        meeting_status: Some(status),
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn fetch_tor_cadences(conn: &Connection) -> rusqlite::Result<Vec<TorCadence>> {

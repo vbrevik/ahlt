@@ -34,6 +34,7 @@
     </div>
 </div>
 
+<input type="hidden" name="csrf_token" id="csrf_token" value="{{ ctx.csrf_token }}">
 <div class="outlook-container" id="outlook-container">
     <div class="outlook-loading" id="outlook-loading" style="display:none;">
         <span>Loading&hellip;</span>
@@ -201,23 +202,90 @@
     function makePill(evt, showLoc) {
         var c = torColor(evt.tor_id);
         var slots = Math.max(1, Math.ceil(evt.duration_minutes / 30));
-        var pill = document.createElement('a');
-        pill.href = '/tor/' + evt.tor_id;
+        var pill = document.createElement('div');
         pill.className = 'outlook-event';
+        
+        // Add status class for styling (projected vs confirmed)
+        if (evt.meeting_status) {
+            pill.classList.add('outlook-event--' + evt.meeting_status);
+        }
+        
         pill.style.backgroundColor = c.bg;
         pill.style.borderLeft = '3px solid ' + c.border;
         pill.style.color = c.text;
-        pill.title = evt.tor_label + ' \u00b7 ' + evt.start_time + ' \u00b7 ' + evt.duration_minutes + 'min' +
-            (evt.location ? ' \u00b7 ' + evt.location : '');
+        pill.title = evt.tor_label + ' \\u00b7 ' + evt.start_time + ' \\u00b7 ' + evt.duration_minutes + 'min' +
+            (evt.location ? ' \\u00b7 ' + evt.location : '');
 
-        pill.appendChild(el('span', 'outlook-event-time', evt.start_time));
-        pill.appendChild(document.createTextNode(' '));
-        pill.appendChild(el('span', 'outlook-event-label', evt.tor_label));
+        // Create wrapper for content (non-link part)
+        var content = document.createElement('div');
+        content.className = 'outlook-event-content';
+        
+        var link = document.createElement('a');
+        link.href = '/tor/' + evt.tor_id;
+        link.className = 'outlook-event-link';
+        
+        link.appendChild(el('span', 'outlook-event-time', evt.start_time));
+        link.appendChild(document.createTextNode(' '));
+        link.appendChild(el('span', 'outlook-event-label', evt.tor_label));
         if (showLoc && evt.location) {
-            pill.appendChild(document.createTextNode(' '));
-            pill.appendChild(el('span', 'outlook-event-loc', evt.location));
+            link.appendChild(document.createTextNode(' '));
+            link.appendChild(el('span', 'outlook-event-loc', evt.location));
         }
+        
+        content.appendChild(link);
+        pill.appendChild(content);
+        
+        // Add confirm button for projected meetings
+        if (evt.meeting_status === 'projected' && evt.meeting_id) {
+            var btnContainer = document.createElement('div');
+            btnContainer.className = 'outlook-event-actions';
+            
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'outlook-confirm-btn';
+            btn.textContent = 'Confirm';
+            btn.title = 'Confirm this meeting';
+            
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmMeeting(evt);
+            });
+            
+            btnContainer.appendChild(btn);
+            pill.appendChild(btnContainer);
+        }
+        
         return { pill: pill, slots: slots };
+    }
+    
+    function confirmMeeting(evt) {
+        // Fetch CSRF token from page
+        var csrfTokenEl = document.getElementById('csrf_token');
+        var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
+        
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/tor/' + evt.tor_id + '/meetings/confirm';
+        form.style.display = 'none';
+        
+        var fields = {
+            'csrf_token': csrfToken,
+            'meeting_date': evt.date,
+            'tor_name': evt.tor_label,
+            'location': evt.location || ''
+        };
+        
+        for (var key in fields) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
     }
 
     // --- WEEK VIEW ---
