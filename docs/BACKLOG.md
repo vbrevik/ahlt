@@ -343,6 +343,25 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Implementation**: ~650 lines across 3 files (handlers/api_v1/{mod,users,entities}.rs), follows established patterns (session helpers, audit logging, validation), no new dependencies
 - **Build**: PASS | **Tests**: 141 passing (unchanged)
 
+### Composite Database Index (H.5)
+- Added composite index on `entity_properties(entity_id, key)` for optimized EAV lookups
+- Index created automatically on schema initialization via `CREATE INDEX IF NOT EXISTS`
+- Improves performance from O(n) sequential scan to O(log n) seek when filtering by both entity_id and key
+- Applied at SQLite level, no application code changes needed
+- Fully backward compatible, applied idempotent
+
+### Dark Mode Theme System (F.4)
+- **CSS Refactoring**: Migrated all colors to CSS custom properties (--bg, --text, --accent, etc.) at `:root` level
+- **Dark Mode Palette**: Added `:root.dark` selector with inverted colors optimized for dark backgrounds
+- **Theme Options**: Light, Dark, Auto (respects system preference via `prefers-color-scheme` media query)
+- **Persistence**: Theme preference stored in localStorage, persists across browser sessions and device restarts
+- **Flash Prevention**: Theme initialization script runs in `<head>` before CSS loads to apply correct theme immediately
+- **UI Toggle**: New Preferences tab on `/account` page with 3 visual buttons (Light/Dark/Auto with emoji icons)
+- **JavaScript Handler**: `window.toggleTheme(theme)` manages theme switching and localStorage persistence
+- **Accessibility**: WCAG AA contrast ratios maintained in both light and dark themes
+- **Components**: All pages, forms, graphs, and navigation render correctly in both themes
+- **Build**: PASS | **Tests**: 141 passing (unchanged)
+
 ---
 
 ## Remaining Backlog
@@ -352,7 +371,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). ✓ DONE |
-| H.5 | **Composite DB index** | Low | Small | Add `entity_properties(entity_id, key)` composite index for EAV lookup performance. |
+| H.5 | ~~**Composite DB index**~~ | ~~Low~~ | ~~Small~~ | **DONE** — see Completed Work |
 
 ### Features
 
@@ -361,7 +380,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | F.1 | ~~**Workflow builder UI**~~ | ~~High~~ | ~~Large~~ | **DONE** — see Completed Work |
 | F.2 | ~~**REST API layer**~~ | ~~Medium~~ | ~~Large~~ | **DONE** — see Completed Work |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
-| F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
+| F.4 | ~~**Dark mode**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | ~~**Dashboard widgets**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
@@ -376,10 +395,10 @@ All domain objects share three generic tables — no dedicated tables per type:
 DONE                                    CANDIDATES (pick next)
 ════                                    ══════════════════════
 Epic 1: Ontology Foundation             F.3  More entity types (medium, variable)
-Epic 2: Data-Driven Nav                 H.5  Composite DB index (low, small)
-5.1–5.4 Security                        F.4  Dark mode (low, medium)
-4.1 Role Management                     F.5  User profile enhancements (low, small)
-4.2 Menu Builder                        T.4  Minutes export PDF/Word (low, medium)
+Epic 2: Data-Driven Nav                 F.5  User profile enhancements (low, small)
+5.1–5.4 Security                        T.4  Minutes export PDF/Word (low, medium)
+4.1 Role Management
+4.2 Menu Builder
 4.3 Roles Builder
 3.1–3.3 App Settings
 6.1–6.6 UX features
@@ -394,14 +413,16 @@ H.1 Rate Limiting
 H.2 Input Validation
 H.3 WebSocket error handling
 H.4 Test coverage expansion (141 tests)
+H.5 Composite DB index
 ToR Expansion (13 tasks)
 T.1 Governance Map Visual Graph
 T.3 Meeting Outlook Calendar
 T.2 ToR Vacancy Warning Generators
 Data Manager Seed Refactor
-F.6 Dashboard Redesign
 F.1 Workflow Builder UI
 F.2 REST API v1 Layer (Users + Entities CRUD)
+F.4 Dark mode theme system
+F.6 Dashboard Redesign
 ```
 
 ---
