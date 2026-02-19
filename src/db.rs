@@ -344,6 +344,11 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     insert_prop(&conn, nav_gov_map_id, "url", "/governance/map");
     insert_prop(&conn, nav_gov_map_id, "parent", "governance");
 
+    // Governance -> Meeting Outlook: sidebar child
+    let nav_gov_outlook_id = insert_entity(&conn, "nav_item", "governance.outlook", "Meeting Outlook", 3);
+    insert_prop(&conn, nav_gov_outlook_id, "url", "/tor/outlook");
+    insert_prop(&conn, nav_gov_outlook_id, "parent", "governance");
+
     // --- Audit settings ---
     let audit_enabled_id = insert_entity(&conn, "setting", "audit.enabled", "Enable Audit Logging", 3);
     insert_prop(&conn, audit_enabled_id, "value", "true");
@@ -418,6 +423,12 @@ pub fn seed_ontology(pool: &DbPool, admin_password_hash: &str) {
     ).unwrap();
 
     insert_relation(&conn, requires_permission_rel_type_id, nav_gov_tor_id, tor_list_perm_id);
+
+    // Governance > Governance Map requires tor.list
+    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_map_id, tor_list_perm_id);
+
+    // Governance > Meeting Outlook requires tor.list
+    insert_relation(&conn, requires_permission_rel_type_id, nav_gov_outlook_id, tor_list_perm_id);
 
     // Governance -> Item Workflow: sidebar child
     let nav_gov_workflow_id = insert_entity(&conn, "nav_item", "governance.workflow", "Item Workflow", 2);

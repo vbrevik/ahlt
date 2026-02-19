@@ -128,6 +128,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `governance.tor` | Terms of Reference | `governance` | `/tor` | `tor.list` |
 | `governance.map` | Governance Map | `governance` | `/governance/map` | `tor.list` |
 | `governance.workflow` | Item Workflow | `governance` | `/workflow` | `suggestion.view` |
+| `governance.outlook` | Meeting Outlook | `governance` | `/tor/outlook` | `tor.list` |
 
 ---
 
@@ -270,9 +271,18 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Dagre 0.8.5 + D3 v7 from CDN, no new Rust dependencies
 - ToR card grid retained below graph as secondary reference
 
+### Meeting Outlook Calendar (T.3)
+- Cadence computation engine in `src/models/tor/calendar.rs`: `compute_meetings(conn, start, end)` generates `CalendarEvent` instances from ToR cadence rules (daily, working_days, weekly, biweekly, monthly, ad-hoc)
+- JSON API at `GET /api/tor/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD` with 90-day cap
+- Page at `/tor/outlook` with day/week/month CSS grid views
+- Hybrid rendering: server renders initial week, client `fetch()` for tab/date switching
+- Color-coded event pills per ToR, today highlighting, click-through to ToR detail
+- Safe DOM construction (no innerHTML) via `el()` helper pattern
+- Known gap: day view doesn't handle overlapping events side-by-side (e.g. 120min Sprint Planning covers 15min Daily Standup)
+
 - New relations seeded: `fills_position`, `protocol_of`, `feeds_into`, `escalates_to`, `minutes_of`, `section_of`, `template_of`, `slide_of`, `requires_template`
 - New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
-- New nav item: `governance.map` → `/governance/map` under Governance module
+- New nav items: `governance.map` → `/governance/map`, `governance.outlook` → `/tor/outlook` under Governance module
 
 ---
 
@@ -291,13 +301,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via db.rs seeding. Add CRUD UI for creating/editing workflow definitions without code changes. |
-| F.2 | **REST API layer** | Medium | Large | Only 3 JSON endpoints exist (`/ontology/api/{schema,graph}`, `/api/governance/graph`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
+| F.2 | **REST API layer** | Medium | Large | Only 4 JSON endpoints exist (`/ontology/api/{schema,graph}`, `/api/governance/graph`, `/api/tor/calendar`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
 | F.5 | **User profile enhancements** | Low | Small | Avatar upload, display name editing, notification preferences on the /account page. |
 | F.6 | **Dashboard widgets** | Low | Medium | Make dashboard cards data-driven — recent activity feed, pending workflow items, system health indicators. |
 | T.2 | **ToR vacancy warning generators** | Medium | Small | Background scheduler generators that fire warnings when mandatory positions in active ToRs are unfilled. Uses `fills_position` + `entity_properties membership_type=mandatory`. |
-| T.3 | **Meeting outlook calendar** | Medium | Medium | `/tor/outlook` with day/week/month CSS grid views + `GET /api/tor/calendar` endpoint computing meeting instances from cadence rules. Hybrid: server renders initial week view, client fetch for tab/date switching. **Plan ready**: `~/.claude/plans/piped-roaming-pearl.md` Tasks 2-4. |
+| T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.4 | **Minutes export (PDF/Word)** | Low | Medium | Export approved minutes as a formatted PDF or docx using a template. The EAV structure means all sections are available as structured data. |
 
 ---
@@ -327,6 +337,7 @@ H.1 Rate Limiting
 H.2 Input Validation
 ToR Expansion (13 tasks)
 T.1 Governance Map Visual Graph
+T.3 Meeting Outlook Calendar
 ```
 
 ---

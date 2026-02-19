@@ -216,6 +216,17 @@ pub struct GovernanceMapTemplate {
     pub dependencies: Vec<GovernanceMapEntry>,
 }
 
+// --- Meeting Outlook Calendar ---
+
+#[derive(Template)]
+#[template(path = "tor/outlook.html")]
+pub struct TorOutlookTemplate {
+    pub ctx: PageContext,
+    pub events_json: String,  // JSON-serialized Vec<CalendarEvent> for initial week
+    pub today: String,        // YYYY-MM-DD
+    pub week_start: String,   // YYYY-MM-DD (Monday of initial week)
+}
+
 // --- Presentation template management ---
 
 #[derive(Template)]

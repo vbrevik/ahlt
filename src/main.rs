@@ -138,9 +138,11 @@ async fn main() -> std::io::Result<()> {
                     .route("/api/governance/graph", web::get().to(handlers::governance_handlers::governance_graph_api))
                     // Workflow index
                     .route("/workflow", web::get().to(handlers::workflow_handlers::index))
-                    // ToR CRUD — /tor/new BEFORE /tor/{id}
+                    // ToR CRUD — /tor/new and /tor/outlook BEFORE /tor/{id}
                     .route("/tor", web::get().to(handlers::tor_handlers::list))
                     .route("/tor/new", web::get().to(handlers::tor_handlers::new_form))
+                    .route("/tor/outlook", web::get().to(handlers::tor_handlers::outlook))
+                    .route("/api/tor/calendar", web::get().to(handlers::tor_handlers::calendar_api))
                     .route("/tor", web::post().to(handlers::tor_handlers::create))
                     .route("/tor/{id}", web::get().to(handlers::tor_handlers::detail))
                     .route("/tor/{id}/edit", web::get().to(handlers::tor_handlers::edit_form))
