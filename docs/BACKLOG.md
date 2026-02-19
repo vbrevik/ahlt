@@ -284,6 +284,14 @@ All domain objects share three generic tables — no dedicated tables per type:
 - New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
 - New nav items: `governance.map` → `/governance/map`, `governance.outlook` → `/tor/outlook` under Governance module
 
+### Data Manager Seed Refactor
+- Replaced ~1,000 lines of procedural `seed_ontology()`/`seed_staging()` in `db.rs` with JSON fixture imports
+- Seed data now in `data/seed/ontology.json` (112 entities, 67 relations) and `data/seed/staging.json` (43 entities, 91 relations)
+- Uses `data_manager::import::import_data()` with `ConflictMode::Skip` for idempotent seeding
+- Passwords excluded from fixtures, hashed at runtime via `set_user_password()`
+- `include_str!` embeds fixtures at compile time — no filesystem dependency at runtime
+- To modify seed data: edit JSON fixtures, delete DB, restart server
+
 ---
 
 ## Remaining Backlog
@@ -300,7 +308,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via db.rs seeding. Add CRUD UI for creating/editing workflow definitions without code changes. |
+| F.1 | **Workflow builder UI** | High | Large | The workflow engine is fully built (statuses, transitions, permission-gated, condition support) but definitions can only be created via seed JSON fixtures or the data manager import. Add CRUD UI for creating/editing workflow definitions without manual JSON editing. |
 | F.2 | **REST API layer** | Medium | Large | Only 4 JSON endpoints exist (`/ontology/api/{schema,graph}`, `/api/governance/graph`, `/api/tor/calendar`). Add a `/api/v1/` prefix with JSON CRUD for entities, users, roles — enables external integrations and mobile clients. |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 | F.4 | **Dark mode** | Low | Medium | All CSS uses light-theme only. Add CSS custom property system for theme switching with user preference persistence. |
@@ -338,6 +346,7 @@ H.2 Input Validation
 ToR Expansion (13 tasks)
 T.1 Governance Map Visual Graph
 T.3 Meeting Outlook Calendar
+Data Manager Seed Refactor
 ```
 
 ---
