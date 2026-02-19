@@ -1073,6 +1073,139 @@
         "required_permission": "proposal.approve",
         "to_status_code": "rejected"
       }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "meeting.projected",
+      "label": "Projected",
+      "sort_order": 1,
+      "properties": {
+        "order": "1",
+        "status_code": "projected",
+        "is_initial": "true",
+        "label": "Projected",
+        "entity_type_scope": "meeting"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "meeting.confirmed",
+      "label": "Confirmed",
+      "sort_order": 2,
+      "properties": {
+        "order": "2",
+        "status_code": "confirmed",
+        "label": "Confirmed",
+        "entity_type_scope": "meeting"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "meeting.in_progress",
+      "label": "In Progress",
+      "sort_order": 3,
+      "properties": {
+        "order": "3",
+        "status_code": "in_progress",
+        "label": "In Progress",
+        "entity_type_scope": "meeting"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "meeting.completed",
+      "label": "Completed",
+      "sort_order": 4,
+      "properties": {
+        "order": "4",
+        "status_code": "completed",
+        "is_terminal": "true",
+        "label": "Completed",
+        "entity_type_scope": "meeting"
+      }
+    },
+    {
+      "entity_type": "workflow_status",
+      "name": "meeting.cancelled",
+      "label": "Cancelled",
+      "sort_order": 5,
+      "properties": {
+        "order": "5",
+        "status_code": "cancelled",
+        "is_terminal": "true",
+        "label": "Cancelled",
+        "entity_type_scope": "meeting"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "meeting.projected_to_confirmed",
+      "label": "Confirm",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Confirm",
+        "required_permission": "tor.edit",
+        "entity_type_scope": "meeting",
+        "from_status_code": "projected",
+        "to_status_code": "confirmed",
+        "requires_outcome": "false"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "meeting.projected_to_cancelled",
+      "label": "Cancel",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Cancel",
+        "required_permission": "tor.edit",
+        "entity_type_scope": "meeting",
+        "from_status_code": "projected",
+        "to_status_code": "cancelled",
+        "requires_outcome": "false"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "meeting.confirmed_to_in_progress",
+      "label": "Start Meeting",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Start Meeting",
+        "required_permission": "tor.edit",
+        "entity_type_scope": "meeting",
+        "from_status_code": "confirmed",
+        "to_status_code": "in_progress",
+        "requires_outcome": "false"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "meeting.confirmed_to_cancelled",
+      "label": "Cancel",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "Cancel",
+        "required_permission": "tor.edit",
+        "entity_type_scope": "meeting",
+        "from_status_code": "confirmed",
+        "to_status_code": "cancelled",
+        "requires_outcome": "false"
+      }
+    },
+    {
+      "entity_type": "workflow_transition",
+      "name": "meeting.in_progress_to_completed",
+      "label": "End Meeting",
+      "sort_order": 0,
+      "properties": {
+        "transition_label": "End Meeting",
+        "required_permission": "tor.edit",
+        "entity_type_scope": "meeting",
+        "from_status_code": "in_progress",
+        "to_status_code": "completed",
+        "requires_outcome": "false"
+      }
     }
   ],
   "relations": [
@@ -1425,6 +1558,56 @@
       "relation_type": "transition_to",
       "source": "workflow_transition:proposal.review_to_rejected",
       "target": "workflow_status:proposal.rejected"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:meeting.projected_to_confirmed",
+      "target": "workflow_status:meeting.projected"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:meeting.projected_to_confirmed",
+      "target": "workflow_status:meeting.confirmed"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:meeting.projected_to_cancelled",
+      "target": "workflow_status:meeting.projected"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:meeting.projected_to_cancelled",
+      "target": "workflow_status:meeting.cancelled"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:meeting.confirmed_to_in_progress",
+      "target": "workflow_status:meeting.confirmed"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:meeting.confirmed_to_in_progress",
+      "target": "workflow_status:meeting.in_progress"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:meeting.confirmed_to_cancelled",
+      "target": "workflow_status:meeting.confirmed"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:meeting.confirmed_to_cancelled",
+      "target": "workflow_status:meeting.cancelled"
+    },
+    {
+      "relation_type": "transition_from",
+      "source": "workflow_transition:meeting.in_progress_to_completed",
+      "target": "workflow_status:meeting.in_progress"
+    },
+    {
+      "relation_type": "transition_to",
+      "source": "workflow_transition:meeting.in_progress_to_completed",
+      "target": "workflow_status:meeting.completed"
     }
   ]
 }
