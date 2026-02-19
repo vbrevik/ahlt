@@ -323,7 +323,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). |
-| H.4 | **Test coverage expansion** | Medium | Large | ~10 handler modules lack isolated integration tests: account, auth, dashboard, audit, menu builder, ontology, ToR, agenda, COA, opinion. Currently 50 tests / 8 files. |
+| H.4 | **Test coverage expansion** | Medium | Large | Risk-first expansion: shared HTTP infra + 5 domain test files. Design: `docs/plans/2026-02-19-test-coverage-expansion-design.md`. Target: ~49 → ~101 tests. |
+| H.4.1 | &nbsp;&nbsp;↳ Shared HTTP infrastructure | — | Small | Create `tests/common/mod.rs`: `setup_test_db_seeded()`, `build_test_app()`, `login_as_admin()`, `get_csrf_token()`. |
+| H.4.2 | &nbsp;&nbsp;↳ Auth tests | — | Small | `tests/auth_test.rs`: model (find_by_username, password verify) + HTTP (login flow, unauth redirect). ~8 tests. |
+| H.4.3 | &nbsp;&nbsp;↳ User CRUD tests | — | Medium | `tests/user_test.rs`: model (create, paginate, search, update, delete, password change) + HTTP (gates, create flow). ~12 tests. |
+| H.4.4 | &nbsp;&nbsp;↳ Workflow builder tests | — | Medium | `tests/workflow_builder_test.rs`: model (status/transition CRUD, scope listing) + HTTP (gates). ~12 tests. |
+| H.4.5 | &nbsp;&nbsp;↳ ToR tests | — | Medium | `tests/tor_test.rs`: model (CRUD, members, protocol, calendar computation, dependencies) + HTTP (gate). ~12 tests. |
+| H.4.6 | &nbsp;&nbsp;↳ Minutes tests | — | Small | `tests/minutes_test.rs`: model (scaffold 5 sections, lifecycle, immutability) + HTTP (gate). ~8 tests. |
 | H.5 | **Composite DB index** | Low | Small | Add `entity_properties(entity_id, key)` composite index for EAV lookup performance. |
 
 ### Features
