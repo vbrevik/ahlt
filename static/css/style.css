@@ -4173,3 +4173,84 @@ fieldset legend {
 .hidden {
     display: none;
 }
+
+/* === Profile Section === */
+.profile-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1.5rem;
+}
+
+.avatar-section,
+.display-name-section {
+    flex: 1;
+}
+
+.avatar-preview-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1.5rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-hover);
+    overflow: hidden;
+}
+
+.avatar-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+#avatar-upload {
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.form-error {
+    color: var(--danger);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.form-inline {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.form-inline .form-group {
+    flex: 1;
+    margin: 0;
+}
+
+.form-inline .form-actions {
+    margin: 0;
+    padding: 0;
+}
+
+@media (max-width: 768px) {
+    .profile-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .form-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-inline .form-actions {
+        margin-top: 1rem;
+    }
+}

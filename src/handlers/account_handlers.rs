@@ -3,7 +3,7 @@ use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 
 use crate::db::DbPool;
-use crate::models::user;
+use crate::models::{user, entity};
 use crate::auth::{csrf, password, validate};
 use crate::auth::session::get_user_id;
 use crate::errors::{AppError, render};
@@ -15,6 +15,16 @@ pub struct ChangePasswordForm {
     pub new_password: String,
     pub confirm_password: String,
     pub csrf_token: String,
+}
+
+#[derive(Deserialize)]
+pub struct ProfileUpdateForm {
+    pub action: String, // "upload_avatar", "delete_avatar", "update_display_name"
+    pub csrf_token: String,
+    #[serde(default)]
+    pub avatar_data_uri: String,
+    #[serde(default)]
+    pub display_name: String,
 }
 
 pub async fn form(
@@ -74,4 +84,102 @@ pub async fn submit(
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", "/account"))
         .finish())
+}
+
+/// Handle profile updates (avatar upload, delete, display name change)
+pub async fn update_profile(
+    pool: web::Data<DbPool>,
+    session: Session,
+    form: web::Form<ProfileUpdateForm>,
+) -> Result<HttpResponse, AppError> {
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let user_id = get_user_id(&session)
+        .ok_or_else(|| AppError::Session("User not logged in".to_string()))?;
+
+    let conn = pool.get()?;
+
+    match form.action.as_str() {
+        "upload_avatar" => {
+            // Validate data URI
+            if !form.avatar_data_uri.starts_with("data:image/") {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Invalid image format"
+                })));
+            }
+
+            // Limit size (data URI includes prefix, so estimate ~1.33x of binary size)
+            if form.avatar_data_uri.len() > 200 * 1024 * 1.4 as usize {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Avatar too large"
+                })));
+            }
+
+            // Save avatar to entity_properties
+            entity::set_property(&conn, user_id, "avatar_data_uri", &form.avatar_data_uri)?;
+
+            // Audit log
+            let details = serde_json::json!({
+                "summary": "User avatar uploaded"
+            });
+            let _ = crate::audit::log(&conn, user_id, "user.avatar_uploaded", "user", user_id, details);
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+        }
+        "delete_avatar" => {
+            // Delete avatar property
+            entity::delete_property(&conn, user_id, "avatar_data_uri")?;
+
+            // Audit log
+            let details = serde_json::json!({
+                "summary": "User avatar deleted"
+            });
+            let _ = crate::audit::log(&conn, user_id, "user.avatar_deleted", "user", user_id, details);
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+        }
+        "update_display_name" => {
+            // Validate display name
+            let mut errors = Vec::new();
+            errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
+
+            if !errors.is_empty() {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Validation failed",
+                    "details": errors.join("; ")
+                })));
+            }
+
+            // Get current user data
+            let current_user = user::find_display_by_id(&conn, user_id)?
+                .ok_or(AppError::NotFound)?;
+
+            // Update display name
+            user::update(
+                &conn,
+                user_id,
+                &current_user.username,
+                None,
+                &current_user.email,
+                &form.display_name,
+                current_user.role_id,
+            )?;
+
+            // Update session label
+            let _ = session.insert("label", form.display_name.clone());
+
+            // Audit log
+            let details = serde_json::json!({
+                "old_display_name": current_user.role_name,
+                "new_display_name": form.display_name,
+                "summary": "User display name updated"
+            });
+            let _ = crate::audit::log(&conn, user_id, "user.display_name_updated", "user", user_id, details);
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+        }
+        _ => Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Invalid action"
+        })))
+    }
 }

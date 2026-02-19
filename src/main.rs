@@ -241,6 +241,7 @@ async fn main() -> std::io::Result<()> {
                     // Account
                     .route("/account", web::get().to(handlers::account_handlers::form))
                     .route("/account", web::post().to(handlers::account_handlers::submit))
+                    .route("/account/profile", web::post().to(handlers::account_handlers::update_profile))
                     // Settings
                     .route("/settings", web::get().to(handlers::settings_handlers::list))
                     .route("/settings", web::post().to(handlers::settings_handlers::save))

@@ -16,11 +16,57 @@
 {% endif %}
 
 <div class="tabs" role="tablist">
-    <button class="tab-button active" role="tab" aria-selected="true" aria-controls="security">Security</button>
+    <button class="tab-button active" role="tab" aria-selected="true" aria-controls="profile">Profile</button>
+    <button class="tab-button" role="tab" aria-selected="false" aria-controls="security">Security</button>
     <button class="tab-button" role="tab" aria-selected="false" aria-controls="preferences">Preferences</button>
 </div>
 
-<div id="security" class="tab-panel" role="tabpanel">
+<div id="profile" class="tab-panel" role="tabpanel">
+    <h1>Profile</h1>
+    
+    <div class="profile-container">
+        <div class="avatar-section">
+            <div class="form-card">
+                <h2>Avatar</h2>
+                <div class="form-group">
+                    <div class="avatar-preview-container">
+                        <img id="avatar-preview" class="avatar-preview" src="" alt="Profile avatar" style="display:none;">
+                        <div id="avatar-placeholder" class="avatar-placeholder">📷</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="avatar-upload">Upload Avatar (Max 200KB, JPEG/PNG)</label>
+                    <input type="file" id="avatar-upload" accept="image/jpeg,image/png">
+                    <div id="avatar-error" class="form-error" style="display:none;"></div>
+                </div>
+                <div id="avatar-actions" class="form-actions" style="display:none;">
+                    <button type="button" id="avatar-save" class="btn btn-primary">Save Avatar</button>
+                    <button type="button" id="avatar-delete" class="btn btn-danger">Delete Avatar</button>
+                    <button type="button" id="avatar-cancel" class="btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="display-name-section">
+            <div class="form-card">
+                <h2>Display Name</h2>
+                <form id="display-name-form" method="post" action="/account/profile" class="form-inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="action" value="update_display_name">
+                    <div class="form-group">
+                        <label for="display-name-input">Display Name</label>
+                        <input type="text" id="display-name-input" name="display_name" value="{{ ctx.username }}" maxlength="100" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="security" class="tab-panel hidden" role="tabpanel">
     <h1>Change Password</h1>
 
     {% for err in errors %}
@@ -104,6 +150,114 @@
             btn.classList.add('active');
             window.toggleTheme(theme);
         });
+    });
+    
+    // Avatar upload handling
+    const avatarUpload = document.getElementById('avatar-upload');
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarPlaceholder = document.getElementById('avatar-placeholder');
+    const avatarActions = document.getElementById('avatar-actions');
+    const avatarError = document.getElementById('avatar-error');
+    const avatarSave = document.getElementById('avatar-save');
+    const avatarDelete = document.getElementById('avatar-delete');
+    const avatarCancel = document.getElementById('avatar-cancel');
+    
+    let selectedFile = null;
+    let selectedDataUri = null;
+    
+    avatarUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!['image/jpeg', 'image/png'].includes(file.type)) {
+            avatarError.textContent = 'Only JPEG and PNG files are allowed';
+            avatarError.style.display = 'block';
+            return;
+        }
+        
+        // Validate file size (200KB)
+        if (file.size > 200 * 1024) {
+            avatarError.textContent = 'File size must be less than 200KB';
+            avatarError.style.display = 'block';
+            return;
+        }
+        
+        avatarError.style.display = 'none';
+        selectedFile = file;
+        
+        // Read file as data URI
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            selectedDataUri = event.target.result;
+            avatarPreview.src = selectedDataUri;
+            avatarPreview.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+            avatarActions.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    avatarSave.addEventListener('click', async () => {
+        if (!selectedDataUri) return;
+        
+        const formData = new FormData();
+        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+        formData.append('action', 'upload_avatar');
+        formData.append('avatar_data_uri', selectedDataUri);
+        
+        try {
+            const response = await fetch('/account/profile', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                // Reload page to show updated avatar
+                window.location.reload();
+            } else {
+                avatarError.textContent = 'Failed to save avatar';
+                avatarError.style.display = 'block';
+            }
+        } catch (err) {
+            avatarError.textContent = 'Error uploading avatar';
+            avatarError.style.display = 'block';
+        }
+    });
+    
+    avatarDelete.addEventListener('click', async () => {
+        if (!confirm('Delete your avatar?')) return;
+        
+        const formData = new FormData();
+        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+        formData.append('action', 'delete_avatar');
+        
+        try {
+            const response = await fetch('/account/profile', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                avatarError.textContent = 'Failed to delete avatar';
+                avatarError.style.display = 'block';
+            }
+        } catch (err) {
+            avatarError.textContent = 'Error deleting avatar';
+            avatarError.style.display = 'block';
+        }
+    });
+    
+    avatarCancel.addEventListener('click', () => {
+        avatarUpload.value = '';
+        selectedFile = null;
+        selectedDataUri = null;
+        avatarPreview.style.display = 'none';
+        avatarPlaceholder.style.display = 'block';
+        avatarActions.style.display = 'none';
+        avatarError.style.display = 'none';
     });
 </script>
 {% endblock %}
