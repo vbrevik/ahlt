@@ -136,6 +136,15 @@ async fn main() -> std::io::Result<()> {
                     // Governance map — before parameterized /tor/{id} routes
                     .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
                     .route("/api/governance/graph", web::get().to(handlers::governance_handlers::governance_graph_api))
+                    // Workflow builder — BEFORE /workflow to avoid path conflict
+                    .route("/workflow/builder", web::get().to(handlers::workflow_builder_handlers::list))
+                    .route("/workflow/builder/{scope}", web::get().to(handlers::workflow_builder_handlers::detail))
+                    .route("/workflow/builder/{scope}/statuses", web::post().to(handlers::workflow_builder_handlers::create_status))
+                    .route("/workflow/builder/{scope}/statuses/{id}/update", web::post().to(handlers::workflow_builder_handlers::update_status))
+                    .route("/workflow/builder/{scope}/statuses/{id}/delete", web::post().to(handlers::workflow_builder_handlers::delete_status))
+                    .route("/workflow/builder/{scope}/transitions", web::post().to(handlers::workflow_builder_handlers::create_transition))
+                    .route("/workflow/builder/{scope}/transitions/{id}/update", web::post().to(handlers::workflow_builder_handlers::update_transition))
+                    .route("/workflow/builder/{scope}/transitions/{id}/delete", web::post().to(handlers::workflow_builder_handlers::delete_transition))
                     // Workflow index
                     .route("/workflow", web::get().to(handlers::workflow_handlers::index))
                     // ToR CRUD — /tor/new and /tor/outlook BEFORE /tor/{id}

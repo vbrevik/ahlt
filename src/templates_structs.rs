@@ -68,7 +68,13 @@ pub struct LoginTemplate {
 pub struct DashboardTemplate {
     pub ctx: PageContext,
     pub role_label: String,
+    pub greeting: String,
     pub user_count: i64,
+    pub role_count: i64,
+    pub proposal_count: i64,
+    pub tor_position_count: i64,
+    pub audit_entry_count: i64,
+    pub recent_activity: Vec<crate::models::audit::AuditEntry>,
 }
 
 #[derive(Template)]
@@ -262,6 +268,23 @@ pub struct WorkflowIndexTemplate {
     pub suggestions: Vec<CrossTorSuggestionItem>,
     pub proposals: Vec<CrossTorProposalItem>,
     pub agenda_points: Vec<CrossTorAgendaItem>,
+}
+
+#[derive(Template)]
+#[template(path = "workflow/builder_list.html")]
+pub struct WorkflowBuilderListTemplate {
+    pub ctx: PageContext,
+    pub scopes: Vec<crate::models::workflow::WorkflowScope>,
+}
+
+#[derive(Template)]
+#[template(path = "workflow/builder_detail.html")]
+pub struct WorkflowBuilderDetailTemplate {
+    pub ctx: PageContext,
+    pub scope: String,
+    pub statuses: Vec<crate::models::workflow::WorkflowStatus>,
+    pub transitions: Vec<crate::models::workflow::WorkflowTransition>,
+    pub permissions: Vec<crate::models::entity::Entity>,
 }
 
 #[derive(Template)]

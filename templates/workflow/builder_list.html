@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Workflow Builder — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Workflow Builder</h1>
+</div>
+
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem; max-width: 640px;">
+    Define state machines for entity types. Each workflow defines the valid statuses and
+    transitions that govern how items move through their lifecycle.
+</p>
+
+{% if scopes.is_empty() %}
+<div class="empty-state">
+    <div class="empty-state-icon">&#9881;</div>
+    <div class="empty-state-title">No workflows defined</div>
+    <p class="empty-state-text">
+        Workflow definitions are created through seed data or the data manager.
+        Existing workflows for suggestions and proposals will appear here once seeded.
+    </p>
+</div>
+{% else %}
+<div class="wfb-scope-grid">
+{% for scope in scopes %}
+    <a href="/workflow/builder/{{ scope.scope }}" class="wfb-scope-card">
+        <div class="wfb-scope-card-header">
+            <span class="wfb-scope-name">{{ scope.scope }}</span>
+            <span class="wfb-scope-arrow">&rarr;</span>
+        </div>
+        <div class="wfb-scope-stats">
+            <div class="wfb-scope-stat">
+                <span class="wfb-scope-stat-value">{{ scope.status_count }}</span>
+                <span class="wfb-scope-stat-label">Statuses</span>
+            </div>
+            <div class="wfb-scope-stat">
+                <span class="wfb-scope-stat-value">{{ scope.transition_count }}</span>
+                <span class="wfb-scope-stat-label">Transitions</span>
+            </div>
+        </div>
+    </a>
+{% endfor %}
+</div>
+{% endif %}
+
+<style>
+.wfb-scope-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+.wfb-scope-card {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow var(--duration-slow) var(--ease), transform var(--duration-slow) var(--ease);
+}
+.wfb-scope-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+.wfb-scope-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.wfb-scope-name {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: capitalize;
+}
+.wfb-scope-arrow {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    transition: transform var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.wfb-scope-card:hover .wfb-scope-arrow {
+    transform: translateX(4px);
+    color: var(--accent);
+}
+.wfb-scope-stats {
+    display: flex;
+    gap: 2rem;
+}
+.wfb-scope-stat-value {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+}
+.wfb-scope-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+</style>
+{% endblock %}

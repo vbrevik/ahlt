@@ -825,6 +825,16 @@
       }
     },
     {
+      "entity_type": "nav_item",
+      "name": "governance.workflow_builder",
+      "label": "Workflow Builder",
+      "sort_order": 5,
+      "properties": {
+        "url": "/workflow/builder",
+        "parent": "governance"
+      }
+    },
+    {
       "entity_type": "workflow_status",
       "name": "suggestion.open",
       "label": "Open",
@@ -1294,6 +1304,11 @@
       "relation_type": "requires_permission",
       "source": "nav_item:governance.workflow",
       "target": "permission:suggestion.view"
+    },
+    {
+      "relation_type": "requires_permission",
+      "source": "nav_item:governance.workflow_builder",
+      "target": "permission:workflow.manage"
     },
     {
       "relation_type": "transition_from",
