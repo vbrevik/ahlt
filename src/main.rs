@@ -140,20 +140,18 @@ async fn main() -> std::io::Result<()> {
                     .route("/users/{id}", web::post().to(handlers::user_handlers::update))
                     .route("/users/{id}/delete", web::post().to(handlers::user_handlers::delete))
                     .route("/users/bulk-delete", web::post().to(handlers::user_handlers::bulk_delete))
-                    // Role CRUD
+                    // Role assignment
                     .route("/roles", web::get().to(handlers::role_handlers::list))
-                    // Role Builder — specific routes BEFORE /roles/{id}
+                    .route("/roles/assign", web::post().to(handlers::role_handlers::assignment::assign))
+                    .route("/roles/unassign", web::post().to(handlers::role_handlers::assignment::unassign))
+                    .route("/api/roles/preview", web::get().to(handlers::role_handlers::assignment::menu_preview))
+                    // Role Builder — specific routes BEFORE parameterized /roles/{id}
                     .route("/roles/builder", web::get().to(handlers::role_builder_handlers::wizard_form))
                     .route("/roles/builder/preview", web::post().to(handlers::role_builder_handlers::preview_menu))
                     .route("/roles/builder/create", web::post().to(handlers::role_builder_handlers::create_role))
                     .route("/roles/builder/update", web::post().to(handlers::role_builder_handlers::update_role))
                     .route("/roles/builder/{id}/edit", web::get().to(handlers::role_builder_handlers::edit_form))
                     .route("/roles/builder/{id}/delete", web::post().to(handlers::role_handlers::delete))
-                    // Role assignment — specific routes BEFORE /roles/{id}
-                    .route("/roles/assign", web::post().to(handlers::role_handlers::assignment::assign))
-                    .route("/roles/unassign", web::post().to(handlers::role_handlers::assignment::unassign))
-                    .route("/api/roles/preview", web::get().to(handlers::role_handlers::assignment::menu_preview))
-                    .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // Governance map — before parameterized /tor/{id} routes
                     .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
                     .route("/api/governance/graph", web::get().to(handlers::governance_handlers::governance_graph_api))
