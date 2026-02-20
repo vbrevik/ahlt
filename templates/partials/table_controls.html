@@ -18,7 +18,7 @@
             Showing <strong>{{ user_page.users.len() }}</strong> of <strong>{{ user_page.total_count }}</strong> users
         </div>
         <button type="button" class="btn btn-sm" id="col-picker-btn">&#8862; Columns</button>
-        <a href="/users/export.csv?filter={{ filter_json }}&sort={{ sort_column }}&dir={{ sort_dir }}"
+        <a href="/users/export.csv?filter={{ filter_json|safe }}&sort={{ sort_column }}&dir={{ sort_dir }}"
            class="btn btn-sm" target="_blank">&#8595; Export CSV</a>
     </div>
 </div>

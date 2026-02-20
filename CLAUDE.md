@@ -125,6 +125,41 @@ cargo test -- --nocapture           # With stdout
 cargo test --test meeting_test      # Integration test by file
 ```
 
+### Playwright E2E Tests
+
+Browser-based integration tests live in `scripts/`. They require a running server with staging seed data.
+
+**One-time setup** (Node.js required):
+
+```bash
+mkdir -p /tmp/pw-test
+cd /tmp/pw-test
+npm init -y
+npm install @playwright/test
+npx playwright install chromium
+```
+
+**Running tests** (server must be running first):
+
+```bash
+# Terminal 1 — start server with staging data
+APP_ENV=staging cargo run
+
+# Terminal 2 — run tests
+cd /tmp/pw-test
+node /Users/vidarbrevik/projects/im-ctrl/scripts/users-table.test.mjs
+```
+
+**Credentials**: `admin` / `admin123` · **Base URL**: `http://localhost:8080`
+
+**Test files**:
+
+| File | Coverage |
+|------|----------|
+| `scripts/users-table.test.mjs` | Users table: filter builder, sorting, column picker, per-page, CSV export, URL state (46 tests) |
+
+**Key gotcha**: Askama's `{{ variable }}` auto-HTML-escapes content. JSON embedded in `<script type="application/json">` blocks **must** use `{{ variable|safe }}` or `JSON.parse()` will fail on `&#34;` instead of `"`.
+
 ## Critical Rules
 
 - **No `&&` in Askama**: `{% if a %}{% if b %}...{% endif %}{% endif %}` — nested, not `{% if a && b %}`

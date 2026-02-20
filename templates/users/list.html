@@ -16,8 +16,8 @@
     {% endif %}
 </div>
 
-<script type="application/json" id="filter-state-json">{{ filter_json }}</script>
-<script type="application/json" id="filter-fields-json">{{ fields_json }}</script>
+<script type="application/json" id="filter-state-json">{{ filter_json|safe }}</script>
+<script type="application/json" id="filter-fields-json">{{ fields_json|safe }}</script>
 
 {% include "partials/table_filter.html" %}
 {% include "partials/table_controls.html" %}
