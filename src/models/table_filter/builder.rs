@@ -178,4 +178,15 @@ mod tests {
         };
         assert!(build_where_clause(&tree, &user_field_map(), USER_OPS, 0).is_err());
     }
+
+    #[test]
+    fn param_offset_shifts_placeholders() {
+        let tree = FilterTree {
+            conditions: vec![Condition { field: "username".into(), op: "contains".into(), value: "alice".into() }],
+            ..Default::default()
+        };
+        let (sql, params) = build_where_clause(&tree, &user_field_map(), USER_OPS, 5).unwrap();
+        assert_eq!(sql, "e.name LIKE '%' || ?6 || '%'");
+        assert_eq!(params, vec!["alice"]);
+    }
 }
