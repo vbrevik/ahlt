@@ -862,6 +862,67 @@
         "stance": "support",
         "rationale": "AWS provides superior developer tooling and more flexible pricing for our workload mix. The broader service catalogue future-proofs our architecture."
       }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_rejected_igb",
+      "label": "Standardise on a single video conferencing platform",
+      "sort_order": 0,
+      "properties": {
+        "submitted_date": "2026-01-10",
+        "description": "We currently use Teams, Zoom, and Meet depending on the team. Standardising on one platform would reduce licence costs and user confusion.",
+        "status": "rejected"
+      }
+    },
+    {
+      "entity_type": "suggestion",
+      "name": "suggestion_open_cab",
+      "label": "Introduce automated rollback for failed deployments",
+      "sort_order": 0,
+      "properties": {
+        "submitted_date": "2026-02-14",
+        "description": "Implement automated rollback triggers in the deployment pipeline so failed production deployments revert within 5 minutes without manual CAB intervention.",
+        "status": "open"
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "proposal_under_review_igb",
+      "label": "Unified API Gateway Policy",
+      "sort_order": 0,
+      "properties": {
+        "title": "Unified API Gateway Policy",
+        "submitted_date": "2026-02-01",
+        "status": "under_review",
+        "description": "Mandate all internal service-to-service communication routes through a central API gateway with rate limiting, authentication, and audit logging.",
+        "rationale": "Current direct service calls bypass security controls. 3 incidents in Q4 2025 traced to unaudited API calls."
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "proposal_approved_igb",
+      "label": "Zero-Trust Network Architecture",
+      "sort_order": 0,
+      "properties": {
+        "title": "Zero-Trust Network Architecture",
+        "submitted_date": "2025-11-15",
+        "status": "approved",
+        "description": "Implement zero-trust network segmentation across all environments. No implicit trust based on network location.",
+        "rationale": "Security audit identified lateral movement risk. Zero-trust eliminates the assumption that internal traffic is safe."
+      }
+    },
+    {
+      "entity_type": "proposal",
+      "name": "proposal_rejected_cab",
+      "label": "Remove CAB approval for low-risk changes",
+      "sort_order": 0,
+      "properties": {
+        "title": "Remove CAB approval for low-risk changes",
+        "submitted_date": "2026-01-20",
+        "status": "rejected",
+        "description": "Eliminate CAB review requirement for changes classified as low-risk per the risk matrix, relying solely on automated testing gates.",
+        "rationale": "CAB process adds 5-7 days to low-risk deployments. Automated gates already catch regression. Streamlining would cut cycle time significantly."
+      }
     }
   ],
   "relations": [
@@ -1424,6 +1485,11 @@
     { "relation_type": "prefers_coa", "source": "opinion:opinion_alice_cloud_2026", "target": "coa:coa_igb_cloud_azure" },
     { "relation_type": "opinion_by", "source": "opinion:opinion_henry_cloud_2026", "target": "user:henry" },
     { "relation_type": "opinion_on", "source": "opinion:opinion_henry_cloud_2026", "target": "agenda_point:agenda_igb_2026_03_18_cloud" },
-    { "relation_type": "prefers_coa", "source": "opinion:opinion_henry_cloud_2026", "target": "coa:coa_igb_cloud_aws" }
+    { "relation_type": "prefers_coa", "source": "opinion:opinion_henry_cloud_2026", "target": "coa:coa_igb_cloud_aws" },
+    { "relation_type": "suggested_to", "source": "suggestion:suggestion_rejected_igb", "target": "tor:it_governance_board" },
+    { "relation_type": "suggested_to", "source": "suggestion:suggestion_open_cab", "target": "tor:change_advisory_board" },
+    { "relation_type": "submitted_to", "source": "proposal:proposal_under_review_igb", "target": "tor:it_governance_board" },
+    { "relation_type": "submitted_to", "source": "proposal:proposal_approved_igb", "target": "tor:it_governance_board" },
+    { "relation_type": "submitted_to", "source": "proposal:proposal_rejected_cab", "target": "tor:change_advisory_board" }
   ]
 }
