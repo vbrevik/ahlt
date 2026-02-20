@@ -537,6 +537,24 @@
         "status": "scheduled",
         "title": "Refine sprint 14 backlog candidates"
       }
+    },
+    {
+      "entity_type": "role",
+      "name": "secretary",
+      "label": "Secretary",
+      "sort_order": 6,
+      "properties": {
+        "description": "Records meeting minutes and manages documentation"
+      }
+    },
+    {
+      "entity_type": "role",
+      "name": "governance_officer",
+      "label": "Governance Officer",
+      "sort_order": 7,
+      "properties": {
+        "description": "Manages governance processes, ToRs, and proposal approvals"
+      }
     }
   ],
   "relations": [
@@ -1024,6 +1042,28 @@
         "output_types": "defined acceptance criteria",
         "description": "Acceptance criteria agreed in refinement used to verify completion at sprint review"
       }
-    }
+    },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:dashboard.view" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:tor.list" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:agenda.view" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:meetings.view" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:minutes.generate" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:minutes.edit" },
+    { "relation_type": "has_permission", "source": "role:secretary", "target": "permission:minutes.approve" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:dashboard.view" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:tor.list" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:tor.create" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:tor.edit" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:tor.manage_members" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:suggestion.view" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:suggestion.review" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:proposal.view" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:proposal.review" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:proposal.approve" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:agenda.view" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:agenda.manage" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:agenda.decide" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:meetings.view" },
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:minutes.approve" }
   ]
 }
