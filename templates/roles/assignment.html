@@ -17,7 +17,9 @@
 
 <div class="page-header">
     <h1>Role Assignment</h1>
+    {% if ctx.permissions.has("roles.manage") %}
     <a href="/roles/builder" class="btn btn-primary">New Role</a>
+    {% endif %}
 </div>
 
 <div class="assignment-tabs">

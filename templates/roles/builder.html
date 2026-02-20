@@ -103,6 +103,16 @@
             </div>
         </div>
     </form>
+
+    {% if let Some(r) = role %}
+    <div class="form-actions form-actions--danger">
+        <form method="post" action="/roles/builder/{{ r.id }}/delete"
+              onsubmit="return confirm('Delete this role? This cannot be undone.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-danger">Delete Role</button>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
 <script>

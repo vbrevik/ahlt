@@ -148,6 +148,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/roles/builder/create", web::post().to(handlers::role_builder_handlers::create_role))
                     .route("/roles/builder/update", web::post().to(handlers::role_builder_handlers::update_role))
                     .route("/roles/builder/{id}/edit", web::get().to(handlers::role_builder_handlers::edit_form))
+                    .route("/roles/builder/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // Role assignment — specific routes BEFORE /roles/{id}
                     .route("/roles/assign", web::post().to(handlers::role_handlers::assignment::assign))
                     .route("/roles/unassign", web::post().to(handlers::role_handlers::assignment::unassign))
