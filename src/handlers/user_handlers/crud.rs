@@ -468,3 +468,115 @@ pub async fn bulk_delete(
         .insert_header(("Location", "/users"))
         .finish())
 }
+
+#[derive(serde::Deserialize)]
+pub struct ExportQuery {
+    filter: Option<String>,
+    sort: Option<String>,
+    dir: Option<String>,
+}
+
+pub async fn export_csv(
+    pool: web::Data<DbPool>,
+    session: Session,
+    query: web::Query<ExportQuery>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.list")?;
+
+    let conn = pool.get()?;
+
+    let filter = query.filter.as_deref()
+        .and_then(|s| crate::models::table_filter::FilterTree::from_json(s).ok())
+        .unwrap_or_default();
+    let sort = crate::models::table_filter::SortSpec::from_params(
+        query.sort.as_deref(), query.dir.as_deref()
+    );
+
+    let users = crate::models::user::find_all_filtered(&conn, &filter, &sort)?;
+
+    // Audit log
+    let uid = crate::auth::session::get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(&conn, uid, "users.export", "user", 0,
+        serde_json::json!({ "count": users.len(), "format": "csv" }));
+
+    // Get today's date for filename
+    let today: String = conn.query_row("SELECT DATE('now')", [], |r| r.get(0))
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    fn escape_csv(s: &str) -> String {
+        if s.contains(',') || s.contains('"') || s.contains('\n') {
+            format!("\"{}\"", s.replace('"', "\"\""))
+        } else {
+            s.to_string()
+        }
+    }
+
+    let mut csv = String::from("id,username,display_name,email,role,created_at,updated_at\n");
+    for u in &users {
+        csv.push_str(&format!("{},{},{},{},{},{},{}\n",
+            u.id,
+            escape_csv(&u.username),
+            escape_csv(&u.display_name),
+            escape_csv(&u.email),
+            escape_csv(&u.role_label),
+            u.created_at,
+            u.updated_at,
+        ));
+    }
+
+    Ok(HttpResponse::Ok()
+        .content_type("text/csv; charset=utf-8")
+        .insert_header(("Content-Disposition",
+            format!("attachment; filename=\"users-{today}.csv\"")))
+        .body(csv))
+}
+
+#[derive(serde::Deserialize)]
+pub struct SaveColumnsForm {
+    pub columns: String,
+    pub set_global: Option<String>,
+    pub csrf_token: String,
+    pub redirect_to: Option<String>,
+}
+
+pub async fn save_columns(
+    pool: web::Data<DbPool>,
+    session: Session,
+    form: web::Form<SaveColumnsForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "users.list")?;
+    crate::auth::csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let conn = pool.get()?;
+    let user_id = crate::auth::session::get_user_id(&session)
+        .ok_or_else(|| AppError::Session("Not logged in".to_string()))?;
+
+    // Validate: only known column keys allowed
+    const VALID_KEYS: &[&str] = &["user", "email", "status", "created_at", "updated_at", "actions"];
+    let sanitized: String = form.columns.split(',')
+        .map(str::trim)
+        .filter(|k| VALID_KEYS.contains(k))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    // Always include always-visible columns
+    let pref = if !sanitized.contains("user") {
+        format!("user,{sanitized}")
+    } else { sanitized.clone() };
+    let pref = if !pref.contains("actions") {
+        format!("{pref},actions")
+    } else { pref };
+
+    crate::models::table_filter::columns::save_user_columns(user_id, "users", &pref, &conn)?;
+
+    // Optionally save global default
+    if form.set_global.as_deref() == Some("true") {
+        require_permission(&session, "settings.manage")?;
+        crate::models::table_filter::columns::save_global_columns("users", &pref, &conn)?;
+    }
+
+    let redirect = form.redirect_to.as_deref().unwrap_or("/users");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", redirect.to_string()))
+        .finish())
+}
