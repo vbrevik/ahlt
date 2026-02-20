@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use serde::{Serialize, Deserialize};
 
 use crate::errors::AppError;
-use crate::models::user::{UserDisplay, UserPage};
+use crate::models::user::UserDisplay;
 use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::role::builder::NavItemPreview;
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
@@ -83,8 +83,14 @@ pub struct DashboardTemplate {
 #[template(path = "users/list.html")]
 pub struct UserListTemplate {
     pub ctx: PageContext,
-    pub user_page: UserPage,
-    pub search_query: Option<String>,
+    pub user_page: crate::models::user::types::UserPage,
+    pub filter_json: String,
+    pub filter_active: bool,
+    pub sort_column: String,
+    pub sort_dir: String,
+    pub columns: Vec<crate::models::table_filter::ColumnDef>,
+    pub available_roles: Vec<(String, String)>,
+    pub fields_json: String,
 }
 
 #[derive(Template)]

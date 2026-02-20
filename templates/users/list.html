@@ -20,15 +20,6 @@
     {% if ctx.permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
 </div>
 
-<form method="get" action="/users" class="search-form">
-    <input type="search" name="q" placeholder="Search by username or name..."
-           value="{% if let Some(q) = search_query %}{{ q }}{% endif %}" class="search-input">
-    <button type="submit" class="btn">Search</button>
-    {% if search_query.is_some() %}
-    <a href="/users" class="btn">Clear</a>
-    {% endif %}
-</form>
-
 <!-- Bulk Action Toolbar -->
 <div id="users-bulk-toolbar" class="users-bulk-toolbar" style="display: none;">
     <span class="toolbar-label">
@@ -49,19 +40,19 @@
 <!-- Results Summary -->
 <div class="users-list-summary">
     Showing <strong>{{ user_page.users.len() }}</strong> of <strong>{{ user_page.total_count }}</strong> users
-    {% if let Some(q) = search_query %}
-    matching "<strong>{{ q }}</strong>"
+    {% if filter_active %}
+    (filtered)
     {% endif %}
 </div>
 
 <!-- Users Table -->
 {% if user_page.users.is_empty() %}
 <div class="empty-state">
-    <div class="empty-state-icon">👥</div>
+    <div class="empty-state-icon">&#x1F465;</div>
     <div class="empty-state-title">No users found</div>
     <div class="empty-state-text">
-        {% if search_query.is_some() %}
-        Try a different search term or <a href="/users">clear filters</a>.
+        {% if filter_active %}
+        Try different filter criteria or <a href="/users">clear filters</a>.
         {% else %}
         Create your first user to get started.
         {% endif %}
@@ -95,7 +86,7 @@
                 </td>
                 <td class="users-table__user">
                     <div class="user-cell">
-                        <div class="user-name">👤 {{ user.display_name }}</div>
+                        <div class="user-name">&#x1F464; {{ user.display_name }}</div>
                         <div class="user-username">@{{ user.username }}</div>
                         <div class="user-role"><span class="badge badge-{{ user.role_name }}">{{ user.role_label }}</span></div>
                     </div>
@@ -103,7 +94,7 @@
                 <td class="users-table__email">{{ user.email }}</td>
                 <td class="users-table__status">
                     <span class="status-badge status-active" title="User account is active">
-                        ✓ Active
+                        &#x2713; Active
                     </span>
                 </td>
                 <td class="users-table__actions">
@@ -128,17 +119,17 @@
     </div>
     <div class="pagination-controls">
         {% if user_page.page > 1 %}
-        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">← Previous</a>
+        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">&#x2190; Previous</a>
         {% else %}
-        <span class="btn btn-sm" disabled>← Previous</span>
+        <span class="btn btn-sm" disabled>&#x2190; Previous</span>
         {% endif %}
 
         <span class="pagination-current">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
 
         {% if user_page.page < user_page.total_pages %}
-        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">Next →</a>
+        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}" class="btn btn-sm">Next &#x2192;</a>
         {% else %}
-        <span class="btn btn-sm" disabled>Next →</span>
+        <span class="btn btn-sm" disabled>Next &#x2192;</span>
         {% endif %}
     </div>
 </div>
@@ -158,16 +149,16 @@ function updateBulkToolbar() {
     const toolbar = document.getElementById('users-bulk-toolbar');
     const countSpan = document.getElementById('users-selected-count');
     const pluralSpan = document.getElementById('users-plural');
-    
+
     countSpan.textContent = selectedCount;
     pluralSpan.textContent = selectedCount === 1 ? '' : 's';
-    
+
     if (selectedCount > 0) {
         toolbar.style.display = 'flex';
     } else {
         toolbar.style.display = 'none';
     }
-    
+
     // Update select-all checkbox state
     const selectAll = document.getElementById('users-select-all');
     const total = checkboxes.length;
@@ -196,13 +187,17 @@ function clearSelection() {
 }
 
 function deleteUser(userId) {
-    const row = document.querySelector(`[data-user-id="${userId}"]`);
-    const displayName = row.querySelector('.user-name').textContent.replace('👤 ', '');
-    if (confirm(`Delete user "${displayName}"?\n\nThis action cannot be undone.`)) {
+    const row = document.querySelector('[data-user-id="' + userId + '"]');
+    const displayName = row.querySelector('.user-name').textContent.trim();
+    if (confirm('Delete user "' + displayName + '"?\n\nThis action cannot be undone.')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/users/${userId}/delete`;
-        form.innerHTML = `<input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">`;
+        form.action = '/users/' + userId + '/delete';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '{{ ctx.csrf_token }}';
+        form.appendChild(csrfInput);
         document.body.appendChild(form);
         form.submit();
     }
@@ -211,13 +206,13 @@ function deleteUser(userId) {
 function confirmBulkDelete() {
     const checkboxes = document.querySelectorAll('.users-row-checkbox:checked');
     const count = checkboxes.length;
-    
+
     if (count === 0) {
         alert('No users selected');
         return;
     }
-    
-    if (confirm(`Delete ${count} user${count !== 1 ? 's' : ''}?\n\nThis action cannot be undone.`)) {
+
+    if (confirm('Delete ' + count + ' user' + (count !== 1 ? 's' : '') + '?\n\nThis action cannot be undone.')) {
         const ids = Array.from(checkboxes).map(cb => cb.value);
         document.getElementById('users-bulk-delete-ids').value = JSON.stringify(ids);
         document.getElementById('users-bulk-delete-form').submit();

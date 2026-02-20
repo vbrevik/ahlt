@@ -95,6 +95,35 @@ pub fn find_paginated(
     Ok(UserPage { users, page, per_page, total_count, total_pages })
 }
 
+/// Return all users matching the filter (no pagination) — used for CSV export.
+pub fn find_all_filtered(
+    conn: &Connection,
+    filter: &crate::models::table_filter::FilterTree,
+    sort: &crate::models::table_filter::SortSpec,
+) -> rusqlite::Result<Vec<UserDisplay>> {
+    use crate::models::table_filter::{builder, SortDir};
+    use crate::models::user::filter as uf;
+
+    let (where_clause, filter_params) = builder::build_where_clause(
+        filter, &uf::field_map(), uf::OPS, 0,
+    ).unwrap_or_else(|_| ("1=1".to_string(), vec![]));
+
+    let sort_col = uf::sort_col(&sort.column);
+    let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
+
+    let sql = format!(
+        "{SELECT_USER_DISPLAY} AND ({where_clause}) ORDER BY {sort_col} {sort_dir}"
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let users = stmt.query_map(
+        rusqlite::params_from_iter(filter_params.iter()),
+        row_to_user_display,
+    )?.collect::<Result<Vec<_>, _>>()?;
+
+    Ok(users)
+}
+
 pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {
     let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1");
     let mut stmt = conn.prepare(&sql)?;
