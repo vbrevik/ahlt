@@ -294,7 +294,9 @@
                 <th>Status</th>
                 {% if ctx.permissions.has("tor.edit") %}
                 <th></th>
-                {% endif %}
+                {% else %}{% if tor_capabilities.has("can_record_decisions") %}
+                <th></th>
+                {% endif %}{% endif %}
             </tr>
         </thead>
         <tbody id="roll-call-body">
@@ -312,7 +314,17 @@
         <input type="hidden" name="roll_call_data" id="roll-call-json">
         <button type="submit" class="btn btn-primary btn-sm" id="save-roll-call">Save Roll Call</button>
     </form>
-    {% endif %}
+    {% else %}{% if tor_capabilities.has("can_record_decisions") %}
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-sm btn-secondary" id="add-roll-call-row">+ Add Person</button>
+    </div>
+
+    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/roll-call" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <input type="hidden" name="roll_call_data" id="roll-call-json">
+        <button type="submit" class="btn btn-primary btn-sm" id="save-roll-call">Save Roll Call</button>
+    </form>
+    {% endif %}{% endif %}
 </section>
 
 <script>

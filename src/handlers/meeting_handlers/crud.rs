@@ -92,6 +92,9 @@ pub async fn detail(
         &HashMap::new(),
     )?;
     let existing_minutes = minutes::find_by_meeting(&conn, mid)?;
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let tor_capabilities = abac::load_tor_capabilities(&conn, user_id, tor_id)
+        .unwrap_or_default();
 
     let tmpl = MeetingDetailTemplate {
         ctx,
@@ -102,6 +105,7 @@ pub async fn detail(
         transitions,
         minutes: existing_minutes,
         tor_id,
+        tor_capabilities,
     };
     render(tmpl)
 }

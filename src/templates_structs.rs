@@ -524,6 +524,7 @@ pub struct MeetingDetailTemplate {
     pub transitions: Vec<AvailableTransition>,
     pub minutes: Option<Minutes>,
     pub tor_id: i64,
+    pub tor_capabilities: crate::auth::session::Permissions,
 }
 
 // --- API v1 Response Types ---
