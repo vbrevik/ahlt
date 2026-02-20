@@ -104,3 +104,50 @@ pub async fn unassign(
         .insert_header(("Location", "/roles"))
         .finish())
 }
+
+#[derive(Deserialize)]
+pub struct PreviewQuery {
+    pub user_id: i64,
+}
+
+/// GET /api/roles/preview?user_id=N — returns JSON showing the effective menu
+/// items for a user based on ALL their assigned roles.
+pub async fn menu_preview(
+    pool: web::Data<DbPool>,
+    session: Session,
+    query: web::Query<PreviewQuery>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "roles.assign")?;
+
+    let conn = pool.get()?;
+
+    // Get all permissions for this user across all roles
+    let perms = crate::models::permission::find_codes_by_user_id(&conn, query.user_id)?;
+    let permissions = crate::auth::session::Permissions(perms);
+
+    // Get accessible nav items using existing logic
+    let (modules, sidebar_items) = crate::models::nav_item::find_navigation(&conn, &permissions, "");
+
+    // Build flat list of accessible items
+    let mut items: Vec<serde_json::Value> = vec![];
+    for module in &modules {
+        items.push(serde_json::json!({
+            "label": module.label,
+            "url": module.url,
+            "type": "module"
+        }));
+    }
+    for item in &sidebar_items {
+        items.push(serde_json::json!({
+            "label": item.label,
+            "url": item.url,
+            "type": "sidebar"
+        }));
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "user_id": query.user_id,
+        "permission_count": permissions.0.len(),
+        "menu_items": items
+    })))
+}

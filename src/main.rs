@@ -151,6 +151,7 @@ async fn main() -> std::io::Result<()> {
                     // Role assignment — specific routes BEFORE /roles/{id}
                     .route("/roles/assign", web::post().to(handlers::role_handlers::assignment::assign))
                     .route("/roles/unassign", web::post().to(handlers::role_handlers::assignment::unassign))
+                    .route("/api/roles/preview", web::get().to(handlers::role_handlers::assignment::menu_preview))
                     .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // Governance map — before parameterized /tor/{id} routes
                     .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
