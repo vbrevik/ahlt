@@ -251,3 +251,12 @@ Run these in order after completing implementation:
    cargo check
    ```
    Expected: `Finished` with no errors.
+
+## Implementation Notes
+
+**This section was a no-op.** All three functions (`has_resource_capability`, `load_tor_capabilities`, `require_tor_capability`) were implemented together in section-02. All 7 tests pass. No regressions. Zero new clippy warnings from the abac module.
+
+**Verified:**
+- `cargo test --test abac_test` — 7/7 ok
+- `cargo test` — all suites pass, no failures
+- `cargo clippy` — no warnings in abac.rs
