@@ -110,7 +110,7 @@
     <div class="section-header">
         <h2>Related Courses of Action ({{ coas.len() }})</h2>
         {% if agenda_point.item_type.as_str() == "decision" && ctx.permissions.has("agenda.manage") %}
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/coas" class="btn btn-sm btn-primary">Manage COAs</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/new" class="btn btn-sm btn-primary">Manage COAs</a>
         {% endif %}
     </div>
 
@@ -125,7 +125,7 @@
             <p class="coa-description">{{ coa.description }}</p>
             {% endif %}
             <div class="coa-actions">
-                <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/coas/{{ coa.id }}" class="btn btn-sm">View</a>
+                <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/{{ coa.id }}/edit" class="btn btn-sm">View</a>
             </div>
         </div>
         {% endfor %}
@@ -139,7 +139,7 @@
     <div class="section-header">
         <h2>Opinions ({{ opinions.len() }})</h2>
         {% if ctx.permissions.has("agenda.participate") %}
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/opinions/new" class="btn btn-sm btn-primary">Record Opinion</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/input" class="btn btn-sm btn-primary">Record Opinion</a>
         {% endif %}
     </div>
 
@@ -179,7 +179,7 @@
     </div>
     <div class="action-buttons">
         {% for transition in available_transitions %}
-        <form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/transition" class="inline">
+        <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/transition" class="inline">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <input type="hidden" name="to_status" value="{{ transition.to_status_code }}">
             <button type="submit" class="btn btn-secondary">
@@ -197,7 +197,7 @@
     <div class="section-header">
         <h2>Record Final Decision</h2>
     </div>
-    <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/decision" class="btn btn-primary">Finalize Decision</a>
+    <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="btn btn-primary">Finalize Decision</a>
 </section>
 {% endif %}
 {% endblock %}
