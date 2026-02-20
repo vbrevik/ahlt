@@ -1,11 +1,13 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 
-use crate::db::DbPool;
-use crate::models::minutes;
+use crate::auth::abac;
 use crate::auth::csrf;
-use crate::auth::session::{require_permission, get_user_id};
+use crate::auth::session::{get_user_id, require_permission};
+use crate::db::DbPool;
 use crate::errors::{AppError, render};
+use crate::models::meeting;
+use crate::models::minutes;
 use crate::templates_structs::{PageContext, MinutesViewTemplate};
 
 /// Generate minutes scaffold for a meeting.
@@ -247,14 +249,15 @@ pub async fn save_attendance(
     path: web::Path<i64>,
     form: web::Form<AttendanceForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "minutes.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let minutes_id = path.into_inner();
     let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
-        && m.status == "approved"
-    {
+    let mins = minutes::find_by_id(&conn, minutes_id)?.ok_or(AppError::NotFound)?;
+    let meeting_rec = meeting::find_by_id(&conn, mins.meeting_id)?.ok_or(AppError::NotFound)?;
+    abac::require_tor_capability(&conn, &session, meeting_rec.tor_id, "can_record_decisions")?;
+
+    if mins.status == "approved" {
         let _ = session.insert("flash", "Cannot edit approved minutes");
         return Ok(HttpResponse::SeeOther()
             .insert_header(("Location", format!("/minutes/{}", minutes_id)))
@@ -280,14 +283,15 @@ pub async fn save_action_items(
     path: web::Path<i64>,
     form: web::Form<ActionItemsForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "minutes.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let minutes_id = path.into_inner();
     let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
-        && m.status == "approved"
-    {
+    let mins = minutes::find_by_id(&conn, minutes_id)?.ok_or(AppError::NotFound)?;
+    let meeting_rec = meeting::find_by_id(&conn, mins.meeting_id)?.ok_or(AppError::NotFound)?;
+    abac::require_tor_capability(&conn, &session, meeting_rec.tor_id, "can_record_decisions")?;
+
+    if mins.status == "approved" {
         let _ = session.insert("flash", "Cannot edit approved minutes");
         return Ok(HttpResponse::SeeOther()
             .insert_header(("Location", format!("/minutes/{}", minutes_id)))

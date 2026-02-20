@@ -2,6 +2,7 @@ use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use std::collections::HashMap;
 
+use crate::auth::abac;
 use crate::auth::csrf;
 use crate::auth::session::{get_permissions, get_user_id, require_permission};
 use crate::db::DbPool;
@@ -119,11 +120,11 @@ pub async fn confirm(
     path: web::Path<i64>,
     form: web::Form<ConfirmForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_call_meetings")?;
 
     let location = form.location.as_deref().unwrap_or("");
     let notes = form.notes.as_deref().unwrap_or("");
@@ -192,13 +193,6 @@ pub async fn confirm_calendar(
     path: web::Path<i64>,
     form: web::Form<CalendarConfirmForm>,
 ) -> Result<HttpResponse, AppError> {
-    // Check permission and CSRF first
-    if require_permission(&session, "tor.edit").is_err() {
-        return Ok(HttpResponse::Forbidden()
-            .content_type("application/json")
-            .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
-    }
-
     if csrf::validate_csrf(&session, &form.csrf_token).is_err() {
         return Ok(HttpResponse::Forbidden()
             .content_type("application/json")
@@ -215,6 +209,22 @@ pub async fn confirm_calendar(
         }
     };
     let current_user_id = get_user_id(&session).unwrap_or(0);
+
+    // Two-phase access check: global tor.edit bypass OR resource-scoped ABAC capability.
+    let has_access = require_permission(&session, "tor.edit").is_ok()
+        || abac::has_resource_capability(
+            &conn,
+            current_user_id,
+            tor_id,
+            "belongs_to_tor",
+            "can_call_meetings",
+        )
+        .unwrap_or(false);
+    if !has_access {
+        return Ok(HttpResponse::Forbidden()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
+    }
 
     // Validate date format
     if chrono::NaiveDate::parse_from_str(&form.meeting_date, "%Y-%m-%d").is_err() {
@@ -324,11 +334,11 @@ pub async fn transition(
     path: web::Path<(i64, i64)>,
     form: web::Form<TransitionForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_call_meetings")?;
 
     let meeting_detail = meeting::find_by_id(&conn, mid)?
         .ok_or(AppError::NotFound)?;
@@ -390,11 +400,11 @@ pub async fn assign_agenda(
     path: web::Path<(i64, i64)>,
     form: web::Form<AgendaForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_manage_agenda")?;
 
     meeting::assign_agenda(&conn, mid, form.agenda_point_id)?;
 
@@ -432,11 +442,11 @@ pub async fn remove_agenda(
     path: web::Path<(i64, i64)>,
     form: web::Form<AgendaForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_manage_agenda")?;
 
     meeting::remove_agenda(&conn, mid, form.agenda_point_id)?;
 
@@ -474,11 +484,11 @@ pub async fn generate_minutes(
     path: web::Path<(i64, i64)>,
     form: web::Form<CsrfOnly>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "minutes.generate")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_record_decisions")?;
 
     let meeting_detail = meeting::find_by_id(&conn, mid)?
         .ok_or(AppError::NotFound)?;
@@ -544,10 +554,10 @@ pub async fn save_roll_call(
     path: web::Path<(i64, i64)>,
     form: web::Form<RollCallForm>,
 ) -> Result<HttpResponse, AppError> {
-    require_permission(&session, "tor.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let (tor_id, meeting_id) = path.into_inner();
     let conn = pool.get()?;
+    abac::require_tor_capability(&conn, &session, tor_id, "can_record_decisions")?;
 
     let meeting = meeting::find_by_id(&conn, meeting_id)?
         .ok_or(AppError::NotFound)?;
