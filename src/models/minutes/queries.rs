@@ -10,7 +10,10 @@ pub fn find_by_meeting(conn: &Connection, meeting_id: i64) -> rusqlite::Result<O
                 r.source_id AS meeting_id_check, \
                 COALESCE(mtg.name, '') AS meeting_name, \
                 COALESCE(p_appr_by.value, '') AS approved_by, \
-                COALESCE(p_appr_date.value, '') AS approved_date \
+                COALESCE(p_appr_date.value, '') AS approved_date, \
+                COALESCE(p_dist.value, '[]') AS distribution_list, \
+                COALESCE(p_att.value, '[]') AS structured_attendance, \
+                COALESCE(p_ai.value, '[]') AS structured_action_items \
          FROM entities m \
          JOIN relations r ON m.id = r.target_id \
          JOIN entities mtg ON r.source_id = mtg.id \
@@ -18,6 +21,9 @@ pub fn find_by_meeting(conn: &Connection, meeting_id: i64) -> rusqlite::Result<O
          LEFT JOIN entity_properties p_date ON m.id = p_date.entity_id AND p_date.key = 'generated_date' \
          LEFT JOIN entity_properties p_appr_by ON m.id = p_appr_by.entity_id AND p_appr_by.key = 'approved_by' \
          LEFT JOIN entity_properties p_appr_date ON m.id = p_appr_date.entity_id AND p_appr_date.key = 'approved_date' \
+         LEFT JOIN entity_properties p_dist ON m.id = p_dist.entity_id AND p_dist.key = 'distribution_list' \
+         LEFT JOIN entity_properties p_att ON m.id = p_att.entity_id AND p_att.key = 'structured_attendance' \
+         LEFT JOIN entity_properties p_ai ON m.id = p_ai.entity_id AND p_ai.key = 'structured_action_items' \
          WHERE r.source_id = ?1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
@@ -35,9 +41,9 @@ pub fn find_by_meeting(conn: &Connection, meeting_id: i64) -> rusqlite::Result<O
             meeting_name: row.get("meeting_name")?,
             approved_by: row.get("approved_by")?,
             approved_date: row.get("approved_date")?,
-            distribution_list: String::new(),
-            structured_attendance: String::new(),
-            structured_action_items: String::new(),
+            distribution_list: row.get("distribution_list")?,
+            structured_attendance: row.get("structured_attendance")?,
+            structured_action_items: row.get("structured_action_items")?,
         })
     })?;
 
@@ -57,7 +63,10 @@ pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option
                 r.source_id AS meeting_id, \
                 COALESCE(mtg.name, '') AS meeting_name, \
                 COALESCE(p_appr_by.value, '') AS approved_by, \
-                COALESCE(p_appr_date.value, '') AS approved_date \
+                COALESCE(p_appr_date.value, '') AS approved_date, \
+                COALESCE(p_dist.value, '[]') AS distribution_list, \
+                COALESCE(p_att.value, '[]') AS structured_attendance, \
+                COALESCE(p_ai.value, '[]') AS structured_action_items \
          FROM entities m \
          JOIN relations r ON m.id = r.target_id \
          JOIN entities mtg ON r.source_id = mtg.id \
@@ -65,6 +74,9 @@ pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option
          LEFT JOIN entity_properties p_date ON m.id = p_date.entity_id AND p_date.key = 'generated_date' \
          LEFT JOIN entity_properties p_appr_by ON m.id = p_appr_by.entity_id AND p_appr_by.key = 'approved_by' \
          LEFT JOIN entity_properties p_appr_date ON m.id = p_appr_date.entity_id AND p_appr_date.key = 'approved_date' \
+         LEFT JOIN entity_properties p_dist ON m.id = p_dist.entity_id AND p_dist.key = 'distribution_list' \
+         LEFT JOIN entity_properties p_att ON m.id = p_att.entity_id AND p_att.key = 'structured_attendance' \
+         LEFT JOIN entity_properties p_ai ON m.id = p_ai.entity_id AND p_ai.key = 'structured_action_items' \
          WHERE m.id = ?1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
@@ -82,9 +94,9 @@ pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option
             meeting_name: row.get("meeting_name")?,
             approved_by: row.get("approved_by")?,
             approved_date: row.get("approved_date")?,
-            distribution_list: String::new(),
-            structured_attendance: String::new(),
-            structured_action_items: String::new(),
+            distribution_list: row.get("distribution_list")?,
+            structured_attendance: row.get("structured_attendance")?,
+            structured_action_items: row.get("structured_action_items")?,
         })
     })?;
 
@@ -270,6 +282,36 @@ pub fn update_status(conn: &Connection, minutes_id: i64, new_status: &str) -> ru
     conn.execute(
         "UPDATE entity_properties SET value = ?1 WHERE entity_id = ?2 AND key = 'status'",
         params![new_status, minutes_id],
+    )?;
+    Ok(())
+}
+
+/// Upsert the distribution list (JSON string) for a minutes entity.
+pub fn update_distribution_list(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'distribution_list', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![minutes_id, json],
+    )?;
+    Ok(())
+}
+
+/// Upsert the structured attendance (JSON string) for a minutes entity.
+pub fn update_structured_attendance(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'structured_attendance', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![minutes_id, json],
+    )?;
+    Ok(())
+}
+
+/// Upsert the structured action items (JSON string) for a minutes entity.
+pub fn update_structured_action_items(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'structured_action_items', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![minutes_id, json],
     )?;
     Ok(())
 }
