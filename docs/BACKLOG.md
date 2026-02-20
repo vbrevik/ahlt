@@ -54,7 +54,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | Relation Type | Source → Target | Purpose |
 |---|---|---|
-| `has_role` | user → role | User's assigned role |
+| `has_role` | user → role | User's assigned roles (many-to-many) |
 | `has_permission` | role → permission | Role's granted permissions |
 | `requires_permission` | nav_item → permission | Nav item access requirement |
 | `member_of` | user → tor | ToR membership |
@@ -84,6 +84,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `users.edit` | Users | Edit existing users |
 | `users.delete` | Users | Delete users |
 | `roles.manage` | Roles | Create/edit/delete roles and assign permissions |
+| `roles.assign` | Roles | Assign/unassign roles to users |
 | `settings.manage` | Settings | Modify app settings |
 | `audit.view` | Admin | View audit log |
 | `warnings.view` | Admin | View warnings |
@@ -117,7 +118,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `dashboard` | Dashboard | — | `/dashboard` | `dashboard.view` |
 | `admin` | Admin | — | `/users` | *(visible if any child permitted)* |
 | `admin.users` | Users | `admin` | `/users` | `users.list` |
-| `admin.roles` | Roles | `admin` | `/roles` | `roles.manage` |
+| `admin.roles` | Roles | `admin` | `/roles` | `roles.assign` |
 | `admin.ontology` | Ontology | `admin` | `/ontology` | `settings.manage` |
 | `admin.settings` | Settings | `admin` | `/settings` | `settings.manage` |
 | `admin.audit` | Audit Log | `admin` | `/audit` | `audit.view` |
@@ -400,6 +401,15 @@ All domain objects share three generic tables — no dedicated tables per type:
 - All via EAV `entity_properties`, no schema changes needed
 - **Build**: PASS | **Tests**: all passing (0 failures)
 
+### Users / Roles / Role Builder Separation
+- **Three-page separation**: Users page (pure CRUD, no role assignment), Roles page (dedicated assignment with By Role/By User tabs + menu preview), Role Builder (sole path for role CRUD with permissions + delete)
+- **Multi-role support**: Users can hold multiple roles via `has_role` many-to-many relation. Permissions = union across all roles via `find_codes_by_user_id()`. `UserDisplay` uses `GROUP_CONCAT(DISTINCT ...)` for comma-separated role display.
+- **New permission**: `roles.assign` separates role assignment from role management (`roles.manage`)
+- **Last-admin protection**: Updated to query `has_role` relation directly (multi-role safe)
+- **Auto-assign**: New users get "viewer" role automatically on creation
+- **17 tasks** across handlers, models, templates, routes, and tests
+- **Build**: PASS | **Tests**: 162 passing
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -496,6 +506,8 @@ E.1  Meeting metadata (number, classification, vtc, chair, secretary, roll_call_
 E.2  Agenda Point metadata (presenter, priority, pre_read_url)                        ✓ done
 E.3  Minutes metadata (approved_by, approved_date, distribution_list,
      structured_action_items, structured_attendance)                                  ✓ done
+
+Users/Roles/Role Builder Separation (17 tasks, multi-role support)                   ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════
