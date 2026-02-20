@@ -7,6 +7,7 @@
 - **String equality in loops**: Use `.as_str()` on both sides: `{% if field.as_str() == item.as_str() %}`
 - **Can't call `Vec<String>::contains()` with `&str`**: Create wrapper types with template-friendly methods (e.g. `Permissions::has(&str)`)
 - **No `&&` in `{% if %}` conditions**: Use nested `{% if a %}{% if b %}...{% endif %}{% endif %}` instead
+- **No `||` in `{% if %}` conditions**: Use `{% if a %}...{% else %}{% if b %}...{% endif %}{% endif %}` — duplicate the inner block in both branches
 - **No array indexing `arr[i]`**: Can't write `steps[idx-1]`. Find target by ID server-side, determine neighbour, then swap.
 
 ## Askama — JSON in `<script>` blocks

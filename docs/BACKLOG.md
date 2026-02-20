@@ -410,6 +410,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **17 tasks** across handlers, models, templates, routes, and tests
 - **Build**: PASS | **Tests**: 162 passing
 
+### ABAC — Attribute-Based Access Control (3 splits)
+- **Split 1 (01-abac-core)**: Created `src/auth/abac.rs` with three functions: `has_resource_capability` (EAV graph traversal), `load_tor_capabilities` (bulk capability loader), `require_tor_capability` (two-phase handler guard). 7 TDD tests in `tests/abac_test.rs`. Commits `5e75c4d`, `8751672`, `4e67d7b`.
+- **Split 2 (02-handler-migration)**: Migrated 9 handlers from `require_permission("tor.edit")` to ABAC capability checks: `confirm`, `transition`, `assign_agenda`, `remove_agenda`, `save_roll_call`, `generate_minutes` (meeting_handlers) + `save_attendance`, `save_action_items` (minutes_handlers) + special `confirm_calendar` (JSON pattern). Commit `ec92ae2`.
+- **Split 3 (03-template-ui)**: Added `tor_capabilities: Permissions` to `MeetingDetailTemplate`, populated via `load_tor_capabilities` in `detail` handler, updated roll call section guards in `meetings/detail.html`. Commit `330110d`.
+- **Build**: PASS | **Tests**: 169 passing
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -508,6 +514,7 @@ E.3  Minutes metadata (approved_by, approved_date, distribution_list,
      structured_action_items, structured_attendance)                                  ✓ done
 
 Users/Roles/Role Builder Separation (17 tasks, multi-role support)                   ✓ done
+ABAC — 3-split implementation (abac-core, handler-migration, template-ui)             ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════
