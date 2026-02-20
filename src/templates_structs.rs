@@ -111,17 +111,6 @@ pub struct RoleListTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "roles/form.html")]
-pub struct RoleFormTemplate {
-    pub ctx: PageContext,
-    pub form_action: String,
-    pub form_title: String,
-    pub role: Option<RoleDetail>,
-    pub permissions: Vec<PermissionCheckbox>,
-    pub errors: Vec<String>,
-}
-
-#[derive(Template)]
 #[template(path = "ontology/concepts.html")]
 pub struct OntologyConceptsTemplate {
     pub ctx: PageContext,

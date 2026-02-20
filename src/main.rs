@@ -140,10 +140,8 @@ async fn main() -> std::io::Result<()> {
                     .route("/users/{id}", web::post().to(handlers::user_handlers::update))
                     .route("/users/{id}/delete", web::post().to(handlers::user_handlers::delete))
                     .route("/users/bulk-delete", web::post().to(handlers::user_handlers::bulk_delete))
-                    // Role CRUD — /roles/new BEFORE /roles/{id}
+                    // Role CRUD
                     .route("/roles", web::get().to(handlers::role_handlers::list))
-                    .route("/roles/new", web::get().to(handlers::role_handlers::new_form))
-                    .route("/roles", web::post().to(handlers::role_handlers::create))
                     // Role Builder — specific routes BEFORE /roles/{id}
                     .route("/roles/builder", web::get().to(handlers::role_builder_handlers::wizard_form))
                     .route("/roles/builder/preview", web::post().to(handlers::role_builder_handlers::preview_menu))
