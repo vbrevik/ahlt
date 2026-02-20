@@ -99,13 +99,13 @@ pub async fn update_section(
     let conn = pool.get()?;
 
     // Check if minutes are approved (read-only)
-    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)? {
-        if mins.status == "approved" {
-            let _ = session.insert("flash", "Cannot edit approved minutes");
-            return Ok(HttpResponse::SeeOther()
-                .insert_header(("Location", format!("/minutes/{minutes_id}")))
-                .finish());
-        }
+    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)?
+        && mins.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{minutes_id}")))
+            .finish());
     }
 
     let content = form.get("content").map(|s| s.as_str()).unwrap_or("");
@@ -218,13 +218,13 @@ pub async fn save_distribution(
     let minutes_id = path.into_inner();
     let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)? {
-        if m.status == "approved" {
-            let _ = session.insert("flash", "Cannot edit approved minutes");
-            return Ok(HttpResponse::SeeOther()
-                .insert_header(("Location", format!("/minutes/{}", minutes_id)))
-                .finish());
-        }
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
     }
 
     let json = lines_to_json(&form.distribution_list);
@@ -252,13 +252,13 @@ pub async fn save_attendance(
     let minutes_id = path.into_inner();
     let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)? {
-        if m.status == "approved" {
-            let _ = session.insert("flash", "Cannot edit approved minutes");
-            return Ok(HttpResponse::SeeOther()
-                .insert_header(("Location", format!("/minutes/{}", minutes_id)))
-                .finish());
-        }
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
     }
 
     minutes::update_structured_attendance(&conn, minutes_id, &form.structured_attendance)?;
@@ -285,13 +285,13 @@ pub async fn save_action_items(
     let minutes_id = path.into_inner();
     let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)? {
-        if m.status == "approved" {
-            let _ = session.insert("flash", "Cannot edit approved minutes");
-            return Ok(HttpResponse::SeeOther()
-                .insert_header(("Location", format!("/minutes/{}", minutes_id)))
-                .finish());
-        }
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
     }
 
     minutes::update_structured_action_items(&conn, minutes_id, &form.structured_action_items)?;

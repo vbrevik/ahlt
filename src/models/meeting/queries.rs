@@ -7,6 +7,7 @@ use super::types::*;
 /// Inserts an entity with `entity_type='meeting'`, sets `status` to `"projected"`,
 /// stores `meeting_date`, and creates a `belongs_to_tor` relation to the given ToR.
 /// Empty optional fields are skipped (not stored as properties).
+#[allow(clippy::too_many_arguments)]
 pub fn create(
     conn: &Connection,
     tor_id: i64,

@@ -193,22 +193,16 @@ pub async fn confirm_calendar(
     form: web::Form<CalendarConfirmForm>,
 ) -> Result<HttpResponse, AppError> {
     // Check permission and CSRF first
-    match require_permission(&session, "tor.edit") {
-        Err(_) => {
-            return Ok(HttpResponse::Forbidden()
-                .content_type("application/json")
-                .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
-        }
-        Ok(_) => {}
+    if require_permission(&session, "tor.edit").is_err() {
+        return Ok(HttpResponse::Forbidden()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
     }
 
-    match csrf::validate_csrf(&session, &form.csrf_token) {
-        Err(_) => {
-            return Ok(HttpResponse::Forbidden()
-                .content_type("application/json")
-                .body(serde_json::json!({"ok": false, "error": "CSRF token invalid"}).to_string()));
-        }
-        Ok(_) => {}
+    if csrf::validate_csrf(&session, &form.csrf_token).is_err() {
+        return Ok(HttpResponse::Forbidden()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "CSRF token invalid"}).to_string()));
     }
 
     let tor_id = path.into_inner();
