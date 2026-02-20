@@ -1478,7 +1478,7 @@
     {
       "relation_type": "requires_permission",
       "source": "nav_item:admin.roles",
-      "target": "permission:roles.manage"
+      "target": "permission:roles.assign"
     },
     {
       "relation_type": "requires_permission",
