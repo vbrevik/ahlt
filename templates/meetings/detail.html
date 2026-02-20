@@ -139,7 +139,7 @@
         <tbody>
             {% for point in agenda_points %}
             <tr>
-                <td><a href="/tor/{{ tor_id }}/agenda-points/{{ point.id }}">{{ point.label }}</a></td>
+                <td><a href="/tor/{{ tor_id }}/workflow/agenda/{{ point.id }}">{{ point.label }}</a></td>
                 <td>
                     {% if point.item_type.as_str() == "decision" %}
                     <span class="badge badge-warning">Decision</span>
