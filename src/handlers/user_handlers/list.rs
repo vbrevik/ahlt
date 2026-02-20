@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 use crate::db::DbPool;
 use crate::models::user;
+use crate::models::table_filter::{FilterTree, SortSpec};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, UserListTemplate};
@@ -26,8 +27,7 @@ pub async fn list(
     let ctx = PageContext::build(&session, &conn, "/users")?;
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(25);
-    let search = query.q.as_deref();
-    let user_page = user::find_paginated(&conn, page, per_page, search)?;
+    let user_page = user::find_paginated(&conn, page, per_page, &FilterTree::default(), &SortSpec::default())?;
 
     let tmpl = UserListTemplate { ctx, user_page, search_query: query.q.clone() };
     render(tmpl)

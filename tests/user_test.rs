@@ -168,7 +168,8 @@ fn test_list_users_paginated() {
         let _ = create(&conn, &new_user);
     }
 
-    let page = find_paginated(&conn, 1, 10, None)
+    use ahlt::models::table_filter::{FilterTree, SortSpec};
+    let page = find_paginated(&conn, 1, 10, &FilterTree::default(), &SortSpec::default())
         .expect("Failed to list users");
 
     assert!(page.users.len() >= 3);
@@ -192,7 +193,16 @@ fn test_search_users_by_name() {
 
     let _ = create(&conn, &new_user);
 
-    let results = find_paginated(&conn, 1, 10, Some("search"))
+    use ahlt::models::table_filter::{FilterTree, Condition, SortSpec};
+    let filter = FilterTree {
+        conditions: vec![Condition {
+            field: "username".into(),
+            op: "contains".into(),
+            value: "search".into(),
+        }],
+        ..Default::default()
+    };
+    let results = find_paginated(&conn, 1, 10, &filter, &SortSpec::default())
         .expect("Failed to search users");
 
     assert!(!results.users.is_empty());
@@ -331,4 +341,72 @@ fn test_update_password_success() {
 
     assert!(password::verify_password(new_password, &found.password)
         .expect("Verification failed"));
+}
+
+#[test]
+fn test_find_paginated_sort_by_username_asc() {
+    use ahlt::models::user::{create, find_paginated, types::NewUser};
+    use ahlt::models::table_filter::{FilterTree, SortSpec, SortDir};
+    use common::setup_test_db;
+
+    let (_dir, conn) = setup_test_db();
+    // Create two users with known usernames
+    for (name, label) in [("beta_user", "Beta"), ("alpha_user", "Alpha")] {
+        let _ = create(&conn, &NewUser {
+            username: name.into(), password: "hash".into(),
+            email: format!("{name}@test.com"), display_name: label.into(), role_id: 0,
+        });
+    }
+    let sort = SortSpec { column: "username".into(), dir: SortDir::Asc };
+    let page = find_paginated(&conn, 1, 10, &FilterTree::default(), &sort).unwrap();
+    let names: Vec<&str> = page.users.iter().map(|u| u.username.as_str()).collect();
+    let idx_alpha = names.iter().position(|&n| n == "alpha_user").unwrap();
+    let idx_beta = names.iter().position(|&n| n == "beta_user").unwrap();
+    assert!(idx_alpha < idx_beta, "alpha should come before beta when sorted ASC");
+}
+
+#[test]
+fn test_find_paginated_filter_by_role() {
+    use ahlt::models::user::{create, find_paginated, types::NewUser};
+    use ahlt::models::table_filter::{FilterTree, Condition, SortSpec};
+    use ahlt::models::role;
+    use common::setup_test_db;
+
+    let (_dir, conn) = setup_test_db();
+
+    // Find default role id (seeded role)
+    let roles = role::queries::find_all_list_items(&conn).unwrap();
+    // If no roles found, skip with a basic assertion
+    if roles.is_empty() {
+        // No roles seeded, just verify filter doesn't panic
+        let filter = FilterTree {
+            conditions: vec![Condition {
+                field: "role".into(), op: "is".into(), value: "nonexistent".into(),
+            }],
+            ..Default::default()
+        };
+        let page = find_paginated(&conn, 1, 10, &filter, &SortSpec::default()).unwrap();
+        assert_eq!(page.users.len(), 0);
+        return;
+    }
+
+    let first_role = &roles[0];
+
+    let _ = create(&conn, &NewUser {
+        username: "role_filtered_user".into(),
+        password: "hash".into(),
+        email: "rf@test.com".into(),
+        display_name: "RF".into(),
+        role_id: first_role.id,
+    });
+
+    let filter = FilterTree {
+        conditions: vec![Condition {
+            field: "role".into(), op: "is".into(), value: first_role.name.clone(),
+        }],
+        ..Default::default()
+    };
+    let page = find_paginated(&conn, 1, 10, &filter, &SortSpec::default()).unwrap();
+    assert!(page.users.iter().any(|u| u.username == "role_filtered_user"),
+        "role_filtered_user should appear in results filtered by role");
 }
