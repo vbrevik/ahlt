@@ -17,7 +17,6 @@ fn test_create_tor_with_members() {
         password: password::hash_password("pass").unwrap(),
         email: "member1@test.com".to_string(),
         display_name: "Member 1".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let user2_id = user::create(&conn, &NewUser {
@@ -25,7 +24,6 @@ fn test_create_tor_with_members() {
         password: password::hash_password("pass").unwrap(),
         email: "member2@test.com".to_string(),
         display_name: "Member 2".to_string(),
-        role_id: 0,
     }).unwrap();
 
     // Create ToR
@@ -54,7 +52,6 @@ fn test_agenda_point_lifecycle() {
         password: password::hash_password("pass").unwrap(),
         email: "admin@test.com".to_string(),
         display_name: "Admin".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
@@ -126,7 +123,6 @@ fn test_proposal_creation() {
         password: password::hash_password("pass").unwrap(),
         email: "proposer@test.com".to_string(),
         display_name: "Proposer".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
@@ -170,7 +166,6 @@ fn test_proposal_lifecycle() {
         password: password::hash_password("pass").unwrap(),
         email: "u1@test.com".to_string(),
         display_name: "User 1".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
@@ -209,7 +204,6 @@ fn test_cascade_delete_tor() {
         password: password::hash_password("pass").unwrap(),
         email: "admin@test.com".to_string(),
         display_name: "Admin".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let tor_id = tor::create(&conn, "DeleteMe", "Delete", &[("description", "ToR to delete"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
@@ -244,7 +238,6 @@ fn test_governance_data_query() {
         password: password::hash_password("pass").unwrap(),
         email: "admin@test.com".to_string(),
         display_name: "Admin".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let tor1_id = tor::create(&conn, "ToR1", "Label1", &[("description", "First ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();

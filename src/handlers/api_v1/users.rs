@@ -103,10 +103,12 @@ pub async fn create(
         password: hashed,
         email: body.email.clone(),
         display_name: body.display_name.clone(),
-        role_id: body.role_id,
     };
 
     let created_id = user::create(&conn, &new_user)?;
+
+    // Assign default viewer role
+    let _ = user::assign_default_role(&conn, created_id);
 
     // Audit log
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -114,7 +116,6 @@ pub async fn create(
         "username": body.username,
         "email": body.email,
         "display_name": body.display_name,
-        "role_id": body.role_id,
         "summary": "User created via API"
     });
     let _ = crate::audit::log(&conn, current_user_id, "user.created", "user", created_id, details);
@@ -173,7 +174,6 @@ pub async fn update(
         hashed.as_deref(),
         &body.email,
         &body.display_name,
-        body.role_id,
     )?;
 
     // Audit log
@@ -182,7 +182,6 @@ pub async fn update(
         "username": body.username,
         "email": body.email,
         "display_name": body.display_name,
-        "role_id": body.role_id,
         "summary": "User updated via API"
     });
     let _ = crate::audit::log(&conn, current_user_id, "user.updated", "user", user_id, details);

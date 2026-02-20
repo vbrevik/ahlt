@@ -334,6 +334,15 @@
     },
     {
       "entity_type": "permission",
+      "name": "roles.assign",
+      "label": "Assign Roles",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Roles"
+      }
+    },
+    {
+      "entity_type": "permission",
       "name": "settings.manage",
       "label": "Manage Settings",
       "sort_order": 0,
@@ -1294,6 +1303,11 @@
     {
       "relation_type": "has_permission",
       "source": "role:admin",
+      "target": "permission:roles.assign"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
       "target": "permission:settings.manage"
     },
     {
@@ -1464,7 +1478,7 @@
     {
       "relation_type": "requires_permission",
       "source": "nav_item:admin.roles",
-      "target": "permission:roles.manage"
+      "target": "permission:roles.assign"
     },
     {
       "relation_type": "requires_permission",

@@ -204,7 +204,6 @@ fn test_find_non_members() {
         password: password_hash,
         email: "test@example.com".to_string(),
         display_name: "Test User".to_string(),
-        role_id: 0,
     };
 
     let _ = user::create(&conn, &new_user)

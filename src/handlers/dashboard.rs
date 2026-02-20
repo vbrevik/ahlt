@@ -22,10 +22,20 @@ pub async fn index(
     pool: web::Data<DbPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
-    let role_label = session.get::<String>("role_label").unwrap_or(None).unwrap_or_default();
-
     let conn = pool.get()?;
     let ctx = PageContext::build(&session, &conn, "/dashboard")?;
+
+    // Multi-role: derive role labels from DB (union of all assigned roles)
+    let user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+    let role_label: String = conn.query_row(
+        "SELECT COALESCE(GROUP_CONCAT(role_e.label, ', '), '') \
+         FROM relations r \
+         JOIN entities role_e ON r.target_id = role_e.id \
+         WHERE r.source_id = ?1 \
+           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role')",
+        rusqlite::params![user_id],
+        |row| row.get(0),
+    ).unwrap_or_else(|_| String::new());
 
     let greeting = time_greeting(&ctx.username);
     let user_count = user::count(&conn)?;

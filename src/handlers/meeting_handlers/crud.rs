@@ -193,22 +193,16 @@ pub async fn confirm_calendar(
     form: web::Form<CalendarConfirmForm>,
 ) -> Result<HttpResponse, AppError> {
     // Check permission and CSRF first
-    match require_permission(&session, "tor.edit") {
-        Err(_) => {
-            return Ok(HttpResponse::Forbidden()
-                .content_type("application/json")
-                .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
-        }
-        Ok(_) => {}
+    if require_permission(&session, "tor.edit").is_err() {
+        return Ok(HttpResponse::Forbidden()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "Permission denied"}).to_string()));
     }
 
-    match csrf::validate_csrf(&session, &form.csrf_token) {
-        Err(_) => {
-            return Ok(HttpResponse::Forbidden()
-                .content_type("application/json")
-                .body(serde_json::json!({"ok": false, "error": "CSRF token invalid"}).to_string()));
-        }
-        Ok(_) => {}
+    if csrf::validate_csrf(&session, &form.csrf_token).is_err() {
+        return Ok(HttpResponse::Forbidden()
+            .content_type("application/json")
+            .body(serde_json::json!({"ok": false, "error": "CSRF token invalid"}).to_string()));
     }
 
     let tor_id = path.into_inner();
@@ -530,5 +524,54 @@ pub async fn generate_minutes(
     let _ = session.insert("flash", "Minutes generated successfully");
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+        .finish())
+}
+
+// ---------------------------------------------------------------------------
+// POST — save roll call data
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct RollCallForm {
+    pub csrf_token: String,
+    pub roll_call_data: String, // raw JSON string from hidden input
+}
+
+/// POST /tor/{id}/meetings/{mid}/roll-call — upsert roll call JSON data for a meeting.
+pub async fn save_roll_call(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<(i64, i64)>,
+    form: web::Form<RollCallForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "tor.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+    let (tor_id, meeting_id) = path.into_inner();
+    let conn = pool.get()?;
+
+    let meeting = meeting::find_by_id(&conn, meeting_id)?
+        .ok_or(AppError::NotFound)?;
+    if meeting.tor_id != tor_id {
+        return Err(AppError::NotFound);
+    }
+
+    meeting::update_roll_call(&conn, meeting_id, &form.roll_call_data)?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(
+        &conn,
+        user_id,
+        "meeting.roll_call_saved",
+        "meeting",
+        meeting_id,
+        serde_json::json!({"meeting_id": meeting_id, "tor_id": tor_id, "summary": "Roll call updated"}),
+    );
+
+    let _ = session.insert("flash", "Roll call saved");
+    Ok(HttpResponse::SeeOther()
+        .insert_header((
+            "Location",
+            format!("/tor/{}/meetings/{}", tor_id, meeting_id),
+        ))
         .finish())
 }

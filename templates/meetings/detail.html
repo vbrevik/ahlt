@@ -278,4 +278,109 @@
     {% endif %}
     {% endif %}
 </section>
+
+<!-- Roll Call -->
+<section class="section">
+    <div class="section-header">
+        <h2>Roll Call</h2>
+    </div>
+
+    <script type="application/json" id="roll-call-data">{{ meeting.roll_call_data|safe }}</script>
+
+    <table class="table" id="roll-call-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                {% if ctx.permissions.has("tor.edit") %}
+                <th></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody id="roll-call-body">
+            <!-- Populated by JS -->
+        </tbody>
+    </table>
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-sm btn-secondary" id="add-roll-call-row">+ Add Person</button>
+    </div>
+
+    <form method="post" action="/tor/{{ tor_id }}/meetings/{{ meeting.id }}/roll-call" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <input type="hidden" name="roll_call_data" id="roll-call-json">
+        <button type="submit" class="btn btn-primary btn-sm" id="save-roll-call">Save Roll Call</button>
+    </form>
+    {% endif %}
+</section>
+
+<script>
+(function() {
+    const STATUS_OPTIONS = ['present', 'absent', 'excused'];
+    const tbody = document.getElementById('roll-call-body');
+    const jsonInput = document.getElementById('roll-call-json');
+    const addBtn = document.getElementById('add-roll-call-row');
+    const canEdit = !!addBtn;  // presence of add button = has permission
+
+    function makeRow(username, status) {
+        const tr = document.createElement('tr');
+
+        const nameTd = document.createElement('td');
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'input input--sm';
+        nameInput.placeholder = 'Name';
+        nameInput.value = username || '';
+        nameInput.readOnly = !canEdit;
+        nameTd.appendChild(nameInput);
+        tr.appendChild(nameTd);
+
+        const statusTd = document.createElement('td');
+        const statusSel = document.createElement('select');
+        statusSel.className = 'input input--sm';
+        statusSel.disabled = !canEdit;
+        STATUS_OPTIONS.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            if (opt === status) o.selected = true;
+            statusSel.appendChild(o);
+        });
+        statusTd.appendChild(statusSel);
+        tr.appendChild(statusTd);
+
+        if (canEdit) {
+            const actionTd = document.createElement('td');
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-danger';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', () => tr.remove());
+            actionTd.appendChild(removeBtn);
+            tr.appendChild(actionTd);
+        }
+
+        return tr;
+    }
+
+    // Load existing data
+    const existing = JSON.parse(document.getElementById('roll-call-data').textContent || '[]');
+    existing.forEach(entry => tbody.appendChild(makeRow(entry.username, entry.status)));
+
+    if (canEdit) {
+        addBtn.addEventListener('click', () => tbody.appendChild(makeRow('', 'present')));
+
+        // Serialize on form submit
+        document.getElementById('save-roll-call').closest('form').addEventListener('submit', () => {
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const data = rows.map(tr => {
+                const inputs = tr.querySelectorAll('input, select');
+                return { username: inputs[0].value.trim(), status: inputs[1].value };
+            }).filter(e => e.username);
+            jsonInput.value = JSON.stringify(data);
+        });
+    }
+})();
+</script>
 {% endblock %}

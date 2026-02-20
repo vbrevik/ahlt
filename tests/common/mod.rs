@@ -58,6 +58,7 @@ fn seed_base_entities(conn: &Connection) -> rusqlite::Result<()> {
     // Create relation types
     let relation_types = vec![
         "has_role",
+        "has_permission",
         "requires_permission",
         "belongs_to_tor",
         "fills_position",

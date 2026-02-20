@@ -15,6 +15,7 @@ pub struct User {
 }
 
 /// Safe version for templates — no password hash, includes role info from relations.
+/// Multi-role: role fields are comma-separated (via GROUP_CONCAT).
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct UserDisplay {
@@ -22,9 +23,9 @@ pub struct UserDisplay {
     pub username: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
-    pub role_name: String,
-    pub role_label: String,
+    pub role_ids: String,
+    pub role_names: String,
+    pub role_labels: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -44,7 +45,6 @@ pub struct NewUser {
     pub password: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
 }
 
 /// Form data from create/edit user forms.
@@ -54,6 +54,14 @@ pub struct UserForm {
     pub password: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: String, // comes as string from form, parse to i64
     pub csrf_token: String,
+}
+
+/// User with all assigned roles — for the "By User" tab on assignment page.
+#[derive(Debug, Clone)]
+pub struct UserWithRoles {
+    pub id: i64,
+    pub username: String,
+    pub display_name: String,
+    pub roles: Vec<(i64, String, String)>, // (role_id, role_name, role_label)
 }

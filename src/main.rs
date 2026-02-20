@@ -140,17 +140,18 @@ async fn main() -> std::io::Result<()> {
                     .route("/users/{id}", web::post().to(handlers::user_handlers::update))
                     .route("/users/{id}/delete", web::post().to(handlers::user_handlers::delete))
                     .route("/users/bulk-delete", web::post().to(handlers::user_handlers::bulk_delete))
-                    // Role CRUD — /roles/new BEFORE /roles/{id}
+                    // Role assignment
                     .route("/roles", web::get().to(handlers::role_handlers::list))
-                    .route("/roles/new", web::get().to(handlers::role_handlers::new_form))
-                    .route("/roles", web::post().to(handlers::role_handlers::create))
-                    // Role Builder — specific routes BEFORE /roles/{id}
+                    .route("/roles/assign", web::post().to(handlers::role_handlers::assignment::assign))
+                    .route("/roles/unassign", web::post().to(handlers::role_handlers::assignment::unassign))
+                    .route("/api/roles/preview", web::get().to(handlers::role_handlers::assignment::menu_preview))
+                    // Role Builder — specific routes BEFORE parameterized /roles/{id}
                     .route("/roles/builder", web::get().to(handlers::role_builder_handlers::wizard_form))
                     .route("/roles/builder/preview", web::post().to(handlers::role_builder_handlers::preview_menu))
                     .route("/roles/builder/create", web::post().to(handlers::role_builder_handlers::create_role))
                     .route("/roles/builder/update", web::post().to(handlers::role_builder_handlers::update_role))
                     .route("/roles/builder/{id}/edit", web::get().to(handlers::role_builder_handlers::edit_form))
-                    .route("/roles/{id}/delete", web::post().to(handlers::role_handlers::delete))
+                    .route("/roles/builder/{id}/delete", web::post().to(handlers::role_handlers::delete))
                     // Governance map — before parameterized /tor/{id} routes
                     .route("/governance/map", web::get().to(handlers::governance_handlers::governance_map))
                     .route("/api/governance/graph", web::get().to(handlers::governance_handlers::governance_graph_api))
@@ -241,6 +242,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/minutes/{id}", web::get().to(handlers::minutes_handlers::view_minutes))
                     .route("/minutes/{id}/sections/{section_id}", web::post().to(handlers::minutes_handlers::update_section))
                     .route("/minutes/{id}/status", web::post().to(handlers::minutes_handlers::update_minutes_status))
+                    .route("/minutes/{id}/distribution", web::post().to(handlers::minutes_handlers::save_distribution))
+                    .route("/minutes/{id}/attendance", web::post().to(handlers::minutes_handlers::save_attendance))
+                    .route("/minutes/{id}/action-items", web::post().to(handlers::minutes_handlers::save_action_items))
                     // Meeting management — confirm BEFORE {mid} to avoid path param conflict
                     .route("/meetings", web::get().to(handlers::meeting_handlers::list))
                     .route("/tor/{id}/meetings/confirm", web::post().to(handlers::meeting_handlers::confirm))
@@ -249,6 +253,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/meetings/{mid}/agenda/assign", web::post().to(handlers::meeting_handlers::assign_agenda))
                     .route("/tor/{id}/meetings/{mid}/agenda/remove", web::post().to(handlers::meeting_handlers::remove_agenda))
                     .route("/tor/{id}/meetings/{mid}/minutes/generate", web::post().to(handlers::meeting_handlers::generate_minutes))
+                    .route("/tor/{id}/meetings/{mid}/roll-call", web::post().to(handlers::meeting_handlers::save_roll_call))
                     .route("/meetings/{id}/export", web::get().to(handlers::meeting_handlers::export_minutes_html))
                     // Warnings — /warnings before /warnings/{id}
                     .route("/warnings", web::get().to(handlers::warning_handlers::list::list))

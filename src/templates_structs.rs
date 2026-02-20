@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::errors::AppError;
 use crate::models::user::UserDisplay;
-use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
+use crate::models::role::{RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::role::builder::NavItemPreview;
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
@@ -100,26 +100,19 @@ pub struct UserFormTemplate {
     pub form_action: String,
     pub form_title: String,
     pub user: Option<UserDisplay>,
-    pub roles: Vec<RoleDisplay>,
     pub errors: Vec<String>,
 }
 
 #[derive(Template)]
-#[template(path = "roles/list.html")]
-pub struct RoleListTemplate {
+#[template(path = "roles/assignment.html")]
+pub struct RoleAssignmentTemplate {
     pub ctx: PageContext,
     pub roles: Vec<RoleListItem>,
-}
-
-#[derive(Template)]
-#[template(path = "roles/form.html")]
-pub struct RoleFormTemplate {
-    pub ctx: PageContext,
-    pub form_action: String,
-    pub form_title: String,
-    pub role: Option<RoleDetail>,
-    pub permissions: Vec<PermissionCheckbox>,
-    pub errors: Vec<String>,
+    pub selected_role_id: i64,
+    pub members: Vec<crate::models::role::RoleMember>,
+    pub available_users: Vec<crate::models::role::RoleMember>,
+    pub users_with_roles: Vec<crate::models::user::UserWithRoles>,
+    pub active_tab: String,
 }
 
 #[derive(Template)]
@@ -551,8 +544,8 @@ pub struct ApiUserResponse {
     pub username: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
-    pub role_name: String,
+    pub role_ids: String,
+    pub role_names: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -564,8 +557,8 @@ impl From<UserDisplay> for ApiUserResponse {
             username: u.username,
             email: u.email,
             display_name: u.display_name,
-            role_id: u.role_id,
-            role_name: u.role_name,
+            role_ids: u.role_ids,
+            role_names: u.role_names,
             created_at: u.created_at,
             updated_at: u.updated_at,
         }
@@ -579,7 +572,8 @@ pub struct ApiUserRequest {
     pub email: String,
     pub display_name: String,
     pub password: Option<String>, // required for create, optional for update
-    pub role_id: i64,
+    #[serde(default)]
+    pub role_id: Option<i64>, // deprecated — role assignment is handled separately
 }
 
 /// Entity property in API responses.

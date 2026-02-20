@@ -1,13 +1,14 @@
 use rusqlite::{Connection, params};
-use super::types::{User, UserDisplay, UserPage, NewUser};
+use super::types::{User, UserDisplay, UserPage, NewUser, UserWithRoles};
 
-/// SQL for user display: entity + email property + role via has_role relation.
+/// SQL for user display: entity + email property + roles via has_role relation.
+/// Uses GROUP_CONCAT to collect multiple roles into comma-separated strings.
 const SELECT_USER_DISPLAY: &str = "\
     SELECT e.id, e.name AS username, e.label AS display_name, \
            COALESCE(p_email.value, '') AS email, \
-           COALESCE(role_e.id, 0) AS role_id, \
-           COALESCE(role_e.name, '') AS role_name, \
-           COALESCE(role_e.label, '') AS role_label, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.id), '') AS role_ids, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.name), '') AS role_names, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.label), '') AS role_labels, \
            e.created_at, e.updated_at \
     FROM entities e \
     LEFT JOIN entity_properties p_email \
@@ -24,9 +25,9 @@ fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
         username: row.get("username")?,
         email: row.get("email")?,
         display_name: row.get("display_name")?,
-        role_id: row.get("role_id")?,
-        role_name: row.get("role_name")?,
-        role_label: row.get("role_label")?,
+        role_ids: row.get("role_ids")?,
+        role_names: row.get("role_names")?,
+        role_labels: row.get("role_labels")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -56,9 +57,10 @@ pub fn find_paginated(
     let sort_col = uf::sort_col(&sort.column);
     let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
 
-    // Count query needs JOINs for filter fields that reference joined tables
+    // Count query needs JOINs for filter fields that reference joined tables.
+    // Use COUNT(DISTINCT e.id) to avoid inflated counts from multi-role JOINs.
     let count_sql = format!(
-        "SELECT COUNT(*) FROM entities e \
+        "SELECT COUNT(DISTINCT e.id) FROM entities e \
          LEFT JOIN entity_properties p_email ON e.id = p_email.entity_id AND p_email.key = 'email' \
          LEFT JOIN relations r_role ON r_role.source_id = e.id AND r_role.relation_type_id = \
              (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
@@ -75,6 +77,7 @@ pub fn find_paginated(
     let n = filter_params.len();
     let data_sql = format!(
         "{SELECT_USER_DISPLAY} AND ({where_clause}) \
+         GROUP BY e.id \
          ORDER BY {sort_col} {sort_dir} \
          LIMIT ?{} OFFSET ?{}",
         n + 1, n + 2
@@ -112,7 +115,7 @@ pub fn find_all_filtered(
     let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
 
     let sql = format!(
-        "{SELECT_USER_DISPLAY} AND ({where_clause}) ORDER BY {sort_col} {sort_dir}"
+        "{SELECT_USER_DISPLAY} AND ({where_clause}) GROUP BY e.id ORDER BY {sort_col} {sort_dir}"
     );
 
     let mut stmt = conn.prepare(&sql)?;
@@ -125,7 +128,7 @@ pub fn find_all_filtered(
 }
 
 pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {
-    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1");
+    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1 GROUP BY e.id");
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query_map(params![id], row_to_user_display)?;
     match rows.next() {
@@ -178,7 +181,7 @@ pub fn count(conn: &Connection) -> rusqlite::Result<i64> {
     )
 }
 
-/// Create a new user entity with properties and role relation.
+/// Create a new user entity with properties (no role assignment).
 pub fn create(conn: &Connection, new: &NewUser) -> rusqlite::Result<i64> {
     // Insert user entity
     conn.execute(
@@ -197,17 +200,10 @@ pub fn create(conn: &Connection, new: &NewUser) -> rusqlite::Result<i64> {
         params![user_id, new.email],
     )?;
 
-    // Create has_role relation
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
-        params![user_id, new.role_id],
-    )?;
-
     Ok(user_id)
 }
 
-/// Update a user entity: name, label (display_name), properties, and role relation.
+/// Update a user entity: name, label (display_name), and properties. Does not touch roles.
 pub fn update(
     conn: &Connection,
     id: i64,
@@ -215,7 +211,6 @@ pub fn update(
     password: Option<&str>,
     email: &str,
     display_name: &str,
-    role_id: i64,
 ) -> rusqlite::Result<()> {
     // Update entity name and label
     conn.execute(
@@ -239,18 +234,25 @@ pub fn update(
         params![id, email],
     )?;
 
-    // Update role: delete old has_role relation, insert new one
-    conn.execute(
-        "DELETE FROM relations WHERE source_id = ?1 AND relation_type_id = \
-         (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role')",
-        params![id],
-    )?;
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
-        params![id, role_id],
-    )?;
+    Ok(())
+}
 
+/// Assign the default "viewer" role to a user. No-op if viewer role doesn't exist.
+pub fn assign_default_role(conn: &Connection, user_id: i64) -> rusqlite::Result<()> {
+    use rusqlite::OptionalExtension;
+    let viewer_id: Option<i64> = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type = 'role' AND name = 'viewer'",
+        [],
+        |row| row.get(0),
+    ).optional()?;
+
+    if let Some(role_id) = viewer_id {
+        conn.execute(
+            "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
+             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
+            params![user_id, role_id],
+        )?;
+    }
     Ok(())
 }
 
@@ -281,6 +283,42 @@ pub fn find_password_hash_by_id(conn: &Connection, id: i64) -> rusqlite::Result<
         Some(val) => Ok(Some(val?)),
         None => Ok(None),
     }
+}
+
+/// Find all users with their assigned roles (for assignment page "By User" tab).
+pub fn find_all_with_roles(conn: &Connection) -> rusqlite::Result<Vec<UserWithRoles>> {
+    // First get all users
+    let mut users_stmt = conn.prepare(
+        "SELECT id, name AS username, label AS display_name \
+         FROM entities WHERE entity_type = 'user' \
+         ORDER BY label, name"
+    )?;
+    let users: Vec<(i64, String, String)> = users_stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    // Then get all user-role assignments
+    let mut roles_stmt = conn.prepare(
+        "SELECT r.source_id AS user_id, role_e.id AS role_id, role_e.name, role_e.label \
+         FROM relations r \
+         JOIN entities role_e ON r.target_id = role_e.id AND role_e.entity_type = 'role' \
+         WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+         ORDER BY role_e.label"
+    )?;
+    let assignments: Vec<(i64, i64, String, String)> = roles_stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    // Group assignments by user
+    let result: Vec<UserWithRoles> = users.into_iter().map(|(id, username, display_name)| {
+        let roles: Vec<(i64, String, String)> = assignments.iter()
+            .filter(|(uid, _, _, _)| *uid == id)
+            .map(|(_, rid, name, label)| (*rid, name.clone(), label.clone()))
+            .collect();
+        UserWithRoles { id, username, display_name, roles }
+    }).collect();
+
+    Ok(result)
 }
 
 /// Update only the password property for a user.

@@ -3,7 +3,6 @@ use actix_web::{web, HttpResponse};
 
 use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
-use crate::models::role;
 use crate::auth::{csrf, password, validate};
 use crate::auth::session::{get_user_id, require_permission};
 use crate::errors::{AppError, render};
@@ -19,14 +18,12 @@ pub async fn new_form(
 
     let conn = pool.get()?;
     let ctx = PageContext::build(&session, &conn, "/users")?;
-    let roles = role::find_all_display(&conn)?;
 
     let tmpl = UserFormTemplate {
         ctx,
         form_action: "/users".to_string(),
         form_title: "Create User".to_string(),
         user: None,
-        roles,
         errors: vec![],
     };
     render(tmpl)
@@ -50,23 +47,13 @@ pub async fn create(
     errors.extend(validate::validate_email(&form.email));
     errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
 
-    let role_id: i64 = match form.role_id.parse() {
-        Ok(id) => id,
-        Err(_) => {
-            errors.push("Invalid role".to_string());
-            0
-        }
-    };
-
     if !errors.is_empty() {
         let ctx = PageContext::build(&session, &conn, "/users")?;
-        let roles = role::find_all_display(&conn)?;
         let tmpl = UserFormTemplate {
             ctx,
             form_action: "/users".to_string(),
             form_title: "Create User".to_string(),
             user: None,
-            roles,
             errors,
         };
         return render(tmpl);
@@ -82,16 +69,17 @@ pub async fn create(
         password: hashed,
         email: form.email.trim().to_string(),
         display_name: form.display_name.trim().to_string(),
-        role_id,
     };
 
     match user::create(&conn, &new) {
         Ok(user_id) => {
+            // Assign default viewer role
+            let _ = user::assign_default_role(&conn, user_id);
+
             // Audit log
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
                 "email": new.email,
-                "role_id": new.role_id,
                 "summary": format!("Created user '{}'", new.username)
             });
             let _ = crate::audit::log(&conn, current_user_id, "user.created",
@@ -123,13 +111,11 @@ pub async fn create(
                 format!("Error creating user: {e}")
             };
             let ctx = PageContext::build(&session, &conn, "/users")?;
-            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: "/users".to_string(),
                 form_title: "Create User".to_string(),
                 user: None,
-                roles,
                 errors: vec![msg],
             };
             render(tmpl)
@@ -150,13 +136,11 @@ pub async fn edit_form(
     match user::find_display_by_id(&conn, id) {
         Ok(Some(u)) => {
             let ctx = PageContext::build(&session, &conn, "/users")?;
-            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
                 form_title: "Edit User".to_string(),
                 user: Some(u),
-                roles,
                 errors: vec![],
             };
             render(tmpl)
@@ -187,40 +171,17 @@ pub async fn update(
         errors.extend(validate::validate_password(&form.password));
     }
 
-    let new_role_id: i64 = match form.role_id.parse() {
-        Ok(id) => id,
-        Err(_) => {
-            errors.push("Invalid role".to_string());
-            0
-        }
-    };
-
     if !errors.is_empty() {
         let existing = user::find_display_by_id(&conn, id).ok().flatten();
         let ctx = PageContext::build(&session, &conn, "/users")?;
-        let roles = role::find_all_display(&conn)?;
         let tmpl = UserFormTemplate {
             ctx,
             form_action: format!("/users/{id}"),
             form_title: "Edit User".to_string(),
             user: existing,
-            roles,
             errors,
         };
         return render(tmpl);
-    }
-
-    // Last-admin protection: prevent changing the last admin's role away from admin
-    if let Ok(Some(existing)) = user::find_display_by_id(&conn, id) {
-        if existing.role_name == "admin" && existing.role_id != new_role_id {
-            let admin_count = user::count_by_role_id(&conn, existing.role_id).unwrap_or(0);
-            if admin_count <= 1 {
-                let _ = session.insert("flash", "Cannot change role: this is the last administrator");
-                return Ok(HttpResponse::SeeOther()
-                    .insert_header(("Location", "/users"))
-                    .finish());
-            }
-        }
     }
 
     // Hash password if provided
@@ -240,7 +201,6 @@ pub async fn update(
         hashed.as_deref(),
         form.email.trim(),
         form.display_name.trim(),
-        new_role_id,
     ) {
         Ok(_) => {
             // Audit log
@@ -248,7 +208,6 @@ pub async fn update(
             let details = serde_json::json!({
                 "username": form.username.trim(),
                 "email": form.email.trim(),
-                "role_id": new_role_id,
                 "password_changed": !form.password.is_empty(),
                 "summary": format!("Updated user '{}'", form.username.trim())
             });
@@ -268,13 +227,11 @@ pub async fn update(
             };
             let existing = user::find_display_by_id(&conn, id).ok().flatten();
             let ctx = PageContext::build(&session, &conn, "/users")?;
-            let roles = role::find_all_display(&conn)?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
                 form_title: "Edit User".to_string(),
                 user: existing,
-                roles,
                 errors: vec![msg],
             };
             render(tmpl)
@@ -305,16 +262,30 @@ pub async fn delete(
 
     let conn = pool.get()?;
 
-    // Last-admin protection
-    if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
-        if target.role_name == "admin" {
-            let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
-            if admin_count <= 1 {
-                let _ = session.insert("flash", "Cannot delete the last administrator");
-                return Ok(HttpResponse::SeeOther()
-                    .insert_header(("Location", "/users"))
-                    .finish());
-            }
+    // Last-admin protection — query has_role relation directly (multi-role safe)
+    let has_admin_role: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM relations r \
+         JOIN entities role_e ON r.target_id = role_e.id \
+         WHERE r.source_id = ?1 \
+           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+           AND role_e.name = 'admin'",
+        rusqlite::params![id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if has_admin_role {
+        let admin_count: i64 = conn.query_row(
+            "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
+             JOIN entities role_e ON r.target_id = role_e.id \
+             WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+               AND role_e.name = 'admin'",
+            [],
+            |row| row.get(0),
+        )?;
+        if admin_count <= 1 {
+            let _ = session.insert("flash", "Cannot delete the last administrator");
+            return Ok(HttpResponse::SeeOther()
+                .insert_header(("Location", "/users"))
+                .finish());
         }
     }
 
@@ -409,14 +380,29 @@ pub async fn bulk_delete(
             continue;
         }
 
-        // Last-admin protection
-        if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
-            if target.role_name == "admin" {
-                let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
-                if admin_count <= 1 {
-                    error_count += 1;
-                    continue;
-                }
+        // Last-admin protection — query has_role relation directly (multi-role safe)
+        // Use safe defaults: on error, assume admin / count=1 to prevent deletion
+        let has_admin = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM relations r \
+             JOIN entities role_e ON r.target_id = role_e.id \
+             WHERE r.source_id = ?1 \
+               AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+               AND role_e.name = 'admin'",
+            rusqlite::params![id],
+            |row| row.get::<_, bool>(0),
+        ).unwrap_or(true); // On error, assume admin (safe side)
+        if has_admin {
+            let admin_count: i64 = conn.query_row(
+                "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
+                 JOIN entities role_e ON r.target_id = role_e.id \
+                 WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+                   AND role_e.name = 'admin'",
+                [],
+                |row| row.get(0),
+            ).unwrap_or(1); // On error, assume 1 admin (safe side)
+            if admin_count <= 1 {
+                error_count += 1;
+                continue;
             }
         }
 
@@ -518,7 +504,7 @@ pub async fn export_csv(
             escape_csv(&u.username),
             escape_csv(&u.display_name),
             escape_csv(&u.email),
-            escape_csv(&u.role_label),
+            escape_csv(&u.role_labels),
             u.created_at,
             u.updated_at,
         ));

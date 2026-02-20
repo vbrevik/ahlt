@@ -62,6 +62,27 @@ pub fn revoke_permission(conn: &Connection, role_id: i64, permission_id: i64) ->
     Ok(())
 }
 
+/// Get all permission codes for a user across ALL assigned roles (multi-role union).
+/// Traverses: user --[has_role]--> role --[has_permission]--> permission entities.
+/// Returns sorted, deduplicated permission codes.
+pub fn find_codes_by_user_id(conn: &Connection, user_id: i64) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT perm.name AS code \
+         FROM relations r_role \
+         JOIN relations r_perm ON r_perm.source_id = r_role.target_id \
+         JOIN entities perm ON r_perm.target_id = perm.id \
+         WHERE r_role.source_id = ?1 \
+           AND r_role.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+           AND r_perm.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission') \
+           AND perm.entity_type = 'permission' \
+         ORDER BY perm.name"
+    )?;
+    let codes = stmt
+        .query_map(params![user_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(codes)
+}
+
 /// Get all permission codes for a given role entity id.
 /// Traverses: role --[has_permission]--> permission entities, returns their names (codes).
 pub fn find_codes_by_role_id(conn: &Connection, role_id: i64) -> rusqlite::Result<Vec<String>> {

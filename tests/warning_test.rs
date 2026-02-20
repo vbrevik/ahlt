@@ -106,7 +106,6 @@ fn test_resolve_warning() {
         password: password::hash_password("pass").unwrap(),
         email: "admin@test.com".to_string(),
         display_name: "Admin".to_string(),
-        role_id: 0,
     }).unwrap();
 
     let user_id = user::create(&conn, &NewUser {
@@ -114,7 +113,6 @@ fn test_resolve_warning() {
         password: password::hash_password("pass").unwrap(),
         email: "u1@test.com".to_string(),
         display_name: "User 1".to_string(),
-        role_id: 0,
     }).unwrap();
 
     // Create warning and receipt
@@ -156,7 +154,6 @@ fn test_find_receipt_for_user() {
         password: password::hash_password("pass").unwrap(),
         email: "u1@test.com".to_string(),
         display_name: "User 1".to_string(),
-        role_id: 0,
     }).unwrap();
 
     // Create warning and receipt

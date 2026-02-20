@@ -99,13 +99,13 @@ pub async fn update_section(
     let conn = pool.get()?;
 
     // Check if minutes are approved (read-only)
-    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)? {
-        if mins.status == "approved" {
-            let _ = session.insert("flash", "Cannot edit approved minutes");
-            return Ok(HttpResponse::SeeOther()
-                .insert_header(("Location", format!("/minutes/{minutes_id}")))
-                .finish());
-        }
+    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)?
+        && mins.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{minutes_id}")))
+            .finish());
     }
 
     let content = form.get("content").map(|s| s.as_str()).unwrap_or("");
@@ -175,5 +175,133 @@ pub async fn update_minutes_status(
     let _ = session.insert("flash", format!("Minutes status updated to {}", new_status));
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/minutes/{minutes_id}")))
+        .finish())
+}
+
+/// Convert newline-separated textarea text into a JSON array string.
+/// Filters empty lines. Returns "[]" if no items.
+fn lines_to_json(text: &str) -> String {
+    let items: Vec<&str> = text.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+}
+
+#[derive(serde::Deserialize)]
+pub struct DistributionForm {
+    pub csrf_token: String,
+    pub distribution_list: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct AttendanceForm {
+    pub csrf_token: String,
+    pub structured_attendance: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ActionItemsForm {
+    pub csrf_token: String,
+    pub structured_action_items: String,
+}
+
+/// Save the distribution list for a minutes document.
+pub async fn save_distribution(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<i64>,
+    form: web::Form<DistributionForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "minutes.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+    let minutes_id = path.into_inner();
+    let conn = pool.get()?;
+
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
+    }
+
+    let json = lines_to_json(&form.distribution_list);
+    minutes::update_distribution_list(&conn, minutes_id, &json)?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(&conn, user_id, "minutes.distribution_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Distribution list updated"}));
+
+    let _ = session.insert("flash", "Distribution list saved");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+        .finish())
+}
+
+/// Save structured attendance for a minutes document.
+pub async fn save_attendance(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<i64>,
+    form: web::Form<AttendanceForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "minutes.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+    let minutes_id = path.into_inner();
+    let conn = pool.get()?;
+
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
+    }
+
+    minutes::update_structured_attendance(&conn, minutes_id, &form.structured_attendance)?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(&conn, user_id, "minutes.attendance_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Attendance updated"}));
+
+    let _ = session.insert("flash", "Attendance saved");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+        .finish())
+}
+
+/// Save structured action items for a minutes document.
+pub async fn save_action_items(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<i64>,
+    form: web::Form<ActionItemsForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "minutes.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+    let minutes_id = path.into_inner();
+    let conn = pool.get()?;
+
+    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+        && m.status == "approved"
+    {
+        let _ = session.insert("flash", "Cannot edit approved minutes");
+        return Ok(HttpResponse::SeeOther()
+            .insert_header(("Location", format!("/minutes/{}", minutes_id)))
+            .finish());
+    }
+
+    minutes::update_structured_action_items(&conn, minutes_id, &form.structured_action_items)?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(&conn, user_id, "minutes.action_items_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Action items updated"}));
+
+    let _ = session.insert("flash", "Action items saved");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", format!("/minutes/{}", minutes_id)))
         .finish())
 }
