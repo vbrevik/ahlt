@@ -555,6 +555,48 @@
       "properties": {
         "description": "Manages governance processes, ToRs, and proposal approvals"
       }
+    },
+    {
+      "entity_type": "user",
+      "name": "eva",
+      "label": "Eva Secretary",
+      "sort_order": 0,
+      "properties": { "email": "eva@example.com" }
+    },
+    {
+      "entity_type": "user",
+      "name": "frank",
+      "label": "Frank Ops",
+      "sort_order": 0,
+      "properties": { "email": "frank@example.com" }
+    },
+    {
+      "entity_type": "user",
+      "name": "grace",
+      "label": "Grace Lead",
+      "sort_order": 0,
+      "properties": { "email": "grace@example.com" }
+    },
+    {
+      "entity_type": "user",
+      "name": "henry",
+      "label": "Henry Officer",
+      "sort_order": 0,
+      "properties": { "email": "henry@example.com" }
+    },
+    {
+      "entity_type": "user",
+      "name": "irene",
+      "label": "Irene Manager",
+      "sort_order": 0,
+      "properties": { "email": "irene@example.com" }
+    },
+    {
+      "entity_type": "user",
+      "name": "jack",
+      "label": "Jack Member",
+      "sort_order": 0,
+      "properties": { "email": "jack@example.com" }
     }
   ],
   "relations": [
@@ -1064,6 +1106,13 @@
     { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:agenda.manage" },
     { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:agenda.decide" },
     { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:meetings.view" },
-    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:minutes.approve" }
+    { "relation_type": "has_permission", "source": "role:governance_officer", "target": "permission:minutes.approve" },
+    { "relation_type": "has_role", "source": "user:eva", "target": "role:secretary" },
+    { "relation_type": "has_role", "source": "user:frank", "target": "role:viewer" },
+    { "relation_type": "has_role", "source": "user:grace", "target": "role:editor" },
+    { "relation_type": "has_role", "source": "user:grace", "target": "role:manager" },
+    { "relation_type": "has_role", "source": "user:henry", "target": "role:governance_officer" },
+    { "relation_type": "has_role", "source": "user:irene", "target": "role:manager" },
+    { "relation_type": "has_role", "source": "user:jack", "target": "role:viewer" }
   ]
 }
