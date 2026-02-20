@@ -829,8 +829,9 @@
       "label": "Adopt Azure Cloud Platform",
       "sort_order": 1,
       "properties": {
+        "title": "Adopt Azure Cloud Platform",
         "description": "Migrate primary IT infrastructure to Microsoft Azure. Leverages existing M365 integration, enterprise agreement pricing, and Azure AD identity management.",
-        "type": "simple"
+        "coa_type": "simple"
       }
     },
     {
@@ -839,8 +840,9 @@
       "label": "Adopt AWS Cloud Platform",
       "sort_order": 2,
       "properties": {
+        "title": "Adopt AWS Cloud Platform",
         "description": "Migrate primary IT infrastructure to Amazon Web Services. Offers broader service portfolio, stronger developer tooling, and competitive spot instance pricing.",
-        "type": "simple"
+        "coa_type": "simple"
       }
     },
     {
