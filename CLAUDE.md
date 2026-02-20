@@ -1,7 +1,8 @@
-# Alt - Rust Web Application
+# im-ctrl — Rust Web Application
 
 Ontology-based entity management system built with Actix-web, Askama templates, and SQLite.
 
+**Crate name**: `ahlt` — used in `use ahlt::models::user` imports and test output
 **Documentation**: All project documentation must be stored in the `docs/` folder.
 
 ## Quick Start
@@ -10,8 +11,6 @@ Ontology-based entity management system built with Actix-web, Askama templates, 
 cargo run                  # Build and run
 cargo watch -x run         # Dev with auto-reload
 APP_ENV=staging cargo run  # Run with staging data (ToR, governance, meetings)
-cargo test                 # Run tests
-cargo check                # Check compilation
 cargo clippy               # Linter
 ```
 
@@ -58,13 +57,8 @@ src/
     ├── mod.rs           # Handler module declarations
     ├── user_handlers/   # User CRUD (list, crud)
     ├── role_handlers/   # Role CRUD (helpers, list, crud)
-    ├── workflow_handlers.rs
-    ├── workflow_builder_handlers.rs
-    ├── suggestion_handlers.rs
-    ├── proposal_handlers.rs
-    ├── tor_handlers/    # Terms of Reference
-    ├── agenda_handlers.rs
-    ├── governance_handlers/
+    ├── tor_handlers/, governance_handlers/
+    ├── workflow_handlers.rs, suggestion_handlers.rs, proposal_handlers.rs, ...
     └── ...              # auth, account, settings, audit, dashboard, etc.
 
 templates/               # Askama HTML templates
@@ -118,15 +112,27 @@ PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
 
 **Constraints**: Foreign keys CASCADE on entity delete. UNIQUE on usernames, role names. Autoincrement IDs shared across all entity types.
 
-**Shared Graph Panel CSS** — When a page contains a graph, wrap it in `.graph-panel` > `.graph-panel-header` (h2 + stat span) + `.graph-container`. These classes live in `style.css`. Do not re-define them in template `<style>` blocks.
+**Graph Panel CSS** — Wrap in `.graph-panel` > `.graph-panel-header` + `.graph-container`. Lives in `style.css` — do not re-define in template `<style>` blocks.
 
 ## Testing
 
+Tests use TempDir isolation — safe to run in parallel. Crate name in test imports: `ahlt`.
+
 ```bash
-cargo test                    # All tests
-cargo test test_name          # Specific test
-cargo test -- --nocapture     # With output
+cargo test                          # All tests (~141 across 18 files)
+cargo test user_test                # Single test file
+cargo test -- --nocapture           # With stdout
+cargo test --test meeting_test      # Integration test by file
 ```
+
+## Critical Rules
+
+- **No `&&` in Askama**: `{% if a %}{% if b %}...{% endif %}{% endif %}` — nested, not `{% if a && b %}`
+- **Route order**: `/users/new` BEFORE `/users/{id}` or path param swallows "new"
+- **`relation::create()` takes name, not ID**: `relation::create(&conn, "relation_name", src, dst)`
+- **No `innerHTML`**: Security hook rejects it — use `createElement`/`textContent`/`appendChild`
+- **Seed changes need DB delete**: Seed skips non-empty DB — delete `data/{env}/app.db` to pick up fixture changes
+- **Full gotchas**: `.claude/rules/gotchas.md`
 
 ## Troubleshooting
 
