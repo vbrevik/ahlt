@@ -77,6 +77,41 @@
         <span class="detail-value">{{ meeting.notes }}</span>
     </div>
     {% endif %}
+
+    {% if !meeting.meeting_number.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Meeting Number</span>
+        <span class="detail-value">{{ meeting.meeting_number }}</span>
+    </div>
+    {% endif %}
+
+    {% if !meeting.classification.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Classification</span>
+        <span class="detail-value">{{ meeting.classification }}</span>
+    </div>
+    {% endif %}
+
+    {% if !meeting.vtc_details.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">VTC Details</span>
+        <span class="detail-value">{{ meeting.vtc_details }}</span>
+    </div>
+    {% endif %}
+
+    {% if !meeting.chair_user_id.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Chair</span>
+        <span class="detail-value">{{ meeting.chair_user_id }}</span>
+    </div>
+    {% endif %}
+
+    {% if !meeting.secretary_user_id.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Secretary</span>
+        <span class="detail-value">{{ meeting.secretary_user_id }}</span>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Agenda Points -->

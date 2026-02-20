@@ -6,7 +6,7 @@ use super::types::*;
 ///
 /// Inserts an entity with `entity_type='meeting'`, sets `status` to `"projected"`,
 /// stores `meeting_date`, and creates a `belongs_to_tor` relation to the given ToR.
-/// Empty `location`/`notes` are skipped (not stored as properties).
+/// Empty optional fields are skipped (not stored as properties).
 pub fn create(
     conn: &Connection,
     tor_id: i64,
@@ -14,6 +14,11 @@ pub fn create(
     tor_name: &str,
     location: &str,
     notes: &str,
+    meeting_number: &str,
+    classification: &str,
+    vtc_details: &str,
+    chair_user_id: &str,
+    secretary_user_id: &str,
 ) -> rusqlite::Result<i64> {
     let name = format!(
         "{}-{}",
@@ -28,12 +33,17 @@ pub fn create(
     )?;
     let meeting_id = conn.last_insert_rowid();
 
-    // Always store status and meeting_date; skip empty location/notes.
+    // Always store status and meeting_date; skip empty optional fields.
     let props: Vec<(&str, &str)> = vec![
         ("meeting_date", meeting_date),
         ("status", "projected"),
         ("location", location),
         ("notes", notes),
+        ("meeting_number", meeting_number),
+        ("classification", classification),
+        ("vtc_details", vtc_details),
+        ("chair_user_id", chair_user_id),
+        ("secretary_user_id", secretary_user_id),
     ];
     for (key, value) in props {
         if !value.is_empty() || key == "status" || key == "meeting_date" {
@@ -140,12 +150,22 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
                 COALESCE(p_notes.value, '') AS notes, \
                 COALESCE(tor.id, 0) AS tor_id, \
                 COALESCE(tor.name, '') AS tor_name, \
-                COALESCE(tor.label, '') AS tor_label \
+                COALESCE(tor.label, '') AS tor_label, \
+                COALESCE(p_meetnum.value, '') AS meeting_number, \
+                COALESCE(p_class.value, '') AS classification, \
+                COALESCE(p_vtc.value, '') AS vtc_details, \
+                COALESCE(p_chair.value, '') AS chair_user_id, \
+                COALESCE(p_secretary.value, '') AS secretary_user_id \
          FROM entities e \
          LEFT JOIN entity_properties p_date ON e.id = p_date.entity_id AND p_date.key = 'meeting_date' \
          LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
          LEFT JOIN entity_properties p_loc ON e.id = p_loc.entity_id AND p_loc.key = 'location' \
          LEFT JOIN entity_properties p_notes ON e.id = p_notes.entity_id AND p_notes.key = 'notes' \
+         LEFT JOIN entity_properties p_meetnum ON e.id = p_meetnum.entity_id AND p_meetnum.key = 'meeting_number' \
+         LEFT JOIN entity_properties p_class ON e.id = p_class.entity_id AND p_class.key = 'classification' \
+         LEFT JOIN entity_properties p_vtc ON e.id = p_vtc.entity_id AND p_vtc.key = 'vtc_details' \
+         LEFT JOIN entity_properties p_chair ON e.id = p_chair.entity_id AND p_chair.key = 'chair_user_id' \
+         LEFT JOIN entity_properties p_secretary ON e.id = p_secretary.entity_id AND p_secretary.key = 'secretary_user_id' \
          LEFT JOIN relations r_tor ON e.id = r_tor.source_id \
              AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
          LEFT JOIN entities tor ON r_tor.target_id = tor.id \
@@ -164,6 +184,11 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
             tor_id: row.get("tor_id")?,
             tor_name: row.get("tor_name")?,
             tor_label: row.get("tor_label")?,
+            meeting_number: row.get("meeting_number")?,
+            classification: row.get("classification")?,
+            vtc_details: row.get("vtc_details")?,
+            chair_user_id: row.get("chair_user_id")?,
+            secretary_user_id: row.get("secretary_user_id")?,
         })
     })?;
 

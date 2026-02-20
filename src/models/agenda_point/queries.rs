@@ -133,7 +133,10 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<AgendaPointDetail
                 COALESCE(p_creator.value, '0') AS created_by, \
                 COALESCE(p_created.value, '') AS created_date, \
                 COALESCE(p_sched.value, '') AS scheduled_date, \
-                COALESCE(p_time.value, '0') AS time_allocation_minutes \
+                COALESCE(p_time.value, '0') AS time_allocation_minutes, \
+                COALESCE(p_presenter.value, '') AS presenter, \
+                COALESCE(p_priority.value, 'normal') AS priority, \
+                COALESCE(p_preread.value, '') AS pre_read_url \
          FROM entities e \
          LEFT JOIN entity_properties p_title \
              ON e.id = p_title.entity_id AND p_title.key = 'title' \
@@ -153,6 +156,12 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<AgendaPointDetail
              ON e.id = p_sched.entity_id AND p_sched.key = 'scheduled_date' \
          LEFT JOIN entity_properties p_time \
              ON e.id = p_time.entity_id AND p_time.key = 'time_allocation_minutes' \
+         LEFT JOIN entity_properties p_presenter \
+             ON e.id = p_presenter.entity_id AND p_presenter.key = 'presenter' \
+         LEFT JOIN entity_properties p_priority \
+             ON e.id = p_priority.entity_id AND p_priority.key = 'priority' \
+         LEFT JOIN entity_properties p_preread \
+             ON e.id = p_preread.entity_id AND p_preread.key = 'pre_read_url' \
          WHERE e.id = ?1 AND e.entity_type = 'agenda_point'",
     )?;
 
@@ -176,6 +185,9 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<AgendaPointDetail
             scheduled_date: row.get("scheduled_date")?,
             time_allocation_minutes,
             coa_ids: Vec::new(),  // Will be populated after query
+            presenter: row.get("presenter")?,
+            priority: row.get("priority")?,
+            pre_read_url: row.get("pre_read_url")?,
         })
     })?;
 
@@ -213,6 +225,9 @@ pub fn create(
     scheduled_date: &str,
     time_allocation_minutes: i32,
     created_by_id: i64,
+    presenter: &str,
+    priority: &str,
+    pre_read_url: &str,
 ) -> Result<i64, AppError> {
     let name = format!("agenda_{}_{}", scheduled_date.replace('-', "_"), tor_id);
     let label = if title.len() > 50 {
@@ -232,13 +247,22 @@ pub fn create(
     entity::set_property(conn, agenda_point_id, "created_date", &chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string())?;
     entity::set_property(conn, agenda_point_id, "status", "scheduled")?;
     entity::set_property(conn, agenda_point_id, "tor_id", &tor_id.to_string())?;
+    if !presenter.is_empty() {
+        entity::set_property(conn, agenda_point_id, "presenter", presenter)?;
+    }
+    if !priority.is_empty() {
+        entity::set_property(conn, agenda_point_id, "priority", priority)?;
+    }
+    if !pre_read_url.is_empty() {
+        entity::set_property(conn, agenda_point_id, "pre_read_url", pre_read_url)?;
+    }
 
     relation::create(conn, "belongs_to_tor", agenda_point_id, tor_id)?;
 
     Ok(agenda_point_id)
 }
 
-/// Update basic properties of an agenda point (title, description, item_type, scheduled_date, time_allocation).
+/// Update basic properties of an agenda point.
 pub fn update(
     conn: &Connection,
     agenda_point_id: i64,
@@ -247,12 +271,18 @@ pub fn update(
     item_type: &str,
     scheduled_date: &str,
     time_allocation_minutes: i32,
+    presenter: &str,
+    priority: &str,
+    pre_read_url: &str,
 ) -> Result<(), AppError> {
     entity::set_property(conn, agenda_point_id, "title", title)?;
     entity::set_property(conn, agenda_point_id, "description", description)?;
     entity::set_property(conn, agenda_point_id, "item_type", item_type)?;
     entity::set_property(conn, agenda_point_id, "scheduled_date", scheduled_date)?;
     entity::set_property(conn, agenda_point_id, "time_allocation_minutes", &time_allocation_minutes.to_string())?;
+    entity::set_property(conn, agenda_point_id, "presenter", presenter)?;
+    entity::set_property(conn, agenda_point_id, "priority", priority)?;
+    entity::set_property(conn, agenda_point_id, "pre_read_url", pre_read_url)?;
     Ok(())
 }
 

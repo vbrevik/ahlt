@@ -68,7 +68,8 @@ fn test_agenda_point_lifecycle() {
         "discussion",
         "2025-02-15",
         90,
-        admin_id
+        admin_id,
+        "", "", ""
     ).unwrap();
 
     // Verify created
@@ -78,7 +79,7 @@ fn test_agenda_point_lifecycle() {
     assert_eq!(ap.title, "Review Q1 Goals");
 
     // Update agenda point
-    agenda_point::update(&conn, ap_id, "Review Q1 Outcomes", "Updated description", "presentation", "2025-02-16", 120).unwrap();
+    agenda_point::update(&conn, ap_id, "Review Q1 Outcomes", "Updated description", "presentation", "2025-02-16", 120, "", "", "").unwrap();
 
     // Verify update
     let ap = agenda_point::find_by_id(&conn, ap_id).unwrap().unwrap();
@@ -99,7 +100,7 @@ fn test_meeting_create_and_update_status() {
     let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create meeting
-    let meeting_id = meeting::create(&conn, tor_id, "2025-02-20", "TestToR Meeting", "Conference Room A", "Initial notes").unwrap();
+    let meeting_id = meeting::create(&conn, tor_id, "2025-02-20", "TestToR Meeting", "Conference Room A", "Initial notes", "", "", "", "", "").unwrap();
 
     // Verify created with projected status
     let mtg = meeting::find_by_id(&conn, meeting_id).unwrap();
@@ -212,7 +213,7 @@ fn test_cascade_delete_tor() {
     }).unwrap();
 
     let tor_id = tor::create(&conn, "DeleteMe", "Delete", &[("description", "ToR to delete"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
-    let ap_id = agenda_point::create(&conn, tor_id, "Item 1", "Desc", "discussion", "2025-02-20", 60, admin_id).unwrap();
+    let ap_id = agenda_point::create(&conn, tor_id, "Item 1", "Desc", "discussion", "2025-02-20", 60, admin_id, "", "", "").unwrap();
     let prop_id = proposal::create(&conn, tor_id, "Prop 1", "Desc", "Rationale", admin_id, "2025-02-01", None).unwrap();
 
     // Verify they exist
@@ -249,9 +250,9 @@ fn test_governance_data_query() {
     let tor1_id = tor::create(&conn, "ToR1", "Label1", &[("description", "First ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
     let tor2_id = tor::create(&conn, "ToR2", "Label2", &[("description", "Second ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Tuesday"), ("cadence_time", "10:00"), ("cadence_duration_minutes", "120"), ("default_location", "Room B")]).unwrap();
 
-    let _ap1_id = agenda_point::create(&conn, tor1_id, "AP1", "Desc", "discussion", "2025-02-15", 60, admin_id).unwrap();
-    let _ap2_id = agenda_point::create(&conn, tor1_id, "AP2", "Desc", "decision", "2025-03-15", 90, admin_id).unwrap();
-    let _ap3_id = agenda_point::create(&conn, tor2_id, "AP3", "Desc", "discussion", "2025-02-20", 60, admin_id).unwrap();
+    let _ap1_id = agenda_point::create(&conn, tor1_id, "AP1", "Desc", "discussion", "2025-02-15", 60, admin_id, "", "", "").unwrap();
+    let _ap2_id = agenda_point::create(&conn, tor1_id, "AP2", "Desc", "decision", "2025-03-15", 90, admin_id, "", "", "").unwrap();
+    let _ap3_id = agenda_point::create(&conn, tor2_id, "AP3", "Desc", "discussion", "2025-02-20", 60, admin_id, "", "", "").unwrap();
 
     // Query all for ToR1
     let aps_tor1 = agenda_point::find_all_for_tor(&conn, tor1_id).unwrap();

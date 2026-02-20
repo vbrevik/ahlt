@@ -39,6 +39,9 @@ pub struct AgendaPointDetail {
     pub scheduled_date: String,
     pub time_allocation_minutes: i32,
     pub coa_ids: Vec<i64>,  // Related COAs for decision items
+    pub presenter: String,
+    pub priority: String,   // "normal", "high", "urgent"
+    pub pre_read_url: String,
 }
 
 /// Form input for creating/editing an agenda point.
@@ -50,4 +53,7 @@ pub struct AgendaPointForm {
     pub scheduled_date: String,
     pub time_allocation_minutes: String,
     pub csrf_token: String,
+    pub presenter: Option<String>,
+    pub priority: Option<String>,
+    pub pre_read_url: Option<String>,
 }

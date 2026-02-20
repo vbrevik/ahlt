@@ -68,7 +68,7 @@ fn test_create_meeting() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, belongs_to_tor_rt, _) = setup_tor_with_relation_types(&conn);
 
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-03-01", "Test ToR", "", "")
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-03-01", "Test ToR", "", "", "", "", "", "", "")
         .expect("Failed to create meeting");
 
     assert!(meeting_id > 0);
@@ -120,7 +120,7 @@ fn test_find_meeting_by_id() {
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-03-15", "Test ToR", "Room A", "Discussion notes")
+        ahlt::models::meeting::create(&conn, tor_id, "2026-03-15", "Test ToR", "Room A", "Discussion notes", "", "", "", "", "")
             .expect("Failed to create meeting");
 
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id)
@@ -147,9 +147,9 @@ fn test_find_meeting_by_id_not_found() {
 fn test_find_meetings_by_tor() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
-    ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
-    ahlt::models::meeting::create(&conn, tor_id, "2026-04-08", "Test ToR", "", "").unwrap();
-    ahlt::models::meeting::create(&conn, tor_id, "2025-01-01", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id, "2026-04-08", "Test ToR", "", "", "", "", "", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id, "2025-01-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let meetings = ahlt::models::meeting::find_by_tor(&conn, tor_id).expect("Query failed");
     assert_eq!(meetings.len(), 3);
     assert_eq!(meetings[0].meeting_date, "2026-04-08");
@@ -163,9 +163,9 @@ fn test_find_upcoming_all_cross_tor() {
     let (tor_id1, _, _) = setup_tor_with_relation_types(&conn);
     let tor_id2 = insert_entity(&conn, "tor", "test-tor-2", "Test ToR 2");
     insert_prop(&conn, tor_id2, "status", "active");
-    ahlt::models::meeting::create(&conn, tor_id1, "2026-04-01", "Test ToR", "", "").unwrap();
-    ahlt::models::meeting::create(&conn, tor_id2, "2026-04-02", "Test ToR 2", "", "").unwrap();
-    ahlt::models::meeting::create(&conn, tor_id1, "2025-01-01", "Test ToR", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id1, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id2, "2026-04-02", "Test ToR 2", "", "", "", "", "", "", "").unwrap();
+    ahlt::models::meeting::create(&conn, tor_id1, "2025-01-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let upcoming = ahlt::models::meeting::find_upcoming_all(&conn, "2026-03-01").expect("Query failed");
     assert_eq!(upcoming.len(), 2);
     assert_eq!(upcoming[0].meeting_date, "2026-04-01");
@@ -176,7 +176,7 @@ fn test_find_upcoming_all_cross_tor() {
 fn test_assign_agenda_to_meeting() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, _, scheduled_for_meeting_rt) = setup_tor_with_relation_types(&conn);
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let agenda_id = insert_entity(&conn, "agenda_point", "test-agenda", "Test Agenda Point");
     ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda_id).expect("Failed to assign agenda");
     let rel_count: i64 = conn.query_row(
@@ -192,7 +192,7 @@ fn test_assign_agenda_to_meeting() {
 fn test_remove_agenda_from_meeting() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let agenda_id = insert_entity(&conn, "agenda_point", "test-agenda", "Test Agenda Point");
     ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda_id).unwrap();
     ahlt::models::meeting::remove_agenda(&conn, meeting_id, agenda_id).expect("Failed to remove agenda");
@@ -204,7 +204,7 @@ fn test_remove_agenda_from_meeting() {
 fn test_find_meeting_agenda_points() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let agenda1 = insert_entity(&conn, "agenda_point", "agenda-1", "First Point");
     let agenda2 = insert_entity(&conn, "agenda_point", "agenda-2", "Second Point");
     ahlt::models::meeting::assign_agenda(&conn, meeting_id, agenda1).unwrap();
@@ -217,7 +217,7 @@ fn test_find_meeting_agenda_points() {
 fn test_update_meeting_status() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     ahlt::models::meeting::update_status(&conn, meeting_id, "confirmed").expect("Failed to update status");
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id).unwrap().unwrap();
     assert_eq!(detail.status, "confirmed");
@@ -227,7 +227,7 @@ fn test_update_meeting_status() {
 fn test_find_unassigned_agenda_points() {
     let (_dir, conn) = setup_test_db();
     let (tor_id, belongs_to_tor_rt, _) = setup_tor_with_relation_types(&conn);
-    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+    let meeting_id = ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
     let agenda1 = insert_entity(&conn, "agenda_point", "agenda-1", "First Point");
     insert_relation(&conn, belongs_to_tor_rt, agenda1, tor_id);
     let agenda2 = insert_entity(&conn, "agenda_point", "agenda-2", "Second Point");
@@ -247,7 +247,7 @@ fn test_confirm_calendar_rejects_already_confirmed_meeting() {
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     // Confirm the meeting
     ahlt::models::meeting::update_status(&conn, meeting_id, "confirmed").unwrap();
@@ -264,7 +264,7 @@ fn test_confirm_calendar_can_confirm_projected_meeting() {
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     // Check initial status is projected
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id)
@@ -289,7 +289,7 @@ fn test_confirm_calendar_creates_new_meeting_when_no_id() {
 
     // Create a meeting from calendar (no existing meeting_id)
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-05-15", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id, "2026-05-15", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     assert!(meeting_id > 0);
 
@@ -316,7 +316,7 @@ fn test_confirm_calendar_meeting_belongs_to_tor() {
     let (tor_id, _belongs_to_tor_rt, _) = setup_tor_with_relation_types(&conn);
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id)
         .unwrap()
@@ -335,7 +335,7 @@ fn test_confirm_calendar_validates_date_format() {
     let (tor_id, _, _) = setup_tor_with_relation_types(&conn);
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id, "2026-12-31", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id, "2026-12-31", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id)
         .unwrap()
@@ -350,7 +350,7 @@ fn test_confirm_calendar_wrong_tor_id_returns_not_found() {
     let tor_id2 = insert_entity(&conn, "tor", "test-tor-2", "Test ToR 2");
 
     let meeting_id =
-        ahlt::models::meeting::create(&conn, tor_id1, "2026-04-01", "Test ToR", "", "").unwrap();
+        ahlt::models::meeting::create(&conn, tor_id1, "2026-04-01", "Test ToR", "", "", "", "", "", "", "").unwrap();
 
     // Try to find the meeting under wrong tor_id - should fail
     let detail = ahlt::models::meeting::find_by_id(&conn, meeting_id)

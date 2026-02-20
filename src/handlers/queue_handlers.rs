@@ -260,6 +260,9 @@ pub async fn bulk_schedule(
             &form.scheduled_date,
             time_allocation_minutes,
             user_id,
+            "", // presenter
+            "", // priority
+            "", // pre_read_url
         )?;
 
         // Create spawns_agenda_point relation: proposal → agenda_point

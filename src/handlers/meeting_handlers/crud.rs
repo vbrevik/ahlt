@@ -23,6 +23,11 @@ pub struct ConfirmForm {
     pub tor_name: String,
     pub location: Option<String>,
     pub notes: Option<String>,
+    pub meeting_number: Option<String>,
+    pub classification: Option<String>,
+    pub vtc_details: Option<String>,
+    pub chair_user_id: Option<String>,
+    pub secretary_user_id: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -122,6 +127,11 @@ pub async fn confirm(
 
     let location = form.location.as_deref().unwrap_or("");
     let notes = form.notes.as_deref().unwrap_or("");
+    let meeting_number = form.meeting_number.as_deref().unwrap_or("");
+    let classification = form.classification.as_deref().unwrap_or("");
+    let vtc_details = form.vtc_details.as_deref().unwrap_or("");
+    let chair_user_id = form.chair_user_id.as_deref().unwrap_or("");
+    let secretary_user_id = form.secretary_user_id.as_deref().unwrap_or("");
 
     let meeting_id = meeting::create(
         &conn,
@@ -130,6 +140,11 @@ pub async fn confirm(
         &form.tor_name,
         location,
         notes,
+        meeting_number,
+        classification,
+        vtc_details,
+        chair_user_id,
+        secretary_user_id,
     )?;
 
     // Immediately transition to "confirmed" status.
@@ -266,7 +281,7 @@ pub async fn confirm_calendar(
         }
     } else {
         // No persisted meeting yet — create it and confirm in one step
-        let mid = match meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "") {
+        let mid = match meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "", "", "", "", "", "") {
             Ok(id) => id,
             Err(_) => {
                 return Ok(HttpResponse::InternalServerError()

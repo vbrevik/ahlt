@@ -393,6 +393,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Server startup**: `eprintln!` ensures port always printed to stderr regardless of `RUST_LOG`.
 - **Build**: PASS | **Tests**: 154 passing
 
+### Entity Metadata Gap Fill (E.1–E.3, partial)
+- **E.1 Meeting**: Added `meeting_number`, `classification`, `vtc_details`, `chair_user_id`, `secretary_user_id` — stored via EAV, shown conditionally in `meetings/detail.html`, accepted as `Option<String>` in `ConfirmForm`
+- **E.2 AgendaPoint** (fully complete): Added `presenter`, `priority` (normal/high/urgent), `pre_read_url` — form fields in `agenda/form.html`, conditional display in `agenda/detail.html`
+- **E.3 Minutes**: Added `approved_by`, `approved_date` — shown in `minutes/view.html` details card when set
+- All via EAV `entity_properties`, no schema changes needed
+- **Build**: PASS | **Tests**: all passing (0 failures)
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -419,17 +426,15 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 ### ToR / Meeting / Minutes Metadata Gaps (E.1–E.3)
 
-Based on analysis of real ToR document structure vs current data model. All use EAV `entity_properties` — no schema changes needed.
+E.2 fully done. E.1/E.3 simple string fields done; JSON fields remain.
 
-| ID | Entity | Missing Fields | Priority | Effort |
+| ID | Entity | Remaining Fields | Priority | Effort |
 |----|--------|----------------|----------|--------|
-| E.1 | **Meeting** | `meeting_number` (sequential #), `classification`, `vtc_details`, `chair_user_id`, `secretary_user_id`, `roll_call_data` (JSON: `[{user_id, status}]`) | Medium | Small |
-| E.2 | **Agenda Point** | `presenter`, `priority` (normal/high/urgent), `pre_read_url` | Low | Small |
-| E.3 | **Minutes** | `approved_by`, `approved_date`, `distribution_list` (JSON), `structured_action_items` (JSON: `[{description, responsible, due_date, status}]`), `structured_attendance` (JSON: `[{user_id, name, status, delegation_to}]`) | Medium | Small |
+| E.1 | **Meeting** | `roll_call_data` (JSON: `[{user_id, status}]`) | Low | Small |
+| E.3 | **Minutes** | `distribution_list` (JSON), `structured_action_items` (JSON: `[{description, responsible, due_date, status}]`), `structured_attendance` (JSON: `[{user_id, name, status, delegation_to}]`) | Low | Small |
 
 Implementation notes:
 - JSON properties follow the `parse_json_list` / `lines_to_json` pattern from the ToR objectives fields
-- `chair_user_id`/`secretary_user_id` could become relations (`chairs_meeting`, `records_meeting`) for referential integrity, but EAV strings are sufficient for display
 - `roll_call_data` (meeting level) and `structured_attendance` (minutes level) overlap — decide whether to store at one or both levels
 
 ### Features
@@ -487,11 +492,13 @@ F.6 Dashboard Redesign
 DM.1–DM.4 Data Manager hardening+batch
 U.1 Users Table Enhancements (filter builder, column picker, per-page, sort, CSV, Playwright)
 
+E.1  Meeting metadata (number, classification, vtc, chair, secretary) ✓ partial
+E.2  Agenda Point metadata (presenter, priority, pre_read_url)        ✓ done
+E.3  Minutes metadata (approved_by, approved_date)                    ✓ partial
+
 CANDIDATES (pick next)
 ══════════════════════
-E.1  Meeting metadata gaps (meeting_number, chair, roll_call)
-E.2  Agenda Point metadata gaps (presenter, priority, pre_read_url)
-E.3  Minutes metadata gaps (approved_by, structured_action_items, attendance)
+E.1/E.3  JSON fields (roll_call_data, structured_action_items, attendance)
 F.3  More entity types (project, task, document)
 ```
 

@@ -7,6 +7,8 @@ pub struct Minutes {
     pub generated_date: String, // ISO-8601
     pub meeting_id: i64,
     pub meeting_name: String,
+    pub approved_by: String,
+    pub approved_date: String,
 }
 
 #[derive(Debug, Clone)]

@@ -61,6 +61,9 @@ pub async fn create(
     let description = form.description.trim();
     let item_type = form.item_type.trim();
     let scheduled_date = form.scheduled_date.trim();
+    let presenter = form.presenter.as_deref().unwrap_or("").trim();
+    let priority = form.priority.as_deref().unwrap_or("").trim();
+    let pre_read_url = form.pre_read_url.as_deref().unwrap_or("").trim();
     let mut errors = vec![];
 
     if title.is_empty() {
@@ -97,6 +100,7 @@ pub async fn create(
 
     let agenda_point_id = agenda_point::create(
         &conn, tor_id, title, description, item_type, scheduled_date, time_allocation_minutes, user_id,
+        presenter, priority, pre_read_url,
     )?;
 
     // Audit log
@@ -242,6 +246,9 @@ pub async fn update(
     let description = form.description.trim();
     let item_type = form.item_type.trim();
     let scheduled_date = form.scheduled_date.trim();
+    let presenter = form.presenter.as_deref().unwrap_or("").trim();
+    let priority = form.priority.as_deref().unwrap_or("").trim();
+    let pre_read_url = form.pre_read_url.as_deref().unwrap_or("").trim();
     let mut errors = vec![];
 
     if title.is_empty() {
@@ -277,7 +284,7 @@ pub async fn update(
         return render(tmpl);
     }
 
-    agenda_point::update(&conn, agenda_point_id, title, description, item_type, scheduled_date, time_allocation_minutes)?;
+    agenda_point::update(&conn, agenda_point_id, title, description, item_type, scheduled_date, time_allocation_minutes, presenter, priority, pre_read_url)?;
 
     // Audit log
     let details = serde_json::json!({

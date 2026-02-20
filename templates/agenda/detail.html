@@ -73,6 +73,35 @@
         <span class="detail-label">Created</span>
         <span class="detail-value">{{ agenda_point.created_date }}</span>
     </div>
+
+    {% if !agenda_point.presenter.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Presenter</span>
+        <span class="detail-value">{{ agenda_point.presenter }}</span>
+    </div>
+    {% endif %}
+
+    {% if agenda_point.priority.as_str() != "normal" %}
+    {% if !agenda_point.priority.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Priority</span>
+        <span class="detail-value">
+            {% if agenda_point.priority.as_str() == "urgent" %}
+            <span class="badge badge-danger">Urgent</span>
+            {% else %}
+            <span class="badge badge-warning">High</span>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if !agenda_point.pre_read_url.is_empty() %}
+    <div class="detail-row">
+        <span class="detail-label">Pre-Read</span>
+        <span class="detail-value"><a href="{{ agenda_point.pre_read_url }}" target="_blank" rel="noopener">Background Material</a></span>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Related Courses of Action -->

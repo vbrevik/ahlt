@@ -53,6 +53,16 @@
                         <span class="badge badge-success">Approved</span>
                         {% endif %}
                     </dd>
+
+                    {% if !minutes.approved_by.is_empty() %}
+                    <dt>Approved By</dt>
+                    <dd>{{ minutes.approved_by }}</dd>
+                    {% endif %}
+
+                    {% if !minutes.approved_date.is_empty() %}
+                    <dt>Approval Date</dt>
+                    <dd>{{ minutes.approved_date }}</dd>
+                    {% endif %}
                 </dl>
             </div>
         </div>

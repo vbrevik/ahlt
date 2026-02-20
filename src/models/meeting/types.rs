@@ -26,4 +26,9 @@ pub struct MeetingDetail {
     pub tor_id: i64,
     pub tor_name: String,
     pub tor_label: String,
+    pub meeting_number: String,
+    pub classification: String,
+    pub vtc_details: String,
+    pub chair_user_id: String,
+    pub secretary_user_id: String,
 }
