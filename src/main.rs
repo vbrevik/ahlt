@@ -251,6 +251,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/meetings/{mid}/agenda/assign", web::post().to(handlers::meeting_handlers::assign_agenda))
                     .route("/tor/{id}/meetings/{mid}/agenda/remove", web::post().to(handlers::meeting_handlers::remove_agenda))
                     .route("/tor/{id}/meetings/{mid}/minutes/generate", web::post().to(handlers::meeting_handlers::generate_minutes))
+                    .route("/tor/{id}/meetings/{mid}/roll-call", web::post().to(handlers::meeting_handlers::save_roll_call))
                     .route("/meetings/{id}/export", web::get().to(handlers::meeting_handlers::export_minutes_html))
                     // Warnings — /warnings before /warnings/{id}
                     .route("/warnings", web::get().to(handlers::warning_handlers::list::list))

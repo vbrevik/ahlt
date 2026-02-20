@@ -532,3 +532,46 @@ pub async fn generate_minutes(
         .insert_header(("Location", format!("/minutes/{}", minutes_id)))
         .finish())
 }
+
+// ---------------------------------------------------------------------------
+// POST — save roll call data
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct RollCallForm {
+    pub csrf_token: String,
+    pub roll_call_data: String, // raw JSON string from hidden input
+}
+
+/// POST /tor/{id}/meetings/{mid}/roll-call — upsert roll call JSON data for a meeting.
+pub async fn save_roll_call(
+    pool: web::Data<DbPool>,
+    session: Session,
+    path: web::Path<(i64, i64)>,
+    form: web::Form<RollCallForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "tor.edit")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+    let (tor_id, meeting_id) = path.into_inner();
+    let conn = pool.get()?;
+
+    meeting::update_roll_call(&conn, meeting_id, &form.roll_call_data)?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let _ = crate::audit::log(
+        &conn,
+        user_id,
+        "meeting.roll_call_saved",
+        "meeting",
+        meeting_id,
+        serde_json::json!({"summary": "Roll call updated"}),
+    );
+
+    let _ = session.insert("flash", "Roll call saved");
+    Ok(HttpResponse::SeeOther()
+        .insert_header((
+            "Location",
+            format!("/tor/{}/meetings/{}", tor_id, meeting_id),
+        ))
+        .finish())
+}
