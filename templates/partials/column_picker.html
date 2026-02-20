@@ -1,0 +1,103 @@
+{# templates/partials/column_picker.html #}
+{# Receives from parent template: columns (Vec<ColumnDef>), ctx (PageContext), table name as string "users" #}
+
+<div class="col-picker" id="col-picker" hidden>
+    <div class="col-picker__title">Columns</div>
+    <ul class="col-picker__list" id="col-picker-list">
+    {% for col in columns %}
+        <li class="col-picker__item" draggable="true" data-key="{{ col.key }}">
+            <span class="col-picker__handle" aria-hidden="true">&#8291;&#8291;</span>
+            {% if col.always_visible %}
+            <input type="checkbox" class="col-picker__check" checked disabled>
+            {% else %}
+            <input type="checkbox" class="col-picker__check" {% if col.visible %}checked{% endif %}>
+            {% endif %}
+            <span class="col-picker__label">{{ col.label }}</span>
+            {% if col.always_visible %}
+            <span class="col-picker__always-on">(always on)</span>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+    <div class="col-picker__footer">
+        {% if ctx.permissions.has("settings.manage") %}
+        <button type="button" class="btn btn-sm" id="col-picker-set-global">Set as global default</button>
+        {% endif %}
+    </div>
+</div>
+
+{# Hidden form for saving columns — posts to /users/columns #}
+<form id="col-picker-form" method="post" action="/users/columns" style="display:none">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+    <input type="hidden" name="columns" id="col-picker-columns-input">
+    <input type="hidden" name="set_global" id="col-picker-set-global-input" value="false">
+    <input type="hidden" name="redirect_to" id="col-picker-redirect-input" value="">
+</form>
+
+<script>
+(function() {
+    var picker = document.getElementById('col-picker');
+    var btn = document.getElementById('col-picker-btn');
+    var list = document.getElementById('col-picker-list');
+    if (!picker || !btn || !list) return;
+
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        picker.hidden = !picker.hidden;
+    });
+    document.addEventListener('click', function(e) {
+        if (!picker.contains(e.target) && !btn.contains(e.target)) {
+            picker.hidden = true;
+        }
+    });
+
+    function getColumnOrder() {
+        return Array.from(list.querySelectorAll('.col-picker__item')).map(function(item) {
+            return {
+                key: item.dataset.key,
+                visible: item.querySelector('.col-picker__check').checked
+            };
+        });
+    }
+
+    function saveColumns(setGlobal) {
+        var cols = getColumnOrder();
+        var visibleKeys = cols.filter(function(c) { return c.visible; }).map(function(c) { return c.key; }).join(',');
+        document.getElementById('col-picker-columns-input').value = visibleKeys;
+        document.getElementById('col-picker-set-global-input').value = setGlobal ? 'true' : 'false';
+        document.getElementById('col-picker-redirect-input').value = window.location.href;
+        document.getElementById('col-picker-form').submit();
+    }
+
+    list.addEventListener('change', function(e) {
+        if (e.target.classList.contains('col-picker__check')) {
+            saveColumns(false);
+        }
+    });
+
+    var globalBtn = document.getElementById('col-picker-set-global');
+    if (globalBtn) {
+        globalBtn.addEventListener('click', function() { saveColumns(true); });
+    }
+
+    // Drag-and-drop reordering
+    var dragSrc = null;
+    list.addEventListener('dragstart', function(e) {
+        dragSrc = e.target.closest('.col-picker__item');
+        if (dragSrc) e.dataTransfer.effectAllowed = 'move';
+    });
+    list.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        var target = e.target.closest('.col-picker__item');
+        if (target && target !== dragSrc) {
+            var rect = target.getBoundingClientRect();
+            var after = e.clientY > rect.top + rect.height / 2;
+            list.insertBefore(dragSrc, after ? target.nextSibling : target);
+        }
+    });
+    list.addEventListener('dragend', function() {
+        dragSrc = null;
+        saveColumns(false);
+    });
+})();
+</script>
