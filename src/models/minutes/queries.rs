@@ -35,6 +35,9 @@ pub fn find_by_meeting(conn: &Connection, meeting_id: i64) -> rusqlite::Result<O
             meeting_name: row.get("meeting_name")?,
             approved_by: row.get("approved_by")?,
             approved_date: row.get("approved_date")?,
+            distribution_list: String::new(),
+            structured_attendance: String::new(),
+            structured_action_items: String::new(),
         })
     })?;
 
@@ -79,6 +82,9 @@ pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option
             meeting_name: row.get("meeting_name")?,
             approved_by: row.get("approved_by")?,
             approved_date: row.get("approved_date")?,
+            distribution_list: String::new(),
+            structured_attendance: String::new(),
+            structured_action_items: String::new(),
         })
     })?;
 

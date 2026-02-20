@@ -69,7 +69,7 @@ pub async fn unassign(
         "SELECT name = 'admin' FROM entities WHERE id = ?1 AND entity_type = 'role'",
         rusqlite::params![form.role_id],
         |row| row.get(0),
-    ).unwrap_or(false);
+    )?;
 
     if is_admin_role {
         let admin_count: i64 = conn.query_row(
@@ -78,7 +78,7 @@ pub async fn unassign(
              AND target_id = ?1",
             rusqlite::params![form.role_id],
             |row| row.get(0),
-        ).unwrap_or(0);
+        )?;
 
         if admin_count <= 1 {
             let _ = session.insert("flash", "Cannot remove role: this is the last administrator");

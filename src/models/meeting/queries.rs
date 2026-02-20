@@ -189,6 +189,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
             vtc_details: row.get("vtc_details")?,
             chair_user_id: row.get("chair_user_id")?,
             secretary_user_id: row.get("secretary_user_id")?,
+            roll_call_data: String::new(),
         })
     })?;
 
