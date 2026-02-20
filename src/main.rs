@@ -61,6 +61,7 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or(false);
 
     log::info!("Starting server at http://{}:{}", host, port);
+    eprintln!("Listening on http://{}:{}", host, port);
     if cookie_secure {
         log::info!("Cookie secure flag enabled (requires HTTPS)");
     }
