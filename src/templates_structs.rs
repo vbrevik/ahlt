@@ -104,10 +104,15 @@ pub struct UserFormTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "roles/list.html")]
-pub struct RoleListTemplate {
+#[template(path = "roles/assignment.html")]
+pub struct RoleAssignmentTemplate {
     pub ctx: PageContext,
     pub roles: Vec<RoleListItem>,
+    pub selected_role_id: i64,
+    pub members: Vec<crate::models::role::RoleMember>,
+    pub available_users: Vec<crate::models::role::RoleMember>,
+    pub users_with_roles: Vec<crate::models::user::UserWithRoles>,
+    pub active_tab: String,
 }
 
 #[derive(Template)]

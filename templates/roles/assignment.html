@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Role Assignment — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Role Assignment</h1>
+    <a href="/roles/builder" class="btn btn-primary">New Role</a>
+</div>
+
+<div class="assignment-tabs">
+    <a href="?tab=by-role" class="assignment-tabs__tab{% if active_tab.as_str() == "by-role" %} assignment-tabs__tab--active{% endif %}">By Role</a>
+    <a href="?tab=by-user" class="assignment-tabs__tab{% if active_tab.as_str() == "by-user" %} assignment-tabs__tab--active{% endif %}">By User</a>
+</div>
+
+{% if active_tab.as_str() == "by-role" %}
+<!-- BY ROLE TAB -->
+<div class="role-selector">
+    {% for role in roles %}
+    <a href="?role_id={{ role.id }}&tab=by-role"
+       class="role-selector__pill{% if role.id == selected_role_id %} role-selector__pill--active{% endif %}">
+        {{ role.label }}
+        <span class="badge badge-user">{{ role.user_count }}</span>
+    </a>
+    {% endfor %}
+</div>
+
+{% if selected_role_id > 0 %}
+<div class="role-members">
+    <h2 class="role-members__title">Members</h2>
+
+    {% if members.is_empty() %}
+    <p class="role-members__empty">No users assigned to this role.</p>
+    {% else %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Display Name</th>
+                <th>Username</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for member in members %}
+            <tr>
+                <td>{{ member.display_name }}</td>
+                <td><code class="mono-type">{{ member.username }}</code></td>
+                <td class="actions">
+                    <form method="post" action="/roles/unassign" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="user_id" value="{{ member.user_id }}">
+                        <input type="hidden" name="role_id" value="{{ selected_role_id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if !available_users.is_empty() %}
+    <div class="role-members__add">
+        <form method="post" action="/roles/assign" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <input type="hidden" name="role_id" value="{{ selected_role_id }}">
+            <select name="user_id" class="form-control form-control--inline" required>
+                <option value="">Add user...</option>
+                {% for user in available_users %}
+                <option value="{{ user.user_id }}">{{ user.display_name }} ({{ user.username }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Add</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% for role in roles %}
+    {% if role.id == selected_role_id %}
+    <div class="role-members__footer">
+        {{ role.permission_count }} permissions ·
+        <a href="/roles/builder/{{ role.id }}/edit">Edit in Role Builder</a>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- BY USER TAB -->
+<table class="table">
+    <thead>
+        <tr>
+            <th>User</th>
+            <th>Assigned Roles</th>
+            <th>Add Role</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for user in users_with_roles %}
+        <tr>
+            <td>
+                <strong>{{ user.display_name }}</strong>
+                <br><code class="mono-type">{{ user.username }}</code>
+            </td>
+            <td>
+                {% for role_tuple in user.roles %}
+                <span class="badge badge-role">
+                    {{ role_tuple.2 }}
+                    <form method="post" action="/roles/unassign" class="inline badge-remove">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <input type="hidden" name="role_id" value="{{ role_tuple.0 }}">
+                        <button type="submit" class="badge-remove__btn" title="Remove role">&times;</button>
+                    </form>
+                </span>
+                {% endfor %}
+                {% if user.roles.is_empty() %}
+                <span class="text-muted">No roles</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" action="/roles/assign" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                    <select name="role_id" class="form-control form-control--inline form-control--sm">
+                        <option value="">+ Add role</option>
+                        {% for role in roles %}
+                        <option value="{{ role.id }}">{{ role.label }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<style>
+.assignment-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color, #dee2e6);
+}
+.assignment-tabs__tab {
+    padding: 0.5rem 1.25rem;
+    text-decoration: none;
+    color: var(--text-muted, #6c757d);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    font-weight: 500;
+}
+.assignment-tabs__tab--active {
+    color: var(--primary, #0d6efd);
+    border-bottom-color: var(--primary, #0d6efd);
+}
+.role-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.role-selector__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 9999px;
+    text-decoration: none;
+    color: var(--text-color, #212529);
+    font-size: 0.875rem;
+    transition: background-color 0.15s;
+}
+.role-selector__pill:hover {
+    background: var(--hover-bg, #f8f9fa);
+}
+.role-selector__pill--active {
+    background: var(--primary, #0d6efd);
+    color: #fff;
+    border-color: var(--primary, #0d6efd);
+}
+.role-selector__pill--active .badge {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+.role-members__title {
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+}
+.role-members__empty {
+    color: var(--text-muted, #6c757d);
+    font-style: italic;
+}
+.role-members__add {
+    margin-top: 1rem;
+}
+.role-members__footer {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-muted, #6c757d);
+}
+.inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.form-control--inline {
+    display: inline-block;
+    width: auto;
+}
+.form-control--sm {
+    font-size: 0.8125rem;
+    padding: 0.25rem 0.5rem;
+}
+.badge-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--badge-bg, #e9ecef);
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+    margin: 0.125rem;
+}
+.badge-remove {
+    display: inline;
+}
+.badge-remove__btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted, #6c757d);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 0.125rem;
+}
+.badge-remove__btn:hover {
+    color: var(--danger, #dc3545);
+}
+.text-muted {
+    color: var(--text-muted, #6c757d);
+}
+</style>
+
+<!-- Auto-submit Add Role dropdowns on change -->
+<script>
+(function() {
+    var selects = document.querySelectorAll('.form-control--sm');
+    for (var i = 0; i < selects.length; i++) {
+        selects[i].addEventListener('change', function() {
+            if (this.value) {
+                this.closest('form').submit();
+            }
+        });
+    }
+})();
+</script>
+
+{% endblock %}
