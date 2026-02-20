@@ -244,6 +244,9 @@ async fn main() -> std::io::Result<()> {
                     .route("/minutes/{id}", web::get().to(handlers::minutes_handlers::view_minutes))
                     .route("/minutes/{id}/sections/{section_id}", web::post().to(handlers::minutes_handlers::update_section))
                     .route("/minutes/{id}/status", web::post().to(handlers::minutes_handlers::update_minutes_status))
+                    .route("/minutes/{id}/distribution", web::post().to(handlers::minutes_handlers::save_distribution))
+                    .route("/minutes/{id}/attendance", web::post().to(handlers::minutes_handlers::save_attendance))
+                    .route("/minutes/{id}/action-items", web::post().to(handlers::minutes_handlers::save_action_items))
                     // Meeting management — confirm BEFORE {mid} to avoid path param conflict
                     .route("/meetings", web::get().to(handlers::meeting_handlers::list))
                     .route("/tor/{id}/meetings/confirm", web::post().to(handlers::meeting_handlers::confirm))
