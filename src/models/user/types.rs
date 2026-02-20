@@ -55,3 +55,12 @@ pub struct UserForm {
     pub display_name: String,
     pub csrf_token: String,
 }
+
+/// User with all assigned roles — for the "By User" tab on assignment page.
+#[derive(Debug, Clone)]
+pub struct UserWithRoles {
+    pub id: i64,
+    pub username: String,
+    pub display_name: String,
+    pub roles: Vec<(i64, String, String)>, // (role_id, role_name, role_label)
+}

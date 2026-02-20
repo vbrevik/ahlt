@@ -38,3 +38,11 @@ pub struct PermissionCheckbox {
     pub group_name: String,
     pub checked: bool,
 }
+
+/// A user assigned to a role — for the assignment page member list.
+#[derive(Debug, Clone)]
+pub struct RoleMember {
+    pub user_id: i64,
+    pub username: String,
+    pub display_name: String,
+}

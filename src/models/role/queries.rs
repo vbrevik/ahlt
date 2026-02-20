@@ -1,5 +1,5 @@
 use rusqlite::{Connection, params};
-use super::types::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
+use super::types::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox, RoleMember};
 
 /// Find all roles for display (dropdowns, lists).
 pub fn find_all_display(conn: &Connection) -> rusqlite::Result<Vec<RoleDisplay>> {
@@ -183,6 +183,49 @@ pub fn count_users(conn: &Connection, role_id: i64) -> rusqlite::Result<i64> {
         params![role_id],
         |row| row.get(0),
     )
+}
+
+/// Find all users assigned to a specific role.
+pub fn find_users_by_role(conn: &Connection, role_id: i64) -> rusqlite::Result<Vec<RoleMember>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name AS username, e.label AS display_name \
+         FROM entities e \
+         JOIN relations r ON r.source_id = e.id AND r.target_id = ?1 \
+           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+         WHERE e.entity_type = 'user' \
+         ORDER BY e.label, e.name"
+    )?;
+    let members = stmt.query_map(params![role_id], |row| {
+        Ok(RoleMember {
+            user_id: row.get("id")?,
+            username: row.get("username")?,
+            display_name: row.get("display_name")?,
+        })
+    })?.collect::<Result<Vec<_>, _>>()?;
+    Ok(members)
+}
+
+/// Find users NOT assigned to a specific role (for "Add User" dropdown).
+pub fn find_users_not_in_role(conn: &Connection, role_id: i64) -> rusqlite::Result<Vec<RoleMember>> {
+    let mut stmt = conn.prepare(
+        "SELECT e.id, e.name AS username, e.label AS display_name \
+         FROM entities e \
+         WHERE e.entity_type = 'user' \
+           AND e.id NOT IN ( \
+               SELECT r.source_id FROM relations r \
+               WHERE r.target_id = ?1 \
+                 AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+           ) \
+         ORDER BY e.label, e.name"
+    )?;
+    let members = stmt.query_map(params![role_id], |row| {
+        Ok(RoleMember {
+            user_id: row.get("id")?,
+            username: row.get("username")?,
+            display_name: row.get("display_name")?,
+        })
+    })?.collect::<Result<Vec<_>, _>>()?;
+    Ok(members)
 }
 
 /// Helper to get the has_permission relation type id.

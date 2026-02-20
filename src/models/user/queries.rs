@@ -1,5 +1,5 @@
 use rusqlite::{Connection, params};
-use super::types::{User, UserDisplay, UserPage, NewUser};
+use super::types::{User, UserDisplay, UserPage, NewUser, UserWithRoles};
 
 /// SQL for user display: entity + email property + role via has_role relation.
 const SELECT_USER_DISPLAY: &str = "\
@@ -280,6 +280,42 @@ pub fn find_password_hash_by_id(conn: &Connection, id: i64) -> rusqlite::Result<
         Some(val) => Ok(Some(val?)),
         None => Ok(None),
     }
+}
+
+/// Find all users with their assigned roles (for assignment page "By User" tab).
+pub fn find_all_with_roles(conn: &Connection) -> rusqlite::Result<Vec<UserWithRoles>> {
+    // First get all users
+    let mut users_stmt = conn.prepare(
+        "SELECT id, name AS username, label AS display_name \
+         FROM entities WHERE entity_type = 'user' \
+         ORDER BY label, name"
+    )?;
+    let users: Vec<(i64, String, String)> = users_stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    // Then get all user-role assignments
+    let mut roles_stmt = conn.prepare(
+        "SELECT r.source_id AS user_id, role_e.id AS role_id, role_e.name, role_e.label \
+         FROM relations r \
+         JOIN entities role_e ON r.target_id = role_e.id AND role_e.entity_type = 'role' \
+         WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+         ORDER BY role_e.label"
+    )?;
+    let assignments: Vec<(i64, i64, String, String)> = roles_stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    // Group assignments by user
+    let result: Vec<UserWithRoles> = users.into_iter().map(|(id, username, display_name)| {
+        let roles: Vec<(i64, String, String)> = assignments.iter()
+            .filter(|(uid, _, _, _)| *uid == id)
+            .map(|(_, rid, name, label)| (*rid, name.clone(), label.clone()))
+            .collect();
+        UserWithRoles { id, username, display_name, roles }
+    }).collect();
+
+    Ok(result)
 }
 
 /// Update only the password property for a user.
