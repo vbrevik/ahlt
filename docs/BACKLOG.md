@@ -382,6 +382,17 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **DM.4 Batch/multi-file import**: File input now accepts `multiple` files. Entities chunked in batches of 100 (constant `CHUNK_SIZE`). Relations sent only with last chunk to respect FK order. Progress shown as "File X of N, chunk Y of Z…". File queue resets after successful import.
 - **Build**: PASS | **Tests**: 3 passing (unchanged)
 
+### Users Table Enhancements (U.1)
+- **Filter Builder**: Visual FilterTree UI — Add/Remove conditions (field, operator, value), group conditions with AND/OR logic, bookmarkable URL state. Filter fields: username, display_name, email, role, created_at, updated_at. Operators: contains, not_contains, equals, not_equals, is_empty, is_not_empty, gt, lt, gte, lte.
+- **Column Picker**: Toggle visibility + drag-to-reorder via HTML5 drag-and-drop. Per-user preferences persisted to entity_properties (`pref.users_table_columns`), with global default setting entity fallback. ⊞ Columns popover button in table controls bar.
+- **Per-page Selector**: 10/25/50/100 rows options; persisted in URL (`per_page` query param).
+- **Sort Headers**: Clickable column headers with ▲/▼ indicators, preserved across filter/pagination changes.
+- **CSV Export**: Download filtered/sorted result set; filter state passed via URL param.
+- **Askama `|safe` bug fix**: `{{ variable }}` auto-HTML-escapes `"` → `&#34;`, breaking `JSON.parse()` in `<script type="application/json">` blocks. Fix applied to `list.html` and `table_controls.html`.
+- **Playwright E2E tests**: 46 tests in `scripts/users-table.test.mjs` covering all new features.
+- **Server startup**: `eprintln!` ensures port always printed to stderr regardless of `RUST_LOG`.
+- **Build**: PASS | **Tests**: 154 passing
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -459,6 +470,7 @@ F.4 Dark mode theme system
 F.5 User profile enhancements
 F.6 Dashboard Redesign
 DM.1–DM.4 Data Manager hardening+batch
+U.1 Users Table Enhancements (filter builder, column picker, per-page, sort, CSV, Playwright)
 ```
 
 ---
