@@ -1,13 +1,14 @@
 use rusqlite::{Connection, params};
 use super::types::{User, UserDisplay, UserPage, NewUser, UserWithRoles};
 
-/// SQL for user display: entity + email property + role via has_role relation.
+/// SQL for user display: entity + email property + roles via has_role relation.
+/// Uses GROUP_CONCAT to collect multiple roles into comma-separated strings.
 const SELECT_USER_DISPLAY: &str = "\
     SELECT e.id, e.name AS username, e.label AS display_name, \
            COALESCE(p_email.value, '') AS email, \
-           COALESCE(role_e.id, 0) AS role_id, \
-           COALESCE(role_e.name, '') AS role_name, \
-           COALESCE(role_e.label, '') AS role_label, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.id), '') AS role_ids, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.name), '') AS role_names, \
+           COALESCE(GROUP_CONCAT(DISTINCT role_e.label), '') AS role_labels, \
            e.created_at, e.updated_at \
     FROM entities e \
     LEFT JOIN entity_properties p_email \
@@ -24,9 +25,9 @@ fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
         username: row.get("username")?,
         email: row.get("email")?,
         display_name: row.get("display_name")?,
-        role_id: row.get("role_id")?,
-        role_name: row.get("role_name")?,
-        role_label: row.get("role_label")?,
+        role_ids: row.get("role_ids")?,
+        role_names: row.get("role_names")?,
+        role_labels: row.get("role_labels")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -56,9 +57,10 @@ pub fn find_paginated(
     let sort_col = uf::sort_col(&sort.column);
     let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
 
-    // Count query needs JOINs for filter fields that reference joined tables
+    // Count query needs JOINs for filter fields that reference joined tables.
+    // Use COUNT(DISTINCT e.id) to avoid inflated counts from multi-role JOINs.
     let count_sql = format!(
-        "SELECT COUNT(*) FROM entities e \
+        "SELECT COUNT(DISTINCT e.id) FROM entities e \
          LEFT JOIN entity_properties p_email ON e.id = p_email.entity_id AND p_email.key = 'email' \
          LEFT JOIN relations r_role ON r_role.source_id = e.id AND r_role.relation_type_id = \
              (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
@@ -75,6 +77,7 @@ pub fn find_paginated(
     let n = filter_params.len();
     let data_sql = format!(
         "{SELECT_USER_DISPLAY} AND ({where_clause}) \
+         GROUP BY e.id \
          ORDER BY {sort_col} {sort_dir} \
          LIMIT ?{} OFFSET ?{}",
         n + 1, n + 2
@@ -112,7 +115,7 @@ pub fn find_all_filtered(
     let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
 
     let sql = format!(
-        "{SELECT_USER_DISPLAY} AND ({where_clause}) ORDER BY {sort_col} {sort_dir}"
+        "{SELECT_USER_DISPLAY} AND ({where_clause}) GROUP BY e.id ORDER BY {sort_col} {sort_dir}"
     );
 
     let mut stmt = conn.prepare(&sql)?;
@@ -125,7 +128,7 @@ pub fn find_all_filtered(
 }
 
 pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {
-    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1");
+    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1 GROUP BY e.id");
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query_map(params![id], row_to_user_display)?;
     match rows.next() {

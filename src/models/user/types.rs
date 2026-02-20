@@ -15,6 +15,7 @@ pub struct User {
 }
 
 /// Safe version for templates — no password hash, includes role info from relations.
+/// Multi-role: role fields are comma-separated (via GROUP_CONCAT).
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct UserDisplay {
@@ -22,9 +23,9 @@ pub struct UserDisplay {
     pub username: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
-    pub role_name: String,
-    pub role_label: String,
+    pub role_ids: String,
+    pub role_names: String,
+    pub role_labels: String,
     pub created_at: String,
     pub updated_at: String,
 }

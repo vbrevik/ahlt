@@ -504,7 +504,7 @@ pub async fn export_csv(
             escape_csv(&u.username),
             escape_csv(&u.display_name),
             escape_csv(&u.email),
-            escape_csv(&u.role_label),
+            escape_csv(&u.role_labels),
             u.created_at,
             u.updated_at,
         ));

@@ -91,7 +91,7 @@
                     <div class="user-cell">
                         <div class="user-name">&#x1F464; {{ user.display_name }}</div>
                         <div class="user-username">@{{ user.username }}</div>
-                        <div class="user-role"><span class="badge badge-{{ user.role_name }}">{{ user.role_label }}</span></div>
+                        <div class="user-role">{% for label in user.role_labels.split(',') %}{% if !label.is_empty() %}<span class="badge badge-user">{{ label }}</span>{% endif %}{% endfor %}</div>
                     </div>
                     {% else %}
                     {% if col.key.as_str() == "email" %}

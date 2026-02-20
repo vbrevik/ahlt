@@ -544,8 +544,8 @@ pub struct ApiUserResponse {
     pub username: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
-    pub role_name: String,
+    pub role_ids: String,
+    pub role_names: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -557,8 +557,8 @@ impl From<UserDisplay> for ApiUserResponse {
             username: u.username,
             email: u.email,
             display_name: u.display_name,
-            role_id: u.role_id,
-            role_name: u.role_name,
+            role_ids: u.role_ids,
+            role_names: u.role_names,
             created_at: u.created_at,
             updated_at: u.updated_at,
         }

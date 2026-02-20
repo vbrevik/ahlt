@@ -169,7 +169,7 @@ pub async fn update_profile(
 
             // Audit log
             let details = serde_json::json!({
-                "old_display_name": current_user.role_name,
+                "old_display_name": current_user.display_name,
                 "new_display_name": form.display_name,
                 "summary": "User display name updated"
             });
