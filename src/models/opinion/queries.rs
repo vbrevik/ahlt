@@ -43,33 +43,59 @@ pub fn record_opinion(
 }
 
 /// Find all opinions recorded for a specific agenda point.
+///
+/// Handles two creation paths:
+/// - Programmatic (`record_opinion()`): stored as entity_properties (recorded_by_id, preferred_coa_id,
+///   commentary) with an `opinion_by` relation where source=user, target=opinion.
+/// - Seeded: only relations exist — `opinion_by` (source=opinion, target=user),
+///   `opinion_on` (source=opinion, target=agenda_point), `prefers_coa` (source=opinion, target=coa).
+///   Property key is `rationale` not `commentary`.
+///
+/// COALESCE fallbacks resolve user and COA from whichever path was used.
 pub fn find_opinions_for_agenda_point(
     conn: &Connection,
     agenda_point_id: i64,
 ) -> Result<Vec<OpinionListItem>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT e.id, \
-                COALESCE(p_by.value, '0') AS recorded_by_id, \
-                COALESCE(u.label, '') AS recorded_by_name, \
-                COALESCE(p_coa.value, '0') AS preferred_coa_id, \
-                COALESCE(p_comment.value, '') AS commentary, \
+                COALESCE(p_by.value, \
+                    CAST(r_by_seed.target_id AS TEXT), \
+                    CAST(r_by_prog.source_id AS TEXT), \
+                    '0') AS recorded_by_id, \
+                COALESCE(u_prop.label, u_seed.label, u_prog.label, '') AS recorded_by_name, \
+                COALESCE(p_coa.value, \
+                    CAST(r_pref.target_id AS TEXT), \
+                    '0') AS preferred_coa_id, \
+                COALESCE(p_comment.value, p_rationale.value, '') AS commentary, \
                 COALESCE(p_date.value, '') AS created_date \
          FROM entities e \
          JOIN relations r ON e.id = r.source_id \
          JOIN entities rt ON r.relation_type_id = rt.id AND rt.name = 'opinion_on' \
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'recorded_by_id' \
-         LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+         LEFT JOIN entities u_prop ON CAST(p_by.value AS INTEGER) = u_prop.id \
+         LEFT JOIN relations r_by_seed ON r_by_seed.source_id = e.id \
+             AND r_by_seed.relation_type_id = ( \
+                 SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'opinion_by') \
+         LEFT JOIN entities u_seed ON u_seed.id = r_by_seed.target_id AND u_seed.entity_type = 'user' \
+         LEFT JOIN relations r_by_prog ON r_by_prog.target_id = e.id \
+             AND r_by_prog.relation_type_id = ( \
+                 SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'opinion_by') \
+         LEFT JOIN entities u_prog ON u_prog.id = r_by_prog.source_id AND u_prog.entity_type = 'user' \
          LEFT JOIN entity_properties p_coa \
              ON e.id = p_coa.entity_id AND p_coa.key = 'preferred_coa_id' \
+         LEFT JOIN relations r_pref ON r_pref.source_id = e.id \
+             AND r_pref.relation_type_id = ( \
+                 SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'prefers_coa') \
          LEFT JOIN entity_properties p_comment \
              ON e.id = p_comment.entity_id AND p_comment.key = 'commentary' \
+         LEFT JOIN entity_properties p_rationale \
+             ON e.id = p_rationale.entity_id AND p_rationale.key = 'rationale' \
          LEFT JOIN entity_properties p_date \
              ON e.id = p_date.entity_id AND p_date.key = 'created_date' \
          WHERE e.entity_type = 'opinion' AND r.target_id = ?1 \
-         ORDER BY created_date ASC",
-    ).map_err(|e| AppError::Db(e))?;
+         ORDER BY COALESCE(p_date.value, '') ASC",
+    ).map_err(AppError::Db)?;
 
     let items = stmt
         .query_map(params![agenda_point_id], |row| {
@@ -77,7 +103,6 @@ pub fn find_opinions_for_agenda_point(
             let recorded_by_id: i64 = recorded_by_id_str.parse().unwrap_or(0);
             let preferred_coa_id_str: String = row.get("preferred_coa_id")?;
             let preferred_coa_id: i64 = preferred_coa_id_str.parse().unwrap_or(0);
-
             Ok(OpinionListItem {
                 id: row.get("id")?,
                 recorded_by: recorded_by_id,
@@ -87,9 +112,9 @@ pub fn find_opinions_for_agenda_point(
                 created_date: row.get("created_date")?,
             })
         })
-        .map_err(|e| AppError::Db(e))?
+        .map_err(AppError::Db)?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| AppError::Db(e))?;
+        .map_err(AppError::Db)?;
 
     Ok(items)
 }
