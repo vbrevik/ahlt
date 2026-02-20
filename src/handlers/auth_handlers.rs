@@ -3,7 +3,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 
 use crate::db::DbPool;
-use crate::models::{user, role, permission, setting};
+use crate::models::{user, permission, setting};
 use crate::auth::{csrf, password, rate_limit::RateLimiter};
 use crate::errors::{AppError, render};
 use crate::templates_structs::LoginTemplate;
@@ -89,19 +89,12 @@ pub async fn login_submit(
                     // Successful login — clear rate limit for this IP
                     limiter.clear(ip);
 
-                    // Look up role label for display
-                    let role_label = role::find_by_id(&conn, u.role_id)?
-                        .map(|r| r.label)
-                        .unwrap_or_default();
-
-                    // Look up permissions for this role
-                    let perms = permission::find_codes_by_role_id(&conn, u.role_id)?;
+                    // Multi-role: aggregate permissions across all assigned roles
+                    let perms = permission::find_codes_by_user_id(&conn, u.id)?;
                     let perms_csv = perms.join(",");
 
                     let _ = session.insert("user_id", u.id);
                     let _ = session.insert("username", &u.username);
-                    let _ = session.insert("role_id", u.role_id);
-                    let _ = session.insert("role_label", &role_label);
                     let _ = session.insert("permissions", &perms_csv);
                     Ok(HttpResponse::SeeOther()
                         .insert_header(("Location", "/dashboard"))
