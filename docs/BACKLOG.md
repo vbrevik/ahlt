@@ -417,6 +417,21 @@ All domain objects share three generic tables — no dedicated tables per type:
 | H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). ✓ DONE |
 | H.5 | ~~**Composite DB index**~~ | ~~Low~~ | ~~Small~~ | **DONE** — see Completed Work |
 
+### ToR / Meeting / Minutes Metadata Gaps (E.1–E.3)
+
+Based on analysis of real ToR document structure vs current data model. All use EAV `entity_properties` — no schema changes needed.
+
+| ID | Entity | Missing Fields | Priority | Effort |
+|----|--------|----------------|----------|--------|
+| E.1 | **Meeting** | `meeting_number` (sequential #), `classification`, `vtc_details`, `chair_user_id`, `secretary_user_id`, `roll_call_data` (JSON: `[{user_id, status}]`) | Medium | Small |
+| E.2 | **Agenda Point** | `presenter`, `priority` (normal/high/urgent), `pre_read_url` | Low | Small |
+| E.3 | **Minutes** | `approved_by`, `approved_date`, `distribution_list` (JSON), `structured_action_items` (JSON: `[{description, responsible, due_date, status}]`), `structured_attendance` (JSON: `[{user_id, name, status, delegation_to}]`) | Medium | Small |
+
+Implementation notes:
+- JSON properties follow the `parse_json_list` / `lines_to_json` pattern from the ToR objectives fields
+- `chair_user_id`/`secretary_user_id` could become relations (`chairs_meeting`, `records_meeting`) for referential integrity, but EAV strings are sufficient for display
+- `roll_call_data` (meeting level) and `structured_attendance` (minutes level) overlap — decide whether to store at one or both levels
+
 ### Features
 
 | ID | Item | Priority | Effort | Description |
@@ -471,6 +486,13 @@ F.5 User profile enhancements
 F.6 Dashboard Redesign
 DM.1–DM.4 Data Manager hardening+batch
 U.1 Users Table Enhancements (filter builder, column picker, per-page, sort, CSV, Playwright)
+
+CANDIDATES (pick next)
+══════════════════════
+E.1  Meeting metadata gaps (meeting_number, chair, roll_call)
+E.2  Agenda Point metadata gaps (presenter, priority, pre_read_url)
+E.3  Minutes metadata gaps (approved_by, structured_action_items, attendance)
+F.3  More entity types (project, task, document)
 ```
 
 ---
