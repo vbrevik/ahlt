@@ -32,57 +32,96 @@ fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
     })
 }
 
-/// Find users with pagination and optional search support.
-pub fn find_paginated(conn: &Connection, page: i64, per_page: i64, search: Option<&str>) -> rusqlite::Result<UserPage> {
-    // Clamp pagination params
+/// Find users with pagination, filter, and sort support.
+pub fn find_paginated(
+    conn: &Connection,
+    page: i64,
+    per_page: i64,
+    filter: &crate::models::table_filter::FilterTree,
+    sort: &crate::models::table_filter::SortSpec,
+) -> rusqlite::Result<UserPage> {
+    use crate::models::table_filter::{builder, SortDir};
+    use crate::models::user::filter as uf;
+
     let page = page.max(1);
     let per_page = per_page.clamp(1, 100);
     let offset = (page - 1) * per_page;
 
-    // Build search clause and params
-    let (search_clause, search_params): (String, Vec<String>) = match search {
-        Some(q) if !q.trim().is_empty() => {
-            let pattern = format!("%{}%", q.trim());
-            (
-                " AND (e.name LIKE ?1 OR e.label LIKE ?1)".to_string(),
-                vec![pattern],
-            )
-        },
-        _ => ("".to_string(), vec![]),
+    // Build WHERE clause
+    let (where_clause, filter_params) = builder::build_where_clause(
+        filter, &uf::field_map(), uf::OPS, 0,
+    ).unwrap_or_else(|_| ("1=1".to_string(), vec![]));
+
+    // Build ORDER BY
+    let sort_col = uf::sort_col(&sort.column);
+    let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
+
+    // Count query needs JOINs for filter fields that reference joined tables
+    let count_sql = format!(
+        "SELECT COUNT(*) FROM entities e \
+         LEFT JOIN entity_properties p_email ON e.id = p_email.entity_id AND p_email.key = 'email' \
+         LEFT JOIN relations r_role ON r_role.source_id = e.id AND r_role.relation_type_id = \
+             (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+         LEFT JOIN entities role_e ON r_role.target_id = role_e.id \
+         WHERE e.entity_type = 'user' AND ({where_clause})"
+    );
+
+    let total_count: i64 = {
+        let mut stmt = conn.prepare(&count_sql)?;
+        stmt.query_row(rusqlite::params_from_iter(filter_params.iter()), |r| r.get(0))?
     };
 
-    // Get total count
-    let count_sql = format!("SELECT COUNT(*) FROM entities e WHERE e.entity_type = 'user'{}", search_clause);
-    let total_count: i64 = if search_params.is_empty() {
-        conn.query_row(&count_sql, [], |row| row.get(0))?
-    } else {
-        conn.query_row(&count_sql, params![&search_params[0]], |row| row.get(0))?
-    };
+    // Data query
+    let n = filter_params.len();
+    let data_sql = format!(
+        "{SELECT_USER_DISPLAY} AND ({where_clause}) \
+         ORDER BY {sort_col} {sort_dir} \
+         LIMIT ?{} OFFSET ?{}",
+        n + 1, n + 2
+    );
 
-    let total_pages = (total_count as f64 / per_page as f64).ceil() as i64;
+    let mut all_params: Vec<rusqlite::types::Value> = filter_params.iter()
+        .map(|s| rusqlite::types::Value::Text(s.clone()))
+        .collect();
+    all_params.push(rusqlite::types::Value::Integer(per_page));
+    all_params.push(rusqlite::types::Value::Integer(offset));
 
-    // Get paginated results
-    let sql = if search_params.is_empty() {
-        format!("{SELECT_USER_DISPLAY} ORDER BY e.id LIMIT ?1 OFFSET ?2")
-    } else {
-        format!("{SELECT_USER_DISPLAY}{} ORDER BY e.id LIMIT ?2 OFFSET ?3", search_clause)
-    };
+    let mut stmt = conn.prepare(&data_sql)?;
+    let users = stmt.query_map(rusqlite::params_from_iter(all_params.iter()), row_to_user_display)?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let total_pages = ((total_count as f64) / (per_page as f64)).ceil() as i64;
+
+    Ok(UserPage { users, page, per_page, total_count, total_pages })
+}
+
+/// Return all users matching the filter (no pagination) — used for CSV export.
+pub fn find_all_filtered(
+    conn: &Connection,
+    filter: &crate::models::table_filter::FilterTree,
+    sort: &crate::models::table_filter::SortSpec,
+) -> rusqlite::Result<Vec<UserDisplay>> {
+    use crate::models::table_filter::{builder, SortDir};
+    use crate::models::user::filter as uf;
+
+    let (where_clause, filter_params) = builder::build_where_clause(
+        filter, &uf::field_map(), uf::OPS, 0,
+    ).unwrap_or_else(|_| ("1=1".to_string(), vec![]));
+
+    let sort_col = uf::sort_col(&sort.column);
+    let sort_dir = match sort.dir { SortDir::Asc => "ASC", SortDir::Desc => "DESC" };
+
+    let sql = format!(
+        "{SELECT_USER_DISPLAY} AND ({where_clause}) ORDER BY {sort_col} {sort_dir}"
+    );
+
     let mut stmt = conn.prepare(&sql)?;
-    let users = if search_params.is_empty() {
-        stmt.query_map(params![per_page, offset], row_to_user_display)?
-            .collect::<Result<Vec<_>, _>>()?
-    } else {
-        stmt.query_map(params![&search_params[0], per_page, offset], row_to_user_display)?
-            .collect::<Result<Vec<_>, _>>()?
-    };
+    let users = stmt.query_map(
+        rusqlite::params_from_iter(filter_params.iter()),
+        row_to_user_display,
+    )?.collect::<Result<Vec<_>, _>>()?;
 
-    Ok(UserPage {
-        users,
-        page,
-        per_page,
-        total_count,
-        total_pages,
-    })
+    Ok(users)
 }
 
 pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {

@@ -17,6 +17,7 @@ pub mod proposal;
 pub mod role;
 pub mod setting;
 pub mod suggestion;
+pub mod table_filter;
 pub mod tor;
 pub mod user;
 pub mod workflow;

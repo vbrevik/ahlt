@@ -32,7 +32,7 @@ pub async fn list(
         .min(100); // Cap at 100
 
     let conn = pool.get()?;
-    let user_page = user::find_paginated(&conn, page, per_page, None)?;
+    let user_page = user::find_paginated(&conn, page, per_page, &crate::models::table_filter::FilterTree::default(), &crate::models::table_filter::SortSpec::default())?;
 
     let response = PaginatedResponse {
         items: user_page

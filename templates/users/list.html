@@ -1,14 +1,8 @@
 {% extends "base.html" %}
 
 {% block title %}Users — {{ ctx.app_name }}{% endblock %}
-
-{% block nav %}
-{% include "partials/nav.html" %}
-{% endblock %}
-
-{% block sidebar %}
-{% include "partials/sidebar.html" %}
-{% endblock %}
+{% block nav %}{% include "partials/nav.html" %}{% endblock %}
+{% block sidebar %}{% include "partials/sidebar.html" %}{% endblock %}
 
 {% block content %}
 {% if let Some(msg) = ctx.flash %}
@@ -17,51 +11,39 @@
 
 <div class="page-header">
     <h1>Users</h1>
-    {% if ctx.permissions.has("users.create") %}<a href="/users/new" class="btn btn-primary">New User</a>{% endif %}
+    {% if ctx.permissions.has("users.create") %}
+    <a href="/users/new" class="btn btn-primary">New User</a>
+    {% endif %}
 </div>
 
-<form method="get" action="/users" class="search-form">
-    <input type="search" name="q" placeholder="Search by username or name..."
-           value="{% if let Some(q) = search_query %}{{ q }}{% endif %}" class="search-input">
-    <button type="submit" class="btn">Search</button>
-    {% if search_query.is_some() %}
-    <a href="/users" class="btn">Clear</a>
-    {% endif %}
-</form>
+<script type="application/json" id="filter-state-json">{{ filter_json }}</script>
+<script type="application/json" id="filter-fields-json">{{ fields_json }}</script>
 
-<!-- Bulk Action Toolbar -->
-<div id="users-bulk-toolbar" class="users-bulk-toolbar" style="display: none;">
+{% include "partials/table_filter.html" %}
+{% include "partials/table_controls.html" %}
+{% include "partials/column_picker.html" %}
+
+<div id="users-bulk-toolbar" class="users-bulk-toolbar" hidden>
     <span class="toolbar-label">
         <span id="users-selected-count">0</span> user<span id="users-plural">s</span> selected
     </span>
     <div class="toolbar-actions">
         {% if ctx.permissions.has("users.delete") %}
-        <button type="button" class="btn btn-danger btn-sm" id="users-bulk-delete-btn" onclick="confirmBulkDelete()">
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmBulkDelete()">
             Delete Selected
         </button>
         {% endif %}
-        <button type="button" class="btn btn-sm" onclick="clearSelection()">
-            Cancel
-        </button>
+        <button type="button" class="btn btn-sm" onclick="clearSelection()">Cancel</button>
     </div>
 </div>
 
-<!-- Results Summary -->
-<div class="users-list-summary">
-    Showing <strong>{{ user_page.users.len() }}</strong> of <strong>{{ user_page.total_count }}</strong> users
-    {% if let Some(q) = search_query %}
-    matching "<strong>{{ q }}</strong>"
-    {% endif %}
-</div>
-
-<!-- Users Table -->
 {% if user_page.users.is_empty() %}
 <div class="empty-state">
-    <div class="empty-state-icon">👥</div>
+    <div class="empty-state-icon">&#x1F465;</div>
     <div class="empty-state-title">No users found</div>
     <div class="empty-state-text">
-        {% if search_query.is_some() %}
-        Try a different search term or <a href="/users">clear filters</a>.
+        {% if filter_active %}
+        No users match the active filters. <a href="/users">Clear filters</a>.
         {% else %}
         Create your first user to get started.
         {% endif %}
@@ -78,10 +60,19 @@
                         <span class="checkbox-mark"></span>
                     </label>
                 </th>
-                <th class="users-table__user">User</th>
-                <th class="users-table__email">Email</th>
-                <th class="users-table__status">Status</th>
-                <th class="users-table__actions">Actions</th>
+                {% for col in columns %}
+                {% if col.visible %}
+                <th class="users-table__{{ col.key }}">
+                    {% if col.sortable %}
+                    <a href="/users?sort={{ col.sort_key }}&dir={% if sort_column.as_str() == col.sort_key.as_str() %}{% if sort_dir.as_str() == "asc" %}desc{% else %}asc{% endif %}{% else %}asc{% endif %}&filter={{ filter_json }}&per_page={{ user_page.per_page }}" class="sort-link">
+                        {{ col.label }}{% if sort_column.as_str() == col.sort_key.as_str() %} {% if sort_dir.as_str() == "asc" %}&#x25B2;{% else %}&#x25BC;{% endif %}{% endif %}
+                    </a>
+                    {% else %}
+                    {{ col.label }}
+                    {% endif %}
+                </th>
+                {% endif %}
+                {% endfor %}
             </tr>
         </thead>
         <tbody>
@@ -93,27 +84,42 @@
                         <span class="checkbox-mark"></span>
                     </label>
                 </td>
-                <td class="users-table__user">
+                {% for col in columns %}
+                {% if col.visible %}
+                <td class="users-table__{{ col.key }}">
+                    {% if col.key.as_str() == "user" %}
                     <div class="user-cell">
-                        <div class="user-name">👤 {{ user.display_name }}</div>
+                        <div class="user-name">&#x1F464; {{ user.display_name }}</div>
                         <div class="user-username">@{{ user.username }}</div>
                         <div class="user-role"><span class="badge badge-{{ user.role_name }}">{{ user.role_label }}</span></div>
                     </div>
-                </td>
-                <td class="users-table__email">{{ user.email }}</td>
-                <td class="users-table__status">
-                    <span class="status-badge status-active" title="User account is active">
-                        ✓ Active
-                    </span>
-                </td>
-                <td class="users-table__actions">
+                    {% else %}
+                    {% if col.key.as_str() == "email" %}
+                    {{ user.email }}
+                    {% else %}
+                    {% if col.key.as_str() == "status" %}
+                    <span class="status-badge status-active" title="Active">&#x2713; Active</span>
+                    {% else %}
+                    {% if col.key.as_str() == "created_at" %}
+                    {{ user.created_at }}
+                    {% else %}
+                    {% if col.key.as_str() == "updated_at" %}
+                    {{ user.updated_at }}
+                    {% else %}
+                    {% if col.key.as_str() == "actions" %}
                     <div class="action-buttons">
-                        {% if ctx.permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm" title="Edit user">Edit</a>{% endif %}
-                        {% if ctx.permissions.has("users.delete") %}
-                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})" title="Delete user">Delete</button>
-                        {% endif %}
+                        {% if ctx.permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm">Edit</a>{% endif %}
+                        {% if ctx.permissions.has("users.delete") %}<button type="button" class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})">Delete</button>{% endif %}
                     </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
                 </td>
+                {% endif %}
+                {% endfor %}
             </tr>
         {% endfor %}
         </tbody>
@@ -123,86 +129,68 @@
 
 {% if user_page.total_pages > 1 %}
 <div class="pagination">
-    <div class="pagination-info">
-        Page {{ user_page.page }} of {{ user_page.total_pages }} ({{ user_page.total_count }} total)
-    </div>
+    <div class="pagination-info">Page {{ user_page.page }} of {{ user_page.total_pages }}</div>
     <div class="pagination-controls">
         {% if user_page.page > 1 %}
-        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">← Previous</a>
+        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="btn btn-sm">&#x2190; Previous</a>
         {% else %}
-        <span class="btn btn-sm" disabled>← Previous</span>
+        <span class="btn btn-sm" aria-disabled="true">&#x2190; Previous</span>
         {% endif %}
-
         <span class="pagination-current">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
-
         {% if user_page.page < user_page.total_pages %}
-        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}{% if let Some(q) = search_query %}&q={{ q }}{% endif %}" class="btn btn-sm">Next →</a>
+        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="btn btn-sm">Next &#x2192;</a>
         {% else %}
-        <span class="btn btn-sm" disabled>Next →</span>
+        <span class="btn btn-sm" aria-disabled="true">Next &#x2192;</span>
         {% endif %}
     </div>
 </div>
 {% endif %}
 
-<!-- Bulk Delete Form (hidden) -->
-<form id="users-bulk-delete-form" method="post" action="/users/bulk-delete" style="display: none;">
+<form id="users-bulk-delete-form" method="post" action="/users/bulk-delete" style="display:none">
     <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
     <input type="hidden" id="users-bulk-delete-ids" name="user_ids" value="">
 </form>
 
 <script>
-// Bulk selection management
 function updateBulkToolbar() {
     const checkboxes = document.querySelectorAll('.users-row-checkbox');
     const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
     const toolbar = document.getElementById('users-bulk-toolbar');
     const countSpan = document.getElementById('users-selected-count');
     const pluralSpan = document.getElementById('users-plural');
-    
     countSpan.textContent = selectedCount;
     pluralSpan.textContent = selectedCount === 1 ? '' : 's';
-    
-    if (selectedCount > 0) {
-        toolbar.style.display = 'flex';
-    } else {
-        toolbar.style.display = 'none';
-    }
-    
-    // Update select-all checkbox state
+    toolbar.hidden = selectedCount === 0;
     const selectAll = document.getElementById('users-select-all');
     const total = checkboxes.length;
-    if (selectedCount === total && total > 0) {
-        selectAll.checked = true;
-        selectAll.indeterminate = false;
-    } else if (selectedCount > 0) {
-        selectAll.indeterminate = true;
-    } else {
-        selectAll.checked = false;
-        selectAll.indeterminate = false;
-    }
+    selectAll.checked = selectedCount === total && total > 0;
+    selectAll.indeterminate = selectedCount > 0 && selectedCount < total;
 }
 
 function toggleSelectAll() {
-    const selectAll = document.getElementById('users-select-all');
-    const checkboxes = document.querySelectorAll('.users-row-checkbox');
-    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    const checked = document.getElementById('users-select-all').checked;
+    document.querySelectorAll('.users-row-checkbox').forEach(cb => cb.checked = checked);
     updateBulkToolbar();
 }
 
 function clearSelection() {
-    const checkboxes = document.querySelectorAll('.users-row-checkbox, #users-select-all');
-    checkboxes.forEach(cb => cb.checked = false);
+    document.querySelectorAll('.users-row-checkbox, #users-select-all').forEach(cb => cb.checked = false);
     updateBulkToolbar();
 }
 
 function deleteUser(userId) {
-    const row = document.querySelector(`[data-user-id="${userId}"]`);
-    const displayName = row.querySelector('.user-name').textContent.replace('👤 ', '');
-    if (confirm(`Delete user "${displayName}"?\n\nThis action cannot be undone.`)) {
+    const row = document.querySelector('[data-user-id="' + userId + '"]');
+    const nameEl = row ? row.querySelector('.user-name') : null;
+    const displayName = nameEl ? nameEl.textContent.replace('\u{1F464} ', '').trim() : userId;
+    if (confirm('Delete user "' + displayName + '"?\n\nThis action cannot be undone.')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/users/${userId}/delete`;
-        form.innerHTML = `<input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">`;
+        form.action = '/users/' + userId + '/delete';
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = '{{ ctx.csrf_token }}';
+        form.appendChild(csrf);
         document.body.appendChild(form);
         form.submit();
     }
@@ -211,20 +199,14 @@ function deleteUser(userId) {
 function confirmBulkDelete() {
     const checkboxes = document.querySelectorAll('.users-row-checkbox:checked');
     const count = checkboxes.length;
-    
-    if (count === 0) {
-        alert('No users selected');
-        return;
-    }
-    
-    if (confirm(`Delete ${count} user${count !== 1 ? 's' : ''}?\n\nThis action cannot be undone.`)) {
+    if (count === 0) { alert('No users selected'); return; }
+    if (confirm('Delete ' + count + ' user' + (count !== 1 ? 's' : '') + '?\n\nThis action cannot be undone.')) {
         const ids = Array.from(checkboxes).map(cb => cb.value);
         document.getElementById('users-bulk-delete-ids').value = JSON.stringify(ids);
         document.getElementById('users-bulk-delete-form').submit();
     }
 }
 
-// Initialize toolbar visibility on page load
 updateBulkToolbar();
 </script>
 {% endblock %}
