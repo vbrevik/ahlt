@@ -124,4 +124,20 @@ mod tests {
         assert_eq!(s.dir, SortDir::Desc);
         assert_eq!(s.toggle_dir(), "asc");
     }
+
+    #[test]
+    fn sort_spec_defaults_when_none() {
+        let s = SortSpec::from_params(None, None);
+        assert_eq!(s.column, "");
+        assert_eq!(s.dir, SortDir::Asc);
+        assert_eq!(s.dir_str(), "asc");
+        assert_eq!(s.toggle_dir(), "desc");
+    }
+
+    #[test]
+    fn sort_spec_asc_dir() {
+        let s = SortSpec::from_params(Some("email"), Some("asc"));
+        assert_eq!(s.column, "email");
+        assert_eq!(s.dir, SortDir::Asc);
+    }
 }
