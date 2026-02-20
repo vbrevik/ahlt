@@ -126,4 +126,274 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Distribution List -->
+<section class="section">
+    <div class="section-header"><h2>Distribution List</h2></div>
+    {% if minutes.status.as_str() != "approved" %}
+    <form method="post" action="/minutes/{{ minutes.id }}/distribution">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <textarea name="distribution_list" class="input" rows="4"
+                  placeholder="One name or email per line">{{ minutes.distribution_items().join("\n") }}</textarea>
+        <div style="margin-top:0.5rem;">
+            <button type="submit" class="btn btn-sm btn-primary">Save Distribution List</button>
+        </div>
+    </form>
+    {% else %}
+    <ul>
+        {% for item in minutes.distribution_items() %}
+        <li>{{ item }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+
+<!-- Attendance -->
+<section class="section">
+    <div class="section-header"><h2>Attendance</h2></div>
+
+    <script type="application/json" id="attendance-data">{{ minutes.structured_attendance|safe }}</script>
+
+    <table class="table" id="attendance-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Delegation To</th>
+                {% if minutes.status.as_str() != "approved" %}
+                <th></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody id="attendance-body">
+            <!-- Populated by JS -->
+        </tbody>
+    </table>
+
+    {% if minutes.status.as_str() != "approved" %}
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-sm btn-secondary" id="add-attendance-row">+ Add Person</button>
+    </div>
+
+    <form method="post" action="/minutes/{{ minutes.id }}/attendance" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <input type="hidden" name="structured_attendance" id="attendance-json">
+        <button type="submit" class="btn btn-sm btn-primary" id="save-attendance">Save Attendance</button>
+    </form>
+    {% endif %}
+</section>
+
+<!-- Action Items -->
+<section class="section">
+    <div class="section-header"><h2>Action Items</h2></div>
+
+    <script type="application/json" id="action-items-data">{{ minutes.structured_action_items|safe }}</script>
+
+    <table class="table" id="action-items-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th>Responsible</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                {% if minutes.status.as_str() != "approved" %}
+                <th></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody id="action-items-body">
+            <!-- Populated by JS -->
+        </tbody>
+    </table>
+
+    {% if minutes.status.as_str() != "approved" %}
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
+        <button type="button" class="btn btn-sm btn-secondary" id="add-action-item-row">+ Add Action Item</button>
+    </div>
+
+    <form method="post" action="/minutes/{{ minutes.id }}/action-items" style="margin-top: 1rem;">
+        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+        <input type="hidden" name="structured_action_items" id="action-items-json">
+        <button type="submit" class="btn btn-sm btn-primary" id="save-action-items">Save Action Items</button>
+    </form>
+    {% endif %}
+</section>
+
+<script>
+(function() {
+    // --- Attendance ---
+    const ATTENDANCE_STATUS = ['present', 'absent', 'excused'];
+    const attendanceBody = document.getElementById('attendance-body');
+    const attendanceJsonInput = document.getElementById('attendance-json');
+    const addAttendanceBtn = document.getElementById('add-attendance-row');
+    const canEditAttendance = !!addAttendanceBtn;
+
+    function makeAttendanceRow(name, status, delegationTo) {
+        const tr = document.createElement('tr');
+
+        const nameTd = document.createElement('td');
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'input input--sm';
+        nameInput.placeholder = 'Name';
+        nameInput.value = name || '';
+        nameInput.readOnly = !canEditAttendance;
+        nameTd.appendChild(nameInput);
+        tr.appendChild(nameTd);
+
+        const statusTd = document.createElement('td');
+        const statusSel = document.createElement('select');
+        statusSel.className = 'input input--sm';
+        statusSel.disabled = !canEditAttendance;
+        ATTENDANCE_STATUS.forEach(function(opt) {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            if (opt === status) { o.selected = true; }
+            statusSel.appendChild(o);
+        });
+        statusTd.appendChild(statusSel);
+        tr.appendChild(statusTd);
+
+        const delegTd = document.createElement('td');
+        const delegInput = document.createElement('input');
+        delegInput.type = 'text';
+        delegInput.className = 'input input--sm';
+        delegInput.placeholder = 'Delegation to (optional)';
+        delegInput.value = delegationTo || '';
+        delegInput.readOnly = !canEditAttendance;
+        delegTd.appendChild(delegInput);
+        tr.appendChild(delegTd);
+
+        if (canEditAttendance) {
+            const actionTd = document.createElement('td');
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-danger';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', function() { tr.remove(); });
+            actionTd.appendChild(removeBtn);
+            tr.appendChild(actionTd);
+        }
+
+        return tr;
+    }
+
+    var existingAttendance = JSON.parse(document.getElementById('attendance-data').textContent || '[]');
+    existingAttendance.forEach(function(entry) {
+        attendanceBody.appendChild(makeAttendanceRow(entry.name, entry.status, entry.delegation_to));
+    });
+
+    if (canEditAttendance) {
+        addAttendanceBtn.addEventListener('click', function() {
+            attendanceBody.appendChild(makeAttendanceRow('', 'present', ''));
+        });
+
+        document.getElementById('save-attendance').closest('form').addEventListener('submit', function() {
+            var rows = Array.from(attendanceBody.querySelectorAll('tr'));
+            var data = rows.map(function(tr) {
+                var inputs = tr.querySelectorAll('input, select');
+                return {
+                    name: inputs[0].value.trim(),
+                    status: inputs[1].value,
+                    delegation_to: inputs[2].value.trim()
+                };
+            }).filter(function(e) { return e.name; });
+            attendanceJsonInput.value = JSON.stringify(data);
+        });
+    }
+
+    // --- Action Items ---
+    const ACTION_STATUS = ['open', 'in_progress', 'done'];
+    const actionItemsBody = document.getElementById('action-items-body');
+    const actionItemsJsonInput = document.getElementById('action-items-json');
+    const addActionItemBtn = document.getElementById('add-action-item-row');
+    const canEditActionItems = !!addActionItemBtn;
+
+    function makeActionItemRow(description, responsible, dueDate, status) {
+        const tr = document.createElement('tr');
+
+        const descTd = document.createElement('td');
+        const descInput = document.createElement('input');
+        descInput.type = 'text';
+        descInput.className = 'input input--sm';
+        descInput.placeholder = 'Description';
+        descInput.value = description || '';
+        descInput.readOnly = !canEditActionItems;
+        descTd.appendChild(descInput);
+        tr.appendChild(descTd);
+
+        const respTd = document.createElement('td');
+        const respInput = document.createElement('input');
+        respInput.type = 'text';
+        respInput.className = 'input input--sm';
+        respInput.placeholder = 'Responsible';
+        respInput.value = responsible || '';
+        respInput.readOnly = !canEditActionItems;
+        respTd.appendChild(respInput);
+        tr.appendChild(respTd);
+
+        const dateTd = document.createElement('td');
+        const dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dateInput.className = 'input input--sm';
+        dateInput.value = dueDate || '';
+        dateInput.readOnly = !canEditActionItems;
+        dateTd.appendChild(dateInput);
+        tr.appendChild(dateTd);
+
+        const statusTd = document.createElement('td');
+        const statusSel = document.createElement('select');
+        statusSel.className = 'input input--sm';
+        statusSel.disabled = !canEditActionItems;
+        ACTION_STATUS.forEach(function(opt) {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            if (opt === status) { o.selected = true; }
+            statusSel.appendChild(o);
+        });
+        statusTd.appendChild(statusSel);
+        tr.appendChild(statusTd);
+
+        if (canEditActionItems) {
+            const actionTd = document.createElement('td');
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-danger';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', function() { tr.remove(); });
+            actionTd.appendChild(removeBtn);
+            tr.appendChild(actionTd);
+        }
+
+        return tr;
+    }
+
+    var existingActionItems = JSON.parse(document.getElementById('action-items-data').textContent || '[]');
+    existingActionItems.forEach(function(entry) {
+        actionItemsBody.appendChild(makeActionItemRow(entry.description, entry.responsible, entry.due_date, entry.status));
+    });
+
+    if (canEditActionItems) {
+        addActionItemBtn.addEventListener('click', function() {
+            actionItemsBody.appendChild(makeActionItemRow('', '', '', 'open'));
+        });
+
+        document.getElementById('save-action-items').closest('form').addEventListener('submit', function() {
+            var rows = Array.from(actionItemsBody.querySelectorAll('tr'));
+            var data = rows.map(function(tr) {
+                var inputs = tr.querySelectorAll('input, select');
+                return {
+                    description: inputs[0].value.trim(),
+                    responsible: inputs[1].value.trim(),
+                    due_date: inputs[2].value.trim(),
+                    status: inputs[3].value
+                };
+            }).filter(function(e) { return e.description; });
+            actionItemsJsonInput.value = JSON.stringify(data);
+        });
+    }
+})();
+</script>
 {% endblock %}
