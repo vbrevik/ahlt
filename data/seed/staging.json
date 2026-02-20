@@ -806,6 +806,62 @@
         "notes": "Q4 2025 budget review completed. Procurement policy discussion tabled for February.",
         "meeting_number": "BC-2026-01"
       }
+    },
+    {
+      "entity_type": "agenda_point",
+      "name": "agenda_igb_2026_03_18_cloud",
+      "label": "Select Cloud Platform for 2026",
+      "sort_order": 0,
+      "properties": {
+        "title": "Select Cloud Platform for 2026",
+        "item_type": "decision",
+        "status": "scheduled",
+        "time_allocation_minutes": "45",
+        "scheduled_date": "2026-03-18",
+        "description": "Review and select primary cloud platform for 2026 IT infrastructure migration. Choose between Azure and AWS based on cost analysis, capability assessment, and strategic fit.",
+        "created_date": "2026-02-20T14:00:00",
+        "priority": "high"
+      }
+    },
+    {
+      "entity_type": "coa",
+      "name": "coa_igb_cloud_azure",
+      "label": "Adopt Azure Cloud Platform",
+      "sort_order": 1,
+      "properties": {
+        "description": "Migrate primary IT infrastructure to Microsoft Azure. Leverages existing M365 integration, enterprise agreement pricing, and Azure AD identity management.",
+        "type": "simple"
+      }
+    },
+    {
+      "entity_type": "coa",
+      "name": "coa_igb_cloud_aws",
+      "label": "Adopt AWS Cloud Platform",
+      "sort_order": 2,
+      "properties": {
+        "description": "Migrate primary IT infrastructure to Amazon Web Services. Offers broader service portfolio, stronger developer tooling, and competitive spot instance pricing.",
+        "type": "simple"
+      }
+    },
+    {
+      "entity_type": "opinion",
+      "name": "opinion_alice_cloud_2026",
+      "label": "Alice — Cloud Platform Opinion",
+      "sort_order": 0,
+      "properties": {
+        "stance": "support",
+        "rationale": "Azure integration with our existing M365 and AD infrastructure significantly reduces migration complexity and operational overhead."
+      }
+    },
+    {
+      "entity_type": "opinion",
+      "name": "opinion_henry_cloud_2026",
+      "label": "Henry — Cloud Platform Opinion",
+      "sort_order": 0,
+      "properties": {
+        "stance": "support",
+        "rationale": "AWS provides superior developer tooling and more flexible pricing for our workload mix. The broader service catalogue future-proofs our architecture."
+      }
     }
   ],
   "relations": [
@@ -1359,6 +1415,15 @@
     { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_02_13", "target": "tor:change_advisory_board" },
     { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_02_20", "target": "tor:change_advisory_board" },
     { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_03_05", "target": "tor:change_advisory_board" },
-    { "relation_type": "belongs_to_tor", "source": "meeting:bc_meeting_2026_01_08", "target": "tor:budget_committee" }
+    { "relation_type": "belongs_to_tor", "source": "meeting:bc_meeting_2026_01_08", "target": "tor:budget_committee" },
+    { "relation_type": "belongs_to_tor", "source": "agenda_point:agenda_igb_2026_03_18_cloud", "target": "tor:it_governance_board" },
+    { "relation_type": "considers_coa", "source": "agenda_point:agenda_igb_2026_03_18_cloud", "target": "coa:coa_igb_cloud_azure" },
+    { "relation_type": "considers_coa", "source": "agenda_point:agenda_igb_2026_03_18_cloud", "target": "coa:coa_igb_cloud_aws" },
+    { "relation_type": "opinion_by", "source": "opinion:opinion_alice_cloud_2026", "target": "user:alice" },
+    { "relation_type": "opinion_on", "source": "opinion:opinion_alice_cloud_2026", "target": "agenda_point:agenda_igb_2026_03_18_cloud" },
+    { "relation_type": "prefers_coa", "source": "opinion:opinion_alice_cloud_2026", "target": "coa:coa_igb_cloud_azure" },
+    { "relation_type": "opinion_by", "source": "opinion:opinion_henry_cloud_2026", "target": "user:henry" },
+    { "relation_type": "opinion_on", "source": "opinion:opinion_henry_cloud_2026", "target": "agenda_point:agenda_igb_2026_03_18_cloud" },
+    { "relation_type": "prefers_coa", "source": "opinion:opinion_henry_cloud_2026", "target": "coa:coa_igb_cloud_aws" }
   ]
 }
