@@ -29,6 +29,7 @@ pub async fn add_step(
         .and_then(|s| if s.is_empty() { None } else { s.parse().ok() });
     let description = form.get("description").map(|s| s.as_str()).unwrap_or("");
     let is_required = form.get("is_required").map(|s| s.as_str()) == Some("true");
+    let responsible = form.get("responsible").map(|s| s.as_str()).unwrap_or("");
 
     if name.trim().is_empty() || label.trim().is_empty() {
         let _ = session.insert("flash", "Name and label are required");
@@ -38,7 +39,7 @@ pub async fn add_step(
     }
 
     protocol::create_step(&conn, tor_id, name.trim(), label.trim(), step_type,
-                          sequence_order, duration, description, is_required)?;
+                          sequence_order, duration, description, is_required, responsible.trim())?;
 
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({

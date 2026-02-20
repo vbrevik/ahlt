@@ -22,7 +22,7 @@ fn test_generate_scaffold_success() {
     let (_dir, conn) = setup_test_db();
 
     // Create a ToR first
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     // Create a meeting entity (minutes_of relation requires source_id to be a meeting)
@@ -51,7 +51,7 @@ fn test_generate_scaffold_success() {
 fn test_find_minutes_by_meeting() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(
@@ -75,7 +75,7 @@ fn test_find_minutes_by_meeting() {
 fn test_find_minutes_by_id_success() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(
@@ -109,7 +109,7 @@ fn test_find_minutes_by_id_not_found() {
 fn test_find_sections_of_minutes() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(
@@ -137,7 +137,7 @@ fn test_find_sections_of_minutes() {
 fn test_update_section_content() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(
@@ -173,7 +173,7 @@ fn test_update_section_content() {
 fn test_update_minutes_status() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(
@@ -199,7 +199,7 @@ fn test_update_minutes_status() {
 fn test_auto_generated_attendance_section() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = tor::create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     conn.execute(

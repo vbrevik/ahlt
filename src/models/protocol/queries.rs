@@ -8,7 +8,8 @@ pub fn find_steps_for_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Ve
                 CAST(COALESCE(p_order.value, '0') AS INTEGER) AS sequence_order, \
                 CASE WHEN p_dur.value IS NOT NULL THEN CAST(p_dur.value AS INTEGER) ELSE NULL END AS duration, \
                 COALESCE(p_desc.value, '') AS description, \
-                COALESCE(p_req.value, 'true') AS is_required \
+                COALESCE(p_req.value, 'true') AS is_required, \
+                COALESCE(p_resp.value, '') AS responsible \
          FROM entities e \
          JOIN relations r ON e.id = r.source_id \
          LEFT JOIN entity_properties p_type ON e.id = p_type.entity_id AND p_type.key = 'step_type' \
@@ -16,6 +17,7 @@ pub fn find_steps_for_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Ve
          LEFT JOIN entity_properties p_dur ON e.id = p_dur.entity_id AND p_dur.key = 'default_duration_minutes' \
          LEFT JOIN entity_properties p_desc ON e.id = p_desc.entity_id AND p_desc.key = 'description' \
          LEFT JOIN entity_properties p_req ON e.id = p_req.entity_id AND p_req.key = 'is_required' \
+         LEFT JOIN entity_properties p_resp ON e.id = p_resp.entity_id AND p_resp.key = 'responsible' \
          WHERE r.target_id = ?1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'protocol_of') \
@@ -34,6 +36,7 @@ pub fn find_steps_for_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Ve
                 default_duration_minutes: row.get("duration")?,
                 description: row.get("description")?,
                 is_required: row.get::<_, String>("is_required")? == "true",
+                responsible: row.get("responsible")?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -51,6 +54,7 @@ pub fn create_step(
     default_duration_minutes: Option<i64>,
     description: &str,
     is_required: bool,
+    responsible: &str,
 ) -> rusqlite::Result<i64> {
     conn.execute(
         "INSERT INTO entities (entity_type, name, label) VALUES ('protocol_step', ?1, ?2)",
@@ -63,6 +67,7 @@ pub fn create_step(
         ("sequence_order", sequence_order.to_string()),
         ("description", description.to_string()),
         ("is_required", if is_required { "true" } else { "false" }.to_string()),
+        ("responsible", responsible.to_string()),
     ];
 
     for (key, value) in &props {

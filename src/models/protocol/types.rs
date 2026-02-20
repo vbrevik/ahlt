@@ -8,4 +8,5 @@ pub struct ProtocolStep {
     pub default_duration_minutes: Option<i64>,
     pub description: String,
     pub is_required: bool,
+    pub responsible: String,
 }

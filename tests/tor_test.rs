@@ -31,15 +31,7 @@ fn test_create_tor_success() {
         &conn,
         TEST_TOR_NAME,
         TEST_TOR_LABEL,
-        TEST_DESCRIPTION,
-        TEST_STATUS,
-        TEST_CADENCE,
-        TEST_DAY,
-        TEST_TIME,
-        TEST_DURATION,
-        TEST_LOCATION,
-        "",
-        "",
+        &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS), ("meeting_cadence", TEST_CADENCE), ("cadence_day", TEST_DAY), ("cadence_time", TEST_TIME), ("cadence_duration_minutes", TEST_DURATION), ("default_location", TEST_LOCATION)],
     ).expect("Failed to create ToR");
 
     assert!(tor_id > 0);
@@ -57,12 +49,12 @@ fn test_create_tor_success() {
 fn test_create_tor_duplicate_name() {
     let (_dir, conn) = setup_test_db();
 
-    let first_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let first_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create first ToR");
     assert!(first_id > 0);
 
     // Try to create ToR with same name
-    let duplicate = create(&conn, TEST_TOR_NAME, "Different Label", "", "", "", "", "", "", "", "", "");
+    let duplicate = create(&conn, TEST_TOR_NAME, "Different Label", &[]);
     
     // Should fail on UNIQUE constraint
     assert!(duplicate.is_err());
@@ -72,7 +64,7 @@ fn test_create_tor_duplicate_name() {
 fn test_find_tor_by_id_success() {
     let (_dir, conn) = setup_test_db();
 
-    let created_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, TEST_DESCRIPTION, TEST_STATUS, TEST_CADENCE, TEST_DAY, TEST_TIME, TEST_DURATION, TEST_LOCATION, "", "")
+    let created_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS), ("meeting_cadence", TEST_CADENCE), ("cadence_day", TEST_DAY), ("cadence_time", TEST_TIME), ("cadence_duration_minutes", TEST_DURATION), ("default_location", TEST_LOCATION)])
         .expect("Failed to create ToR");
 
     let tor = find_detail_by_id(&conn, created_id)
@@ -102,7 +94,7 @@ fn test_list_all_tors() {
     for i in 0..3 {
         let name = format!("tor_{}", i);
         let label = format!("ToR {}", i);
-        let _ = create(&conn, &name, &label, "", "", "", "", "", "", "", "", "")
+        let _ = create(&conn, &name, &label, &[])
             .expect("Failed to create ToR");
     }
 
@@ -116,7 +108,7 @@ fn test_list_all_tors() {
 fn test_get_tor_name() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     let name = get_tor_name(&conn, tor_id)
@@ -129,11 +121,11 @@ fn test_get_tor_name() {
 fn test_update_tor_success() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, TEST_DESCRIPTION, TEST_STATUS, "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS)])
         .expect("Failed to create ToR");
 
     let updated_label = "Updated ToR Label";
-    let _ = update(&conn, tor_id, TEST_TOR_NAME, updated_label, "Updated description", TEST_STATUS, "", "", "", "", "", "", "")
+    let _ = update(&conn, tor_id, TEST_TOR_NAME, updated_label, &[("description", "Updated description"), ("status", TEST_STATUS)])
         .expect("Failed to update ToR");
 
     let tor = find_detail_by_id(&conn, tor_id)
@@ -150,14 +142,14 @@ fn test_update_tor_not_found() {
 
     // Updating non-existent ToR may fail or succeed depending on implementation
     // The important thing is that it doesn't panic
-    let _ = update(&conn, 9999, "name", "label", "", "", "", "", "", "", "", "", "");
+    let _ = update(&conn, 9999, "name", "label", &[]);
 }
 
 #[test]
 fn test_count_members_empty() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     let count = count_members(&conn, tor_id)
@@ -171,7 +163,7 @@ fn test_count_members_empty() {
 fn test_find_tor_members_empty() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     let members = find_members(&conn, tor_id)
@@ -185,7 +177,7 @@ fn test_find_tor_members_empty() {
 fn test_delete_tor_success() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     let _ = delete(&conn, tor_id)
@@ -201,7 +193,7 @@ fn test_delete_tor_success() {
 fn test_find_non_members() {
     let (_dir, conn) = setup_test_db();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, "", "", "", "", "", "", "", "", "")
+    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
         .expect("Failed to create ToR");
 
     // Create a test user

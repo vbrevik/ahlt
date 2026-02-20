@@ -59,6 +59,39 @@
     </div>
 
     <fieldset>
+        <legend>Identity</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="tor_number">ToR Number</label>
+                <input type="text" id="tor_number" name="tor_number"
+                       value="{% if let Some(t) = tor %}{{ t.tor_number }}{% endif %}"
+                       placeholder="e.g. 602">
+                <span class="hint">Official document number</span>
+            </div>
+            <div class="form-group">
+                <label for="classification">Classification</label>
+                <input type="text" id="classification" name="classification"
+                       value="{% if let Some(t) = tor %}{{ t.classification }}{% endif %}"
+                       placeholder="e.g. UNCLASSIFIED">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="version">Version</label>
+                <input type="text" id="version" name="version"
+                       value="{% if let Some(t) = tor %}{{ t.version }}{% endif %}"
+                       placeholder="e.g. 1.0">
+            </div>
+            <div class="form-group">
+                <label for="organization">Organization</label>
+                <input type="text" id="organization" name="organization"
+                       value="{% if let Some(t) = tor %}{{ t.organization }}{% endif %}"
+                       placeholder="e.g. NJHQ">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
         <legend>Meeting Schedule</legend>
 
         <div class="form-row">
@@ -126,6 +159,64 @@
                    value="{% if let Some(t) = tor %}{{ t.background_repo_url }}{% endif %}"
                    placeholder="https://sharepoint.com/...">
             <span class="hint">Link to shared repository for background documents</span>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Purpose &amp; Scope</legend>
+        <div class="form-group">
+            <label for="focus_scope">Focus / Scope</label>
+            <textarea id="focus_scope" name="focus_scope" rows="2">{% if let Some(t) = tor %}{{ t.focus_scope }}{% endif %}</textarea>
+            <span class="hint">The scope or focus area of this ToR</span>
+        </div>
+        <div class="form-group">
+            <label for="objectives">Objectives</label>
+            <textarea id="objectives" name="objectives" rows="4" placeholder="One objective per line">{% if let Some(t) = tor %}{{ t.objectives_text() }}{% endif %}</textarea>
+            <span class="hint">Enter each objective on a separate line</span>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Governance</legend>
+        <div class="form-group">
+            <label for="inputs_required">Inputs Required</label>
+            <textarea id="inputs_required" name="inputs_required" rows="3" placeholder="One input per line">{% if let Some(t) = tor %}{{ t.inputs_required_text() }}{% endif %}</textarea>
+            <span class="hint">Documents, reports, or data required before meetings</span>
+        </div>
+        <div class="form-group">
+            <label for="outputs_expected">Outputs Expected</label>
+            <textarea id="outputs_expected" name="outputs_expected" rows="3" placeholder="One output per line">{% if let Some(t) = tor %}{{ t.outputs_expected_text() }}{% endif %}</textarea>
+            <span class="hint">Deliverables, decisions, or reports produced by meetings</span>
+        </div>
+        <div class="form-group">
+            <label for="poc_contact">Point of Contact</label>
+            <input type="text" id="poc_contact" name="poc_contact"
+                   value="{% if let Some(t) = tor %}{{ t.poc_contact }}{% endif %}"
+                   placeholder="e.g. John Smith, ext. 1234">
+            <span class="hint">Primary contact for this ToR</span>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Operational</legend>
+        <div class="form-group">
+            <label for="phase_scheduling">Phase / Scheduling</label>
+            <input type="text" id="phase_scheduling" name="phase_scheduling"
+                   value="{% if let Some(t) = tor %}{{ t.phase_scheduling }}{% endif %}"
+                   placeholder="e.g. Phase 2, Q1 2026">
+            <span class="hint">Planning phase or scheduling context</span>
+        </div>
+        <div class="form-group">
+            <label for="info_platform">Information Platform</label>
+            <input type="text" id="info_platform" name="info_platform"
+                   value="{% if let Some(t) = tor %}{{ t.info_platform }}{% endif %}"
+                   placeholder="e.g. SharePoint, Confluence">
+            <span class="hint">Primary information management platform</span>
+        </div>
+        <div class="form-group">
+            <label for="invite_policy">Invite Policy</label>
+            <textarea id="invite_policy" name="invite_policy" rows="2">{% if let Some(t) = tor %}{{ t.invite_policy }}{% endif %}</textarea>
+            <span class="hint">Who is responsible for sending invites and how</span>
         </div>
     </fieldset>
 

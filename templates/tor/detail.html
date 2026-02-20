@@ -71,6 +71,96 @@
         <div class="tor-info-value" style="font-size:0.875rem;"><a href="{{ tor.background_repo_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">{{ tor.background_repo_url }}</a></div>
     </div>
     {% endif %}
+    {% if !tor.tor_number.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">ToR Number</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.tor_number }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.classification.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Classification</div>
+        <div class="tor-info-value">{{ tor.classification }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.version.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Version</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.version }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.organization.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Organization</div>
+        <div class="tor-info-value">{{ tor.organization }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.focus_scope.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Focus / Scope</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.focus_scope }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.objectives_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Objectives</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for obj in tor.objectives_list() %}
+                <li>{{ obj }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.inputs_required_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Inputs Required</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for inp in tor.inputs_required_list() %}
+                <li>{{ inp }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.outputs_expected_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Outputs Expected</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for out in tor.outputs_expected_list() %}
+                <li>{{ out }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.poc_contact.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Point of Contact</div>
+        <div class="tor-info-value">{{ tor.poc_contact }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.phase_scheduling.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Phase / Scheduling</div>
+        <div class="tor-info-value">{{ tor.phase_scheduling }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.info_platform.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Information Platform</div>
+        <div class="tor-info-value">{{ tor.info_platform }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.invite_policy.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Invite Policy</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.invite_policy }}</div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Positions Section -->
@@ -207,6 +297,9 @@
                     {% if let Some(dur) = step.default_duration_minutes %}
                     <span class="step-dur">{{ dur }} min</span>
                     {% endif %}
+                    {% if !step.responsible.is_empty() %}
+                    <span style="font-size:0.8125rem;color:var(--text-secondary);">Responsible: {{ step.responsible }}</span>
+                    {% endif %}
                 </div>
             </div>
             {% if ctx.permissions.has("tor.edit") %}
@@ -277,9 +370,15 @@
                     </label>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="step_desc">Description</label>
-                <input type="text" id="step_desc" name="description" placeholder="Brief description of this step">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_desc">Description</label>
+                    <input type="text" id="step_desc" name="description" placeholder="Brief description of this step">
+                </div>
+                <div class="form-group">
+                    <label for="step_responsible">Responsible</label>
+                    <input type="text" id="step_responsible" name="responsible" placeholder="e.g. Chair, Secretary">
+                </div>
             </div>
             <button type="submit" class="btn btn-primary">Add Step</button>
         </form>

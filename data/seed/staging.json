@@ -75,7 +75,19 @@
         "cadence_time": "10:00",
         "description": "Oversees budget planning and expenditure approvals",
         "default_location": "Conference Room A",
-        "status": "active"
+        "status": "active",
+        "tor_number": "101",
+        "classification": "INTERNAL",
+        "version": "2.0",
+        "organization": "Finance Division",
+        "focus_scope": "Annual and quarterly budget planning, expenditure approval, and financial oversight",
+        "objectives": "[\"Review and approve quarterly budgets\",\"Monitor expenditure against approved limits\",\"Approve exceptional spending requests\"]",
+        "inputs_required": "[\"Quarterly financial reports\",\"Budget proposals from departments\",\"Expenditure variance analysis\"]",
+        "outputs_expected": "[\"Approved quarterly budget\",\"Expenditure decisions\",\"Financial policy recommendations\"]",
+        "poc_contact": "CFO Office, ext. 2100",
+        "phase_scheduling": "Quarterly cycle, first week of each quarter",
+        "info_platform": "SharePoint Financial Portal",
+        "invite_policy": "Standing invite for all committee members. Guests require Chair approval 48h in advance."
       }
     },
     {
@@ -150,7 +162,17 @@
         "cadence_time": "08:30",
         "cadence_duration_minutes": "30",
         "meeting_cadence": "working_days",
-        "default_location": "Safety Operations Room"
+        "default_location": "Safety Operations Room",
+        "tor_number": "602",
+        "classification": "UNCLASSIFIED",
+        "version": "1.8",
+        "organization": "Operations HQ",
+        "focus_scope": "Safety incident review, risk mitigation, and regulatory compliance",
+        "objectives": "[\"Review all safety incidents within 24 hours\",\"Maintain risk register and mitigation plans\",\"Ensure regulatory compliance across operations\"]",
+        "inputs_required": "[\"Incident reports from field teams\",\"Risk assessment updates\",\"Regulatory change notifications\"]",
+        "outputs_expected": "[\"Incident response directives\",\"Updated risk register\",\"Compliance status reports\"]",
+        "poc_contact": "Safety Office, safety@ops.example.com",
+        "info_platform": "Safety Management System (SMS)"
       }
     },
     {

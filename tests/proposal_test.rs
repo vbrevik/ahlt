@@ -20,7 +20,7 @@ fn test_create_proposal() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -59,7 +59,7 @@ fn test_proposal_status_workflow() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -108,7 +108,7 @@ fn test_reject_proposal_with_reason() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -148,7 +148,7 @@ fn test_query_proposals_by_tor() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -185,7 +185,7 @@ fn test_update_proposal() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -230,7 +230,7 @@ fn test_count_by_status() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposals in different statuses
     let _prop1_id = proposal::create(
@@ -278,7 +278,7 @@ fn test_mark_ready_for_agenda() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create and submit proposal
     let prop_id = proposal::create(

@@ -65,7 +65,19 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
                 COALESCE(p_dur.value, '60') AS cadence_duration_minutes, \
                 COALESCE(p_loc.value, '') AS default_location, \
                 COALESCE(p_remote.value, '') AS remote_url, \
-                COALESCE(p_repo.value, '') AS background_repo_url \
+                COALESCE(p_repo.value, '') AS background_repo_url, \
+                COALESCE(p_tornum.value, '') AS tor_number, \
+                COALESCE(p_class.value, '') AS classification, \
+                COALESCE(p_ver.value, '') AS version, \
+                COALESCE(p_org.value, '') AS organization, \
+                COALESCE(p_scope.value, '') AS focus_scope, \
+                COALESCE(p_obj.value, '[]') AS objectives, \
+                COALESCE(p_inp.value, '[]') AS inputs_required, \
+                COALESCE(p_out.value, '[]') AS outputs_expected, \
+                COALESCE(p_poc.value, '') AS poc_contact, \
+                COALESCE(p_phase.value, '') AS phase_scheduling, \
+                COALESCE(p_infop.value, '') AS info_platform, \
+                COALESCE(p_invite.value, '') AS invite_policy \
          FROM entities e \
          LEFT JOIN entity_properties p_desc \
              ON e.id = p_desc.entity_id AND p_desc.key = 'description' \
@@ -85,6 +97,30 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
              ON e.id = p_remote.entity_id AND p_remote.key = 'remote_url' \
          LEFT JOIN entity_properties p_repo \
              ON e.id = p_repo.entity_id AND p_repo.key = 'background_repo_url' \
+         LEFT JOIN entity_properties p_tornum \
+             ON e.id = p_tornum.entity_id AND p_tornum.key = 'tor_number' \
+         LEFT JOIN entity_properties p_class \
+             ON e.id = p_class.entity_id AND p_class.key = 'classification' \
+         LEFT JOIN entity_properties p_ver \
+             ON e.id = p_ver.entity_id AND p_ver.key = 'version' \
+         LEFT JOIN entity_properties p_org \
+             ON e.id = p_org.entity_id AND p_org.key = 'organization' \
+         LEFT JOIN entity_properties p_scope \
+             ON e.id = p_scope.entity_id AND p_scope.key = 'focus_scope' \
+         LEFT JOIN entity_properties p_obj \
+             ON e.id = p_obj.entity_id AND p_obj.key = 'objectives' \
+         LEFT JOIN entity_properties p_inp \
+             ON e.id = p_inp.entity_id AND p_inp.key = 'inputs_required' \
+         LEFT JOIN entity_properties p_out \
+             ON e.id = p_out.entity_id AND p_out.key = 'outputs_expected' \
+         LEFT JOIN entity_properties p_poc \
+             ON e.id = p_poc.entity_id AND p_poc.key = 'poc_contact' \
+         LEFT JOIN entity_properties p_phase \
+             ON e.id = p_phase.entity_id AND p_phase.key = 'phase_scheduling' \
+         LEFT JOIN entity_properties p_infop \
+             ON e.id = p_infop.entity_id AND p_infop.key = 'info_platform' \
+         LEFT JOIN entity_properties p_invite \
+             ON e.id = p_invite.entity_id AND p_invite.key = 'invite_policy' \
          WHERE e.id = ?1 AND e.entity_type = 'tor'",
     )?;
 
@@ -102,6 +138,18 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
             default_location: row.get("default_location")?,
             remote_url: row.get("remote_url")?,
             background_repo_url: row.get("background_repo_url")?,
+            tor_number: row.get("tor_number")?,
+            classification: row.get("classification")?,
+            version: row.get("version")?,
+            organization: row.get("organization")?,
+            focus_scope: row.get("focus_scope")?,
+            objectives: row.get("objectives")?,
+            inputs_required: row.get("inputs_required")?,
+            outputs_expected: row.get("outputs_expected")?,
+            poc_contact: row.get("poc_contact")?,
+            phase_scheduling: row.get("phase_scheduling")?,
+            info_platform: row.get("info_platform")?,
+            invite_policy: row.get("invite_policy")?,
         })
     })?;
 
@@ -111,20 +159,11 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create(
     conn: &Connection,
     name: &str,
     label: &str,
-    description: &str,
-    status: &str,
-    meeting_cadence: &str,
-    cadence_day: &str,
-    cadence_time: &str,
-    cadence_duration_minutes: &str,
-    default_location: &str,
-    remote_url: &str,
-    background_repo_url: &str,
+    props: &[(&str, &str)],
 ) -> rusqlite::Result<i64> {
     conn.execute(
         "INSERT INTO entities (entity_type, name, label) VALUES ('tor', ?1, ?2)",
@@ -132,19 +171,7 @@ pub fn create(
     )?;
     let tor_id = conn.last_insert_rowid();
 
-    let props: Vec<(&str, &str)> = vec![
-        ("description", description),
-        ("status", status),
-        ("meeting_cadence", meeting_cadence),
-        ("cadence_day", cadence_day),
-        ("cadence_time", cadence_time),
-        ("cadence_duration_minutes", cadence_duration_minutes),
-        ("default_location", default_location),
-        ("remote_url", remote_url),
-        ("background_repo_url", background_repo_url),
-    ];
-
-    for (key, value) in props {
+    for &(key, value) in props {
         if !value.is_empty() {
             conn.execute(
                 "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3)",
@@ -156,21 +183,12 @@ pub fn create(
     Ok(tor_id)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn update(
     conn: &Connection,
     id: i64,
     name: &str,
     label: &str,
-    description: &str,
-    status: &str,
-    meeting_cadence: &str,
-    cadence_day: &str,
-    cadence_time: &str,
-    cadence_duration_minutes: &str,
-    default_location: &str,
-    remote_url: &str,
-    background_repo_url: &str,
+    props: &[(&str, &str)],
 ) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') \
@@ -178,19 +196,7 @@ pub fn update(
         params![name, label, id],
     )?;
 
-    let props: Vec<(&str, &str)> = vec![
-        ("description", description),
-        ("status", status),
-        ("meeting_cadence", meeting_cadence),
-        ("cadence_day", cadence_day),
-        ("cadence_time", cadence_time),
-        ("cadence_duration_minutes", cadence_duration_minutes),
-        ("default_location", default_location),
-        ("remote_url", remote_url),
-        ("background_repo_url", background_repo_url),
-    ];
-
-    for (key, value) in props {
+    for &(key, value) in props {
         conn.execute(
             "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3) \
              ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",

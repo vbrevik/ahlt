@@ -27,6 +27,54 @@ pub struct TorDetail {
     pub default_location: String,
     pub remote_url: String,
     pub background_repo_url: String,
+    // Identity
+    pub tor_number: String,
+    pub classification: String,
+    pub version: String,
+    pub organization: String,
+    // Purpose
+    pub focus_scope: String,
+    pub objectives: String,        // JSON array string
+    // Governance
+    pub inputs_required: String,   // JSON array string
+    pub outputs_expected: String,  // JSON array string
+    pub poc_contact: String,
+    // Operational
+    pub phase_scheduling: String,
+    pub info_platform: String,
+    pub invite_policy: String,
+}
+
+impl TorDetail {
+    /// Parse a JSON array property into a Vec for template iteration.
+    fn parse_json_list(json: &str) -> Vec<String> {
+        serde_json::from_str(json).unwrap_or_default()
+    }
+
+    /// Objectives as a list for display.
+    pub fn objectives_list(&self) -> Vec<String> {
+        Self::parse_json_list(&self.objectives)
+    }
+
+    /// Inputs required as a list for display.
+    pub fn inputs_required_list(&self) -> Vec<String> {
+        Self::parse_json_list(&self.inputs_required)
+    }
+
+    /// Outputs expected as a list for display.
+    pub fn outputs_expected_list(&self) -> Vec<String> {
+        Self::parse_json_list(&self.outputs_expected)
+    }
+
+    /// Convert a JSON array back to newline-separated text for textarea repopulation.
+    fn json_to_lines(json: &str) -> String {
+        let items: Vec<String> = serde_json::from_str(json).unwrap_or_default();
+        items.join("\n")
+    }
+
+    pub fn objectives_text(&self) -> String { Self::json_to_lines(&self.objectives) }
+    pub fn inputs_required_text(&self) -> String { Self::json_to_lines(&self.inputs_required) }
+    pub fn outputs_expected_text(&self) -> String { Self::json_to_lines(&self.outputs_expected) }
 }
 
 /// A position in a ToR with its current holder (if any).

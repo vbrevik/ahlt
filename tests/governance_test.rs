@@ -29,7 +29,7 @@ fn test_create_tor_with_members() {
     }).unwrap();
 
     // Create ToR
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test Terms of Reference", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test Terms of Reference"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Add members to ToR (via fills_position relation)
     relation::create(&conn, "fills_position", user1_id, tor_id).unwrap();
@@ -57,7 +57,7 @@ fn test_agenda_point_lifecycle() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create agenda point
     let ap_id = agenda_point::create(
@@ -96,7 +96,7 @@ fn test_meeting_create_and_update_status() {
     let (_dir, conn) = setup_test_db();
 
     // Setup: Create ToR
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create meeting
     let meeting_id = meeting::create(&conn, tor_id, "2025-02-20", "TestToR Meeting", "Conference Room A", "Initial notes").unwrap();
@@ -128,7 +128,7 @@ fn test_proposal_creation() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -172,7 +172,7 @@ fn test_proposal_lifecycle() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "TestToR", "Test", "Test ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "TestToR", "Test", &[("description", "Test ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
 
     // Create proposal
     let prop_id = proposal::create(
@@ -211,7 +211,7 @@ fn test_cascade_delete_tor() {
         role_id: 0,
     }).unwrap();
 
-    let tor_id = tor::create(&conn, "DeleteMe", "Delete", "ToR to delete", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
+    let tor_id = tor::create(&conn, "DeleteMe", "Delete", &[("description", "ToR to delete"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
     let ap_id = agenda_point::create(&conn, tor_id, "Item 1", "Desc", "discussion", "2025-02-20", 60, admin_id).unwrap();
     let prop_id = proposal::create(&conn, tor_id, "Prop 1", "Desc", "Rationale", admin_id, "2025-02-01", None).unwrap();
 
@@ -246,8 +246,8 @@ fn test_governance_data_query() {
         role_id: 0,
     }).unwrap();
 
-    let tor1_id = tor::create(&conn, "ToR1", "Label1", "First ToR", "active", "weekly", "Monday", "09:00", "90", "Room A", "", "").unwrap();
-    let tor2_id = tor::create(&conn, "ToR2", "Label2", "Second ToR", "active", "weekly", "Tuesday", "10:00", "120", "Room B", "", "").unwrap();
+    let tor1_id = tor::create(&conn, "ToR1", "Label1", &[("description", "First ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Monday"), ("cadence_time", "09:00"), ("cadence_duration_minutes", "90"), ("default_location", "Room A")]).unwrap();
+    let tor2_id = tor::create(&conn, "ToR2", "Label2", &[("description", "Second ToR"), ("status", "active"), ("meeting_cadence", "weekly"), ("cadence_day", "Tuesday"), ("cadence_time", "10:00"), ("cadence_duration_minutes", "120"), ("default_location", "Room B")]).unwrap();
 
     let _ap1_id = agenda_point::create(&conn, tor1_id, "AP1", "Desc", "discussion", "2025-02-15", 60, admin_id).unwrap();
     let _ap2_id = agenda_point::create(&conn, tor1_id, "AP2", "Desc", "decision", "2025-03-15", 90, admin_id).unwrap();

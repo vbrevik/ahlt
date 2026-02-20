@@ -11,6 +11,16 @@ use crate::errors::{AppError, render};
 use crate::handlers::auth_handlers::CsrfOnly;
 use crate::templates_structs::{PageContext, TorFormTemplate, TorDetailTemplate, UserOption};
 
+/// Convert newline-separated textarea text into a JSON array string.
+/// Filters empty lines. Returns "[]" if no items.
+fn lines_to_json(text: &str) -> String {
+    let items: Vec<&str> = text.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+}
+
 pub async fn new_form(
     pool: web::Data<DbPool>,
     session: Session,
@@ -51,6 +61,18 @@ pub async fn create(
     let default_location = form.get("default_location").map(|s| s.as_str()).unwrap_or("");
     let remote_url = form.get("remote_url").map(|s| s.as_str()).unwrap_or("");
     let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
+    let tor_number = form.get("tor_number").map(|s| s.as_str()).unwrap_or("");
+    let classification = form.get("classification").map(|s| s.as_str()).unwrap_or("");
+    let version = form.get("version").map(|s| s.as_str()).unwrap_or("");
+    let organization = form.get("organization").map(|s| s.as_str()).unwrap_or("");
+    let focus_scope = form.get("focus_scope").map(|s| s.as_str()).unwrap_or("");
+    let poc_contact = form.get("poc_contact").map(|s| s.as_str()).unwrap_or("");
+    let phase_scheduling = form.get("phase_scheduling").map(|s| s.as_str()).unwrap_or("");
+    let info_platform = form.get("info_platform").map(|s| s.as_str()).unwrap_or("");
+    let invite_policy = form.get("invite_policy").map(|s| s.as_str()).unwrap_or("");
+    let objectives_json = lines_to_json(form.get("objectives").map(|s| s.as_str()).unwrap_or(""));
+    let inputs_json = lines_to_json(form.get("inputs_required").map(|s| s.as_str()).unwrap_or(""));
+    let outputs_json = lines_to_json(form.get("outputs_expected").map(|s| s.as_str()).unwrap_or(""));
 
     // Validate
     let mut errors: Vec<String> = vec![];
@@ -70,9 +92,31 @@ pub async fn create(
         return render(tmpl);
     }
 
-    match tor::create(&conn, name.trim(), label.trim(), description.trim(),
-                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration,
-                      default_location, remote_url, background_repo_url) {
+    let props: Vec<(&str, &str)> = vec![
+        ("description", description.trim()),
+        ("status", status),
+        ("meeting_cadence", meeting_cadence),
+        ("cadence_day", cadence_day),
+        ("cadence_time", cadence_time),
+        ("cadence_duration_minutes", cadence_duration),
+        ("default_location", default_location),
+        ("remote_url", remote_url),
+        ("background_repo_url", background_repo_url),
+        ("tor_number", tor_number),
+        ("classification", classification),
+        ("version", version),
+        ("organization", organization),
+        ("focus_scope", focus_scope),
+        ("objectives", &objectives_json),
+        ("inputs_required", &inputs_json),
+        ("outputs_expected", &outputs_json),
+        ("poc_contact", poc_contact),
+        ("phase_scheduling", phase_scheduling),
+        ("info_platform", info_platform),
+        ("invite_policy", invite_policy),
+    ];
+
+    match tor::create(&conn, name.trim(), label.trim(), &props) {
         Ok(tor_id) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
@@ -197,6 +241,18 @@ pub async fn update(
     let default_location = form.get("default_location").map(|s| s.as_str()).unwrap_or("");
     let remote_url = form.get("remote_url").map(|s| s.as_str()).unwrap_or("");
     let background_repo_url = form.get("background_repo_url").map(|s| s.as_str()).unwrap_or("");
+    let tor_number = form.get("tor_number").map(|s| s.as_str()).unwrap_or("");
+    let classification = form.get("classification").map(|s| s.as_str()).unwrap_or("");
+    let version = form.get("version").map(|s| s.as_str()).unwrap_or("");
+    let organization = form.get("organization").map(|s| s.as_str()).unwrap_or("");
+    let focus_scope = form.get("focus_scope").map(|s| s.as_str()).unwrap_or("");
+    let poc_contact = form.get("poc_contact").map(|s| s.as_str()).unwrap_or("");
+    let phase_scheduling = form.get("phase_scheduling").map(|s| s.as_str()).unwrap_or("");
+    let info_platform = form.get("info_platform").map(|s| s.as_str()).unwrap_or("");
+    let invite_policy = form.get("invite_policy").map(|s| s.as_str()).unwrap_or("");
+    let objectives_json = lines_to_json(form.get("objectives").map(|s| s.as_str()).unwrap_or(""));
+    let inputs_json = lines_to_json(form.get("inputs_required").map(|s| s.as_str()).unwrap_or(""));
+    let outputs_json = lines_to_json(form.get("outputs_expected").map(|s| s.as_str()).unwrap_or(""));
 
     // Validate
     let mut errors: Vec<String> = vec![];
@@ -217,9 +273,31 @@ pub async fn update(
         return render(tmpl);
     }
 
-    match tor::update(&conn, id, name.trim(), label.trim(), description.trim(),
-                      status, meeting_cadence, cadence_day, cadence_time, cadence_duration,
-                      default_location, remote_url, background_repo_url) {
+    let props: Vec<(&str, &str)> = vec![
+        ("description", description.trim()),
+        ("status", status),
+        ("meeting_cadence", meeting_cadence),
+        ("cadence_day", cadence_day),
+        ("cadence_time", cadence_time),
+        ("cadence_duration_minutes", cadence_duration),
+        ("default_location", default_location),
+        ("remote_url", remote_url),
+        ("background_repo_url", background_repo_url),
+        ("tor_number", tor_number),
+        ("classification", classification),
+        ("version", version),
+        ("organization", organization),
+        ("focus_scope", focus_scope),
+        ("objectives", &objectives_json),
+        ("inputs_required", &inputs_json),
+        ("outputs_expected", &outputs_json),
+        ("poc_contact", poc_contact),
+        ("phase_scheduling", phase_scheduling),
+        ("info_platform", info_platform),
+        ("invite_policy", invite_policy),
+    ];
+
+    match tor::update(&conn, id, name.trim(), label.trim(), &props) {
         Ok(_) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
