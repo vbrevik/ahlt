@@ -155,7 +155,8 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
                 COALESCE(p_class.value, '') AS classification, \
                 COALESCE(p_vtc.value, '') AS vtc_details, \
                 COALESCE(p_chair.value, '') AS chair_user_id, \
-                COALESCE(p_secretary.value, '') AS secretary_user_id \
+                COALESCE(p_secretary.value, '') AS secretary_user_id, \
+                COALESCE(p_roll.value, '[]') AS roll_call_data \
          FROM entities e \
          LEFT JOIN entity_properties p_date ON e.id = p_date.entity_id AND p_date.key = 'meeting_date' \
          LEFT JOIN entity_properties p_status ON e.id = p_status.entity_id AND p_status.key = 'status' \
@@ -166,6 +167,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
          LEFT JOIN entity_properties p_vtc ON e.id = p_vtc.entity_id AND p_vtc.key = 'vtc_details' \
          LEFT JOIN entity_properties p_chair ON e.id = p_chair.entity_id AND p_chair.key = 'chair_user_id' \
          LEFT JOIN entity_properties p_secretary ON e.id = p_secretary.entity_id AND p_secretary.key = 'secretary_user_id' \
+         LEFT JOIN entity_properties p_roll ON e.id = p_roll.entity_id AND p_roll.key = 'roll_call_data' \
          LEFT JOIN relations r_tor ON e.id = r_tor.source_id \
              AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
          LEFT JOIN entities tor ON r_tor.target_id = tor.id \
@@ -189,7 +191,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Meeting
             vtc_details: row.get("vtc_details")?,
             chair_user_id: row.get("chair_user_id")?,
             secretary_user_id: row.get("secretary_user_id")?,
-            roll_call_data: String::new(),
+            roll_call_data: row.get("roll_call_data")?,
         })
     })?;
 
@@ -320,6 +322,16 @@ pub fn update_status(
         "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'status', ?2) \
          ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
         params![meeting_id, status],
+    )?;
+    Ok(())
+}
+
+/// Upsert roll_call_data JSON string for a meeting.
+pub fn update_roll_call(conn: &Connection, meeting_id: i64, json: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'roll_call_data', ?2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
+        params![meeting_id, json],
     )?;
     Ok(())
 }
