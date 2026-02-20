@@ -689,6 +689,123 @@
       "label": "Advisory Member",
       "sort_order": 2,
       "properties": { "membership_type": "optional" }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "igb_meeting_2026_01_21",
+      "label": "IT Governance Board — 2026-01-21",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-01-21",
+        "status": "completed",
+        "location": "IT Hub Conference Room",
+        "notes": "Architecture review completed. Cloud platform selection deferred to Q1 board.",
+        "meeting_number": "IGB-2026-01"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "igb_meeting_2026_02_18",
+      "label": "IT Governance Board — 2026-02-18",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-02-18",
+        "status": "completed",
+        "location": "IT Hub Conference Room",
+        "notes": "Reviewed Q4 IT spend. Cloud platform options presented for decision next session.",
+        "meeting_number": "IGB-2026-02"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "igb_meeting_2026_03_18",
+      "label": "IT Governance Board — 2026-03-18",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-03-18",
+        "status": "confirmed",
+        "location": "IT Hub Conference Room",
+        "notes": "",
+        "meeting_number": "IGB-2026-03"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "igb_meeting_2026_04_15",
+      "label": "IT Governance Board — 2026-04-15",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-04-15",
+        "status": "projected",
+        "location": "IT Hub Conference Room",
+        "notes": "",
+        "meeting_number": "IGB-2026-04"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "cab_meeting_2026_02_06",
+      "label": "Change Advisory Board — 2026-02-06",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-02-06",
+        "status": "completed",
+        "location": "Operations Room 2",
+        "notes": "Approved 3 standard changes. 1 emergency change post-review completed.",
+        "meeting_number": "CAB-2026-03"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "cab_meeting_2026_02_13",
+      "label": "Change Advisory Board — 2026-02-13",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-02-13",
+        "status": "cancelled",
+        "location": "Operations Room 2",
+        "notes": "Cancelled due to insufficient quorum — Technical Lead position vacant.",
+        "meeting_number": "CAB-2026-04"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "cab_meeting_2026_02_20",
+      "label": "Change Advisory Board — 2026-02-20",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-02-20",
+        "status": "in_progress",
+        "location": "Operations Room 2",
+        "notes": "",
+        "meeting_number": "CAB-2026-05"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "cab_meeting_2026_03_05",
+      "label": "Change Advisory Board — 2026-03-05",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-03-05",
+        "status": "projected",
+        "location": "Operations Room 2",
+        "notes": "",
+        "meeting_number": "CAB-2026-06"
+      }
+    },
+    {
+      "entity_type": "meeting",
+      "name": "bc_meeting_2026_01_08",
+      "label": "Budget Committee — 2026-01-08",
+      "sort_order": 0,
+      "properties": {
+        "meeting_date": "2026-01-08",
+        "status": "completed",
+        "location": "Conference Room A",
+        "notes": "Q4 2025 budget review completed. Procurement policy discussion tabled for February.",
+        "meeting_number": "BC-2026-01"
+      }
     }
   ],
   "relations": [
@@ -1233,6 +1350,15 @@
         "description": "Approved changes and architectural impacts feed into IT Governance Board review",
         "output_types": "approved change records, architectural impact reports"
       }
-    }
+    },
+    { "relation_type": "belongs_to_tor", "source": "meeting:igb_meeting_2026_01_21", "target": "tor:it_governance_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:igb_meeting_2026_02_18", "target": "tor:it_governance_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:igb_meeting_2026_03_18", "target": "tor:it_governance_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:igb_meeting_2026_04_15", "target": "tor:it_governance_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_02_06", "target": "tor:change_advisory_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_02_13", "target": "tor:change_advisory_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_02_20", "target": "tor:change_advisory_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:cab_meeting_2026_03_05", "target": "tor:change_advisory_board" },
+    { "relation_type": "belongs_to_tor", "source": "meeting:bc_meeting_2026_01_08", "target": "tor:budget_committee" }
   ]
 }
