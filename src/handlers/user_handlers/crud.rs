@@ -262,16 +262,30 @@ pub async fn delete(
 
     let conn = pool.get()?;
 
-    // Last-admin protection
-    if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
-        if target.role_name == "admin" {
-            let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
-            if admin_count <= 1 {
-                let _ = session.insert("flash", "Cannot delete the last administrator");
-                return Ok(HttpResponse::SeeOther()
-                    .insert_header(("Location", "/users"))
-                    .finish());
-            }
+    // Last-admin protection — query has_role relation directly (multi-role safe)
+    let has_admin_role: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM relations r \
+         JOIN entities role_e ON r.target_id = role_e.id \
+         WHERE r.source_id = ?1 \
+           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+           AND role_e.name = 'admin'",
+        rusqlite::params![id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if has_admin_role {
+        let admin_count: i64 = conn.query_row(
+            "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
+             JOIN entities role_e ON r.target_id = role_e.id \
+             WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+               AND role_e.name = 'admin'",
+            [],
+            |row| row.get(0),
+        )?;
+        if admin_count <= 1 {
+            let _ = session.insert("flash", "Cannot delete the last administrator");
+            return Ok(HttpResponse::SeeOther()
+                .insert_header(("Location", "/users"))
+                .finish());
         }
     }
 
@@ -366,14 +380,29 @@ pub async fn bulk_delete(
             continue;
         }
 
-        // Last-admin protection
-        if let Ok(Some(target)) = user::find_display_by_id(&conn, id) {
-            if target.role_name == "admin" {
-                let admin_count = user::count_by_role_id(&conn, target.role_id).unwrap_or(0);
-                if admin_count <= 1 {
-                    error_count += 1;
-                    continue;
-                }
+        // Last-admin protection — query has_role relation directly (multi-role safe)
+        // Use safe defaults: on error, assume admin / count=1 to prevent deletion
+        let has_admin = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM relations r \
+             JOIN entities role_e ON r.target_id = role_e.id \
+             WHERE r.source_id = ?1 \
+               AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+               AND role_e.name = 'admin'",
+            rusqlite::params![id],
+            |row| row.get::<_, bool>(0),
+        ).unwrap_or(true); // On error, assume admin (safe side)
+        if has_admin {
+            let admin_count: i64 = conn.query_row(
+                "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
+                 JOIN entities role_e ON r.target_id = role_e.id \
+                 WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
+                   AND role_e.name = 'admin'",
+                [],
+                |row| row.get(0),
+            ).unwrap_or(1); // On error, assume 1 admin (safe side)
+            if admin_count <= 1 {
+                error_count += 1;
+                continue;
             }
         }
 
