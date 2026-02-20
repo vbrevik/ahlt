@@ -178,7 +178,7 @@ pub fn count(conn: &Connection) -> rusqlite::Result<i64> {
     )
 }
 
-/// Create a new user entity with properties and role relation.
+/// Create a new user entity with properties (no role assignment).
 pub fn create(conn: &Connection, new: &NewUser) -> rusqlite::Result<i64> {
     // Insert user entity
     conn.execute(
@@ -197,17 +197,10 @@ pub fn create(conn: &Connection, new: &NewUser) -> rusqlite::Result<i64> {
         params![user_id, new.email],
     )?;
 
-    // Create has_role relation
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
-        params![user_id, new.role_id],
-    )?;
-
     Ok(user_id)
 }
 
-/// Update a user entity: name, label (display_name), properties, and role relation.
+/// Update a user entity: name, label (display_name), and properties. Does not touch roles.
 pub fn update(
     conn: &Connection,
     id: i64,
@@ -215,7 +208,6 @@ pub fn update(
     password: Option<&str>,
     email: &str,
     display_name: &str,
-    role_id: i64,
 ) -> rusqlite::Result<()> {
     // Update entity name and label
     conn.execute(
@@ -239,18 +231,25 @@ pub fn update(
         params![id, email],
     )?;
 
-    // Update role: delete old has_role relation, insert new one
-    conn.execute(
-        "DELETE FROM relations WHERE source_id = ?1 AND relation_type_id = \
-         (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role')",
-        params![id],
-    )?;
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
-        params![id, role_id],
-    )?;
+    Ok(())
+}
 
+/// Assign the default "viewer" role to a user. No-op if viewer role doesn't exist.
+pub fn assign_default_role(conn: &Connection, user_id: i64) -> rusqlite::Result<()> {
+    use rusqlite::OptionalExtension;
+    let viewer_id: Option<i64> = conn.query_row(
+        "SELECT id FROM entities WHERE entity_type = 'role' AND name = 'viewer'",
+        [],
+        |row| row.get(0),
+    ).optional()?;
+
+    if let Some(role_id) = viewer_id {
+        conn.execute(
+            "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
+             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
+            params![user_id, role_id],
+        )?;
+    }
     Ok(())
 }
 

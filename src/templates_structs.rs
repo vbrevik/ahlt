@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::errors::AppError;
 use crate::models::user::UserDisplay;
-use crate::models::role::{RoleDisplay, RoleListItem, RoleDetail, PermissionCheckbox};
+use crate::models::role::{RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::role::builder::NavItemPreview;
 use crate::models::ontology::{EntityTypeSummary, RelationTypeSummary, EntityDetail};
 use crate::models::setting::{self, SettingDisplay};
@@ -100,7 +100,6 @@ pub struct UserFormTemplate {
     pub form_action: String,
     pub form_title: String,
     pub user: Option<UserDisplay>,
-    pub roles: Vec<RoleDisplay>,
     pub errors: Vec<String>,
 }
 
@@ -579,7 +578,8 @@ pub struct ApiUserRequest {
     pub email: String,
     pub display_name: String,
     pub password: Option<String>, // required for create, optional for update
-    pub role_id: i64,
+    #[serde(default)]
+    pub role_id: Option<i64>, // deprecated — role assignment is handled separately
 }
 
 /// Entity property in API responses.

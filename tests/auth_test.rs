@@ -77,7 +77,6 @@ fn test_create_user_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let user_id = user::create(&conn, &new_user)
@@ -97,7 +96,6 @@ fn test_find_user_by_username() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let created_id = user::create(&conn, &new_user)
@@ -136,7 +134,6 @@ fn test_update_password_and_verify() {
         password: password_hash,
         email: "update@example.com".to_string(),
         display_name: "Update User".to_string(),
-        role_id: 0,
     };
 
     let user_id = user::create(&conn, &new_user)

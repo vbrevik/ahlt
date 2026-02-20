@@ -44,7 +44,6 @@ pub struct NewUser {
     pub password: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: i64,
 }
 
 /// Form data from create/edit user forms.
@@ -54,6 +53,5 @@ pub struct UserForm {
     pub password: String,
     pub email: String,
     pub display_name: String,
-    pub role_id: String, // comes as string from form, parse to i64
     pub csrf_token: String,
 }

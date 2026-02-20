@@ -39,14 +39,6 @@
         <input type="text" id="display_name" name="display_name"
                value="{% if let Some(u) = user %}{{ u.display_name }}{% endif %}" required>
     </div>
-    <div class="form-group">
-        <label for="role_id">Role</label>
-        <select id="role_id" name="role_id">
-            {% for role in roles %}
-            <option value="{{ role.id }}" {% if let Some(u) = user %}{% if u.role_id == role.id %}selected{% endif %}{% endif %}>{{ role.label }}</option>
-            {% endfor %}
-        </select>
-    </div>
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Save</button>
         <a href="/users" class="btn">Cancel</a>

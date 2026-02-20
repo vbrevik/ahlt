@@ -162,7 +162,6 @@ pub async fn update_profile(
                 None,
                 &current_user.email,
                 &form.display_name,
-                current_user.role_id,
             )?;
 
             // Update session label

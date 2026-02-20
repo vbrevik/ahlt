@@ -30,7 +30,6 @@ fn test_create_user_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let user_id = create(&conn, &new_user)
@@ -57,7 +56,6 @@ fn test_create_user_duplicate_username() {
         password: password_hash.clone(),
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     // First user succeeds
@@ -71,7 +69,6 @@ fn test_create_user_duplicate_username() {
         password: password_hash,
         email: "different@example.com".to_string(),
         display_name: "Different Name".to_string(),
-        role_id: 0,
     };
 
     let result = create(&conn, &duplicate);
@@ -89,7 +86,6 @@ fn test_find_user_by_id_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let created_id = create(&conn, &new_user)
@@ -125,7 +121,6 @@ fn test_find_user_by_username_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let created_id = create(&conn, &new_user)
@@ -163,7 +158,6 @@ fn test_list_users_paginated() {
             password: password_hash.clone(),
             email: format!("user{}@example.com", i),
             display_name: format!("User {}", i),
-            role_id: 0,
         };
         let _ = create(&conn, &new_user);
     }
@@ -188,7 +182,6 @@ fn test_search_users_by_name() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: "Searchable Display".to_string(),
-        role_id: 0,
     };
 
     let _ = create(&conn, &new_user);
@@ -220,15 +213,14 @@ fn test_update_user_success() {
         password: password_hash.clone(),
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let user_id = create(&conn, &new_user)
         .expect("Failed to create user");
 
     let updated_display = "Updated Display Name";
-    let _ = update(&conn, user_id, TEST_USERNAME, Some(&password_hash), 
-                   TEST_EMAIL, updated_display, 0)
+    let _ = update(&conn, user_id, TEST_USERNAME, Some(&password_hash),
+                   TEST_EMAIL, updated_display)
         .expect("Failed to update user");
 
     let updated = find_display_by_id(&conn, user_id)
@@ -242,9 +234,8 @@ fn test_update_user_success() {
 fn test_update_user_not_found() {
     let (_dir, conn) = setup_test_db();
 
-    // Trying to update a non-existent user may fail due to role relation handling
-    // The important thing is that the function handles it gracefully (doesn't panic)
-    let _ = update(&conn, 9999, "username", None, "email@test.com", "Name", 0);
+    // Trying to update a non-existent user — the function handles it gracefully (doesn't panic)
+    let _ = update(&conn, 9999, "username", None, "email@test.com", "Name");
 }
 
 #[test]
@@ -258,7 +249,6 @@ fn test_delete_user_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let user_id = create(&conn, &new_user)
@@ -298,7 +288,6 @@ fn test_count_users() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let _ = create(&conn, &new_user)
@@ -321,7 +310,6 @@ fn test_update_password_success() {
         password: password_hash,
         email: TEST_EMAIL.to_string(),
         display_name: TEST_DISPLAY_NAME.to_string(),
-        role_id: 0,
     };
 
     let user_id = create(&conn, &new_user)
@@ -354,7 +342,7 @@ fn test_find_paginated_sort_by_username_asc() {
     for (name, label) in [("beta_user", "Beta"), ("alpha_user", "Alpha")] {
         let _ = create(&conn, &NewUser {
             username: name.into(), password: "hash".into(),
-            email: format!("{name}@test.com"), display_name: label.into(), role_id: 0,
+            email: format!("{name}@test.com"), display_name: label.into(),
         });
     }
     let sort = SortSpec { column: "username".into(), dir: SortDir::Asc };
@@ -370,6 +358,7 @@ fn test_find_paginated_filter_by_role() {
     use ahlt::models::user::{create, find_paginated, types::NewUser};
     use ahlt::models::table_filter::{FilterTree, Condition, SortSpec};
     use ahlt::models::role;
+    use ahlt::models::relation;
     use common::setup_test_db;
 
     let (_dir, conn) = setup_test_db();
@@ -392,13 +381,15 @@ fn test_find_paginated_filter_by_role() {
 
     let first_role = &roles[0];
 
-    let _ = create(&conn, &NewUser {
+    let user_id = create(&conn, &NewUser {
         username: "role_filtered_user".into(),
         password: "hash".into(),
         email: "rf@test.com".into(),
         display_name: "RF".into(),
-        role_id: first_role.id,
-    });
+    }).unwrap();
+
+    // Manually assign role via relation
+    relation::create(&conn, "has_role", user_id, first_role.id).unwrap();
 
     let filter = FilterTree {
         conditions: vec![Condition {
