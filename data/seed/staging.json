@@ -597,6 +597,98 @@
       "label": "Jack Member",
       "sort_order": 0,
       "properties": { "email": "jack@example.com" }
+    },
+    {
+      "entity_type": "tor",
+      "name": "it_governance_board",
+      "label": "IT Governance Board",
+      "sort_order": 8,
+      "properties": {
+        "meeting_cadence": "monthly",
+        "cadence_day": "wednesday",
+        "cadence_time": "14:00",
+        "cadence_duration_minutes": "120",
+        "status": "active",
+        "description": "Oversees IT strategy, architecture decisions, and technology investments",
+        "default_location": "IT Hub Conference Room",
+        "tor_number": "201",
+        "classification": "INTERNAL",
+        "version": "1.0",
+        "organization": "IT Division",
+        "focus_scope": "IT strategy, architecture governance, technology investment decisions, and vendor management",
+        "objectives": "[\"Approve major IT architecture decisions\",\"Oversee technology investment portfolio\",\"Ensure alignment of IT initiatives with organizational strategy\"]",
+        "inputs_required": "[\"Architecture proposals\",\"Technology investment requests\",\"Vendor assessment reports\"]",
+        "outputs_expected": "[\"Approved architecture decisions\",\"Technology investment approvals\",\"IT strategy updates\"]",
+        "poc_contact": "CTO Office, ext. 3100",
+        "info_platform": "IT Governance Portal"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "igb_chair",
+      "label": "Chair",
+      "sort_order": 0,
+      "properties": { "membership_type": "mandatory" }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "igb_secretary",
+      "label": "Secretary",
+      "sort_order": 1,
+      "properties": { "membership_type": "mandatory" }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "igb_member",
+      "label": "Member",
+      "sort_order": 2,
+      "properties": { "membership_type": "optional" }
+    },
+    {
+      "entity_type": "tor",
+      "name": "change_advisory_board",
+      "label": "Change Advisory Board",
+      "sort_order": 9,
+      "properties": {
+        "meeting_cadence": "biweekly",
+        "cadence_day": "thursday",
+        "cadence_time": "10:00",
+        "cadence_duration_minutes": "60",
+        "status": "active",
+        "description": "Reviews and approves significant changes to IT systems and infrastructure",
+        "default_location": "Operations Room 2",
+        "tor_number": "202",
+        "classification": "INTERNAL",
+        "version": "1.2",
+        "organization": "IT Division",
+        "focus_scope": "Change risk assessment, approval of significant IT changes, post-implementation review",
+        "objectives": "[\"Review and approve change requests above risk threshold\",\"Assess impact and risk of proposed IT changes\",\"Conduct post-implementation reviews for major changes\"]",
+        "inputs_required": "[\"Change requests from project teams\",\"Risk assessments\",\"Impact analysis reports\"]",
+        "outputs_expected": "[\"Change approval decisions\",\"Implementation guidance\",\"Risk mitigation requirements\"]",
+        "poc_contact": "Change Management Office, change@it.example.com",
+        "info_platform": "ITSM Platform"
+      }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "cab_chair",
+      "label": "Change Manager",
+      "sort_order": 0,
+      "properties": { "membership_type": "mandatory" }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "cab_technical_lead",
+      "label": "Technical Lead",
+      "sort_order": 1,
+      "properties": { "membership_type": "mandatory" }
+    },
+    {
+      "entity_type": "tor_function",
+      "name": "cab_member",
+      "label": "Advisory Member",
+      "sort_order": 2,
+      "properties": { "membership_type": "optional" }
     }
   ],
   "relations": [
@@ -1113,6 +1205,34 @@
     { "relation_type": "has_role", "source": "user:grace", "target": "role:manager" },
     { "relation_type": "has_role", "source": "user:henry", "target": "role:governance_officer" },
     { "relation_type": "has_role", "source": "user:irene", "target": "role:manager" },
-    { "relation_type": "has_role", "source": "user:jack", "target": "role:viewer" }
+    { "relation_type": "has_role", "source": "user:jack", "target": "role:viewer" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:igb_chair", "target": "tor:it_governance_board" },
+    { "relation_type": "fills_position", "source": "user:alice", "target": "tor_function:igb_chair" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:igb_secretary", "target": "tor:it_governance_board" },
+    { "relation_type": "fills_position", "source": "user:eva", "target": "tor_function:igb_secretary" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:igb_member", "target": "tor:it_governance_board" },
+    { "relation_type": "fills_position", "source": "user:charlie", "target": "tor_function:igb_member" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:cab_chair", "target": "tor:change_advisory_board" },
+    { "relation_type": "fills_position", "source": "user:henry", "target": "tor_function:cab_chair" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:cab_technical_lead", "target": "tor:change_advisory_board" },
+    { "relation_type": "belongs_to_tor", "source": "tor_function:cab_member", "target": "tor:change_advisory_board" },
+    { "relation_type": "fills_position", "source": "user:grace", "target": "tor_function:cab_member" },
+    {
+      "relation_type": "escalates_to",
+      "source": "tor:budget_committee",
+      "target": "tor:it_governance_board",
+      "properties": {
+        "description": "Financial technology investment decisions escalate to IT Governance Board"
+      }
+    },
+    {
+      "relation_type": "feeds_into",
+      "source": "tor:change_advisory_board",
+      "target": "tor:it_governance_board",
+      "properties": {
+        "description": "Approved changes and architectural impacts feed into IT Governance Board review",
+        "output_types": "approved change records, architectural impact reports"
+      }
+    }
   ]
 }
