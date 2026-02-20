@@ -555,6 +555,12 @@ pub async fn save_roll_call(
     let (tor_id, meeting_id) = path.into_inner();
     let conn = pool.get()?;
 
+    let meeting = meeting::find_by_id(&conn, meeting_id)?
+        .ok_or(AppError::NotFound)?;
+    if meeting.tor_id != tor_id {
+        return Err(AppError::NotFound);
+    }
+
     meeting::update_roll_call(&conn, meeting_id, &form.roll_call_data)?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
@@ -564,7 +570,7 @@ pub async fn save_roll_call(
         "meeting.roll_call_saved",
         "meeting",
         meeting_id,
-        serde_json::json!({"summary": "Roll call updated"}),
+        serde_json::json!({"meeting_id": meeting_id, "tor_id": tor_id, "summary": "Roll call updated"}),
     );
 
     let _ = session.insert("flash", "Roll call saved");
