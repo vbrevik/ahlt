@@ -14,7 +14,7 @@
 <div class="page-header">
     <h1>Record Final Decision</h1>
     <div class="page-actions">
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}" class="btn btn-sm">Back to Agenda Point</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}" class="btn btn-sm">Back to Agenda Point</a>
     </div>
 </div>
 
@@ -79,7 +79,7 @@
 </section>
 
 <!-- Decision Recording Form -->
-<form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}/decision" class="form-card">
+<form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="form-card">
     <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
 
     <div class="form-group">
@@ -101,7 +101,7 @@
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Record Decision</button>
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point.id }}" class="btn">Cancel</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}" class="btn">Cancel</a>
     </div>
 </form>
 {% endblock %}
