@@ -171,8 +171,8 @@ All domain objects share three generic tables — no dedicated tables per type:
 ### Ontology Explorer
 - Three-tab explorer: Concepts (schema-level D3 graph) + Data (instance-level D3 graph) + Reference (entity type cards, relation patterns, schema docs)
 - JSON APIs: `/ontology/api/schema` + `/ontology/api/graph`
-- Concepts tab: schema graph with entity type nodes (sized by count), relation pattern edges, toolbar, keyboard shortcuts
-- Data tab: instance graph with type filtering, node hover highlighting, click detail panel
+- Concepts tab: schema graph with entity type nodes (sized by count), relation pattern edges, toolbar, keyboard shortcuts, right-click context menu with instance drill-down
+- Data tab: instance graph with search, entity/relation type chip filters, right-click context menu (grouped relations, ego focus), position-preserving visibility toggles
 - Reference tab: entity type summary cards, relation pattern breakdowns, schema reference tables
 
 ### App Settings (3.1 + 3.2 + 3.3)
@@ -424,6 +424,18 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Phase 4: Kubernetes Helm** — Shared infra charts (`helm/infra/`) for PostgreSQL + Neo4j. Application chart (`helm/ahlt/`) with deployment, service, configmap, secret, ingress templates. Per-environment values files (dev/staging/prod).
 - **Build**: PASS | **Tests**: 171 passing (8 ignored: 4 Neo4j + 4 E2E)
 
+### Ontology Graph Redesign (OG.1)
+- **Search**: Real-time entity search with pulsing highlight rings on matching nodes, dimming non-matches
+- **Entity type filters**: Chip-based toggles with colored dots, instance counts, position-preserving visibility (no simulation restart)
+- **Relation type filters**: Chip-based toggles for showing/hiding relation types and their edges
+- **Right-click context menu**: Instance graph shows grouped outgoing/incoming relations, "Focus on this node", "Open full detail" link; Schema graph shows instance count badge, "View instances" drill-down, relation type summary
+- **Ego network focus**: 1-hop neighbor subgraph with floating "Focus: Name x" dismiss pill
+- **Schema-to-instance drill-down**: "View instances" navigates to `/ontology/data?type=X` with pre-filtered entity type
+- **Scrollable filter panel**: `max-height` + `overflow-y: auto` prevents panel overflow with many entity types
+- **Bug fix**: Schema API 500 error resolved by adding explicit SQL column aliases for `SchemaEdge` struct deserialization
+- **Files**: `templates/ontology/data.html` (full rewrite), `templates/ontology/graph.html` (context menu), `static/css/style.css` (~268 lines), `src/models/ontology/schema.rs` (SQL fix)
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -530,6 +542,8 @@ Enterprise Infrastructure Migration (5 phases)                                  
   Phase 2: Docker Compose multi-environment
   Phase 3: GitLab CE + CI/CD pipeline
   Phase 4: Kubernetes Helm charts
+
+OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down)      ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════

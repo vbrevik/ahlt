@@ -36,6 +36,7 @@
 - **Dynamic SQL table aliases must be consistent**: Search clause `e.name LIKE $1` requires count query to use `FROM entities e` not just `FROM entities`.
 - **UNIQUE constraint on `(entity_type, name)`**: PostgreSQL strictly enforces this. Tests that create relation types already in seed data will fail with `23505` duplicate key error. Look up seeded relation types by name instead of re-inserting.
 - **All queries are async**: Every `sqlx::query` / model function requires `.await`. Missing `.await` produces "unused Future" warnings at compile time.
+- **`query_as` needs explicit column aliases for multi-table SELECTs**: PostgreSQL assigns the bare column name (e.g., `entity_type`) not `table.column`. When two tables share a column name, `FromRow` silently maps the wrong one. Always alias: `SELECT src.entity_type AS source, tgt.entity_type AS target`.
 
 ## EAV Relations
 
