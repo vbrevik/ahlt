@@ -4,6 +4,9 @@
 !/data/seed/*.json
 *.db
 .env
+.env.dev
+.env.staging
+.env.prod
 *.png
 !docs/screenshots/*.png
 .playwright-mcp/
