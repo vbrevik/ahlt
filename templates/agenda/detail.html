@@ -230,7 +230,9 @@
         {% if agenda_point.status.as_str() == "decided" %}
         <p class="empty-hint">Decision recorded.</p>
         {% else %}
+        {% if agenda_point.item_type.as_str() != "decision" %}
         <p class="empty-hint">No actions available.</p>
+        {% endif %}
         {% endif %}
         {% endif %}
     </div>
