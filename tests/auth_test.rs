@@ -66,9 +66,10 @@ fn test_hash_password_randomness() {
         .expect("Verification 2 failed"));
 }
 
-#[test]
-fn test_create_user_success() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_create_user_success() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     let password_hash = password::hash_password(TEST_PASSWORD)
         .expect("Failed to hash password");
@@ -79,15 +80,16 @@ fn test_create_user_success() {
         display_name: TEST_DISPLAY_NAME.to_string(),
     };
 
-    let user_id = user::create(&conn, &new_user)
+    let user_id = user::create(pool, &new_user).await
         .expect("Failed to create user");
 
     assert!(user_id > 0);
 }
 
-#[test]
-fn test_find_user_by_username() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_user_by_username() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     let password_hash = password::hash_password(TEST_PASSWORD)
         .expect("Failed to hash password");
@@ -98,10 +100,10 @@ fn test_find_user_by_username() {
         display_name: TEST_DISPLAY_NAME.to_string(),
     };
 
-    let created_id = user::create(&conn, &new_user)
+    let created_id = user::create(pool, &new_user).await
         .expect("Failed to create user");
 
-    let found = user::find_by_username(&conn, TEST_USERNAME)
+    let found = user::find_by_username(pool, TEST_USERNAME).await
         .expect("Query failed")
         .expect("User not found");
 
@@ -110,19 +112,21 @@ fn test_find_user_by_username() {
     assert_eq!(found.email, TEST_EMAIL);
 }
 
-#[test]
-fn test_find_user_by_username_not_found() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_user_by_username_not_found() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let result = user::find_by_username(&conn, "nonexistent")
+    let result = user::find_by_username(pool, "nonexistent").await
         .expect("Query failed");
 
     assert!(result.is_none());
 }
 
-#[test]
-fn test_update_password_and_verify() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_update_password_and_verify() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     let old_password = "oldpassword123";
     let new_password = "newpassword456";
@@ -136,17 +140,17 @@ fn test_update_password_and_verify() {
         display_name: "Update User".to_string(),
     };
 
-    let user_id = user::create(&conn, &new_user)
+    let user_id = user::create(pool, &new_user).await
         .expect("Failed to create user");
 
     // Update password
     let new_hash = password::hash_password(new_password)
         .expect("Failed to hash new password");
-    user::update_password(&conn, user_id, &new_hash)
+    user::update_password(pool, user_id, &new_hash).await
         .expect("Failed to update password");
 
     // Verify new password works
-    let updated = user::find_by_username(&conn, "updateuser")
+    let updated = user::find_by_username(pool, "updateuser").await
         .expect("Query failed")
         .expect("User not found");
 

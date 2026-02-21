@@ -23,20 +23,21 @@ const TEST_TIME: &str = "10:00";
 const TEST_DURATION: &str = "60";
 const TEST_LOCATION: &str = "Conference Room A";
 
-#[test]
-fn test_create_tor_success() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_create_tor_success() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     let tor_id = create(
-        &conn,
+        pool,
         TEST_TOR_NAME,
         TEST_TOR_LABEL,
         &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS), ("meeting_cadence", TEST_CADENCE), ("cadence_day", TEST_DAY), ("cadence_time", TEST_TIME), ("cadence_duration_minutes", TEST_DURATION), ("default_location", TEST_LOCATION)],
-    ).expect("Failed to create ToR");
+    ).await.expect("Failed to create ToR");
 
     assert!(tor_id > 0);
 
-    let tor = find_detail_by_id(&conn, tor_id)
+    let tor = find_detail_by_id(pool, tor_id).await
         .expect("Query failed")
         .expect("ToR not found");
 
@@ -45,29 +46,31 @@ fn test_create_tor_success() {
     assert_eq!(tor.description, TEST_DESCRIPTION);
 }
 
-#[test]
-fn test_create_tor_duplicate_name() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_create_tor_duplicate_name() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let first_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let first_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create first ToR");
     assert!(first_id > 0);
 
     // Try to create ToR with same name
-    let duplicate = create(&conn, TEST_TOR_NAME, "Different Label", &[]);
-    
+    let duplicate = create(pool, TEST_TOR_NAME, "Different Label", &[]).await;
+
     // Should fail on UNIQUE constraint
     assert!(duplicate.is_err());
 }
 
-#[test]
-fn test_find_tor_by_id_success() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_tor_by_id_success() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let created_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS), ("meeting_cadence", TEST_CADENCE), ("cadence_day", TEST_DAY), ("cadence_time", TEST_TIME), ("cadence_duration_minutes", TEST_DURATION), ("default_location", TEST_LOCATION)])
+    let created_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS), ("meeting_cadence", TEST_CADENCE), ("cadence_day", TEST_DAY), ("cadence_time", TEST_TIME), ("cadence_duration_minutes", TEST_DURATION), ("default_location", TEST_LOCATION)]).await
         .expect("Failed to create ToR");
 
-    let tor = find_detail_by_id(&conn, created_id)
+    let tor = find_detail_by_id(pool, created_id).await
         .expect("Query failed")
         .expect("ToR not found");
 
@@ -76,59 +79,63 @@ fn test_find_tor_by_id_success() {
     assert_eq!(tor.meeting_cadence, TEST_CADENCE);
 }
 
-#[test]
-fn test_find_tor_by_id_not_found() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_tor_by_id_not_found() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let result = find_detail_by_id(&conn, 9999)
+    let result = find_detail_by_id(pool, 9999).await
         .expect("Query failed");
 
     assert!(result.is_none());
 }
 
-#[test]
-fn test_list_all_tors() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_list_all_tors() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create multiple ToRs
     for i in 0..3 {
         let name = format!("tor_{}", i);
         let label = format!("ToR {}", i);
-        let _ = create(&conn, &name, &label, &[])
+        let _ = create(pool, &name, &label, &[]).await
             .expect("Failed to create ToR");
     }
 
-    let tors = find_all_list_items(&conn)
+    let tors = find_all_list_items(pool).await
         .expect("Failed to list ToRs");
 
     assert!(tors.len() >= 3);
 }
 
-#[test]
-fn test_get_tor_name() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_get_tor_name() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create ToR");
 
-    let name = get_tor_name(&conn, tor_id)
+    let name = get_tor_name(pool, tor_id).await
         .expect("Failed to get ToR name");
 
     assert_eq!(name, TEST_TOR_LABEL);
 }
 
-#[test]
-fn test_update_tor_success() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_update_tor_success() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS)])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[("description", TEST_DESCRIPTION), ("status", TEST_STATUS)]).await
         .expect("Failed to create ToR");
 
     let updated_label = "Updated ToR Label";
-    let _ = update(&conn, tor_id, TEST_TOR_NAME, updated_label, &[("description", "Updated description"), ("status", TEST_STATUS)])
+    let _ = update(pool, tor_id, TEST_TOR_NAME, updated_label, &[("description", "Updated description"), ("status", TEST_STATUS)]).await
         .expect("Failed to update ToR");
 
-    let tor = find_detail_by_id(&conn, tor_id)
+    let tor = find_detail_by_id(pool, tor_id).await
         .expect("Query failed")
         .expect("ToR not found");
 
@@ -136,64 +143,69 @@ fn test_update_tor_success() {
     assert_eq!(tor.description, "Updated description");
 }
 
-#[test]
-fn test_update_tor_not_found() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_update_tor_not_found() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Updating non-existent ToR may fail or succeed depending on implementation
     // The important thing is that it doesn't panic
-    let _ = update(&conn, 9999, "name", "label", &[]);
+    let _ = update(pool, 9999, "name", "label", &[]).await;
 }
 
-#[test]
-fn test_count_members_empty() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_count_members_empty() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create ToR");
 
-    let count = count_members(&conn, tor_id)
+    let count = count_members(pool, tor_id).await
         .expect("Failed to count members");
 
     // Fresh ToR with no positions should have 0 members
     assert_eq!(count, 0);
 }
 
-#[test]
-fn test_find_tor_members_empty() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_tor_members_empty() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create ToR");
 
-    let members = find_members(&conn, tor_id)
+    let members = find_members(pool, tor_id).await
         .expect("Failed to find members");
 
     // Fresh ToR with no positions should have no members
     assert!(members.is_empty());
 }
 
-#[test]
-fn test_delete_tor_success() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_delete_tor_success() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create ToR");
 
-    let _ = delete(&conn, tor_id)
+    let _ = delete(pool, tor_id).await
         .expect("Failed to delete ToR");
 
-    let result = find_detail_by_id(&conn, tor_id)
+    let result = find_detail_by_id(pool, tor_id).await
         .expect("Query failed");
 
     assert!(result.is_none(), "ToR should be deleted");
 }
 
-#[test]
-fn test_find_non_members() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_non_members() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-    let tor_id = create(&conn, TEST_TOR_NAME, TEST_TOR_LABEL, &[])
+    let tor_id = create(pool, TEST_TOR_NAME, TEST_TOR_LABEL, &[]).await
         .expect("Failed to create ToR");
 
     // Create a test user
@@ -206,11 +218,11 @@ fn test_find_non_members() {
         display_name: "Test User".to_string(),
     };
 
-    let _ = user::create(&conn, &new_user)
+    let _ = user::create(pool, &new_user).await
         .expect("Failed to create user");
 
     // User should appear in non-members list since no position assigned
-    let non_members = find_non_members(&conn, tor_id)
+    let non_members = find_non_members(pool, tor_id).await
         .expect("Failed to find non-members");
 
     assert!(!non_members.is_empty());

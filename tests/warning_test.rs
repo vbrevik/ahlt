@@ -8,176 +8,170 @@ use ahlt::warnings;
 use ahlt::auth::password;
 use common::setup_test_db;
 
-#[test]
-fn test_create_warning() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_create_warning() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create a warning
     let warning_id = warnings::create_warning(
-        &conn,
+        pool,
         "high",
         "membership",
         "position.vacant",
         "Position has been vacant for 30 days",
         "position_id=123",
         "tor",
-    ).unwrap();
+    ).await.unwrap();
 
     assert!(warning_id > 0);
 
     // Verify the warning exists
-    let detail = warnings::queries::get_warning_detail(&conn, warning_id).unwrap();
+    let detail = warnings::queries::get_warning_detail(pool, warning_id).await.unwrap();
     assert!(detail.is_some());
     let detail = detail.unwrap();
     assert_eq!(detail.severity, "high");
     assert_eq!(detail.category, "membership");
     assert_eq!(detail.message, "Position has been vacant for 30 days");
-
-    println!("[PASS] test_create_warning");
 }
 
 
-#[test]
-fn test_warning_dedup_same_source() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_warning_dedup_same_source() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create first warning
     let _warning1_id = warnings::create_warning(
-        &conn,
+        pool,
         "high",
         "membership",
         "position.vacant",
         "Position X is vacant",
         "position_id=123",
         "tor",
-    ).unwrap();
+    ).await.unwrap();
 
     // Check if exists (dedup)
-    let exists = warnings::warning_exists(&conn, "position.vacant", "position_id=123");
+    let exists = warnings::warning_exists(pool, "position.vacant", "position_id=123").await;
     assert!(exists);
 
     // Try to create another with same source_action and dedup key
     // The warning_exists check should prevent creation in real code
-    let exists2 = warnings::warning_exists(&conn, "position.vacant", "position_id=123");
+    let exists2 = warnings::warning_exists(pool, "position.vacant", "position_id=123").await;
     assert_eq!(exists, exists2);
-
-    println!("[PASS] test_warning_dedup_same_source");
 }
 
-#[test]
-fn test_warning_dedup_requires_key() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_warning_dedup_requires_key() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create warning with specific dedup key in details
     let warning_id = warnings::create_warning(
-        &conn,
+        pool,
         "high",
         "membership",
         "position.vacant",
         "Position is vacant",
         "position_id=123|action=filled",
         "tor",
-    ).unwrap();
+    ).await.unwrap();
 
     assert!(warning_id > 0);
 
     // Dedup should find it with the key
-    let exists = warnings::warning_exists(&conn, "position.vacant", "position_id=123");
+    let exists = warnings::warning_exists(pool, "position.vacant", "position_id=123").await;
     assert!(exists);
 
     // Dedup should NOT find it with a different key
-    let not_exists = warnings::warning_exists(&conn, "position.vacant", "position_id=999");
+    let not_exists = warnings::warning_exists(pool, "position.vacant", "position_id=999").await;
     assert!(!not_exists);
 
     // Dedup should NOT find it with different source_action
-    let not_exists2 = warnings::warning_exists(&conn, "position.filled", "position_id=123");
+    let not_exists2 = warnings::warning_exists(pool, "position.filled", "position_id=123").await;
     assert!(!not_exists2);
-
-    println!("[PASS] test_warning_dedup_requires_key");
 }
 
-#[test]
-fn test_resolve_warning() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_resolve_warning() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create users
-    let admin_id = user::create(&conn, &NewUser {
+    let admin_id = user::create(pool, &NewUser {
         username: "admin".to_string(),
         password: password::hash_password("pass").unwrap(),
         email: "admin@test.com".to_string(),
         display_name: "Admin".to_string(),
-    }).unwrap();
+    }).await.unwrap();
 
-    let user_id = user::create(&conn, &NewUser {
+    let user_id = user::create(pool, &NewUser {
         username: "user1".to_string(),
         password: password::hash_password("pass").unwrap(),
         email: "u1@test.com".to_string(),
         display_name: "User 1".to_string(),
-    }).unwrap();
+    }).await.unwrap();
 
     // Create warning and receipt
     let warning_id = warnings::create_warning(
-        &conn,
+        pool,
         "high",
         "test",
         "test.action",
         "Test warning",
         "test_key=1",
         "test",
-    ).unwrap();
+    ).await.unwrap();
 
-    let _receipt_ids = warnings::create_receipts(&conn, warning_id, &[user_id]).unwrap();
+    let _receipt_ids = warnings::create_receipts(pool, warning_id, &[user_id]).await.unwrap();
 
     // Verify warning exists
-    let detail = warnings::queries::get_warning_detail(&conn, warning_id).unwrap();
+    let detail = warnings::queries::get_warning_detail(pool, warning_id).await.unwrap();
     assert!(detail.is_some());
 
     // Resolve the warning
-    warnings::resolve_warning(&conn, warning_id, admin_id).unwrap();
+    warnings::resolve_warning(pool, warning_id, admin_id).await.unwrap();
 
     // Verify warning status changed to resolved
-    let detail = warnings::queries::get_warning_detail(&conn, warning_id).unwrap();
+    let detail = warnings::queries::get_warning_detail(pool, warning_id).await.unwrap();
     assert!(detail.is_some());
     let detail = detail.unwrap();
     assert_eq!(detail.status, "resolved");
-
-    println!("[PASS] test_resolve_warning");
 }
 
-#[test]
-fn test_find_receipt_for_user() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_find_receipt_for_user() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create user
-    let user_id = user::create(&conn, &NewUser {
+    let user_id = user::create(pool, &NewUser {
         username: "user1".to_string(),
         password: password::hash_password("pass").unwrap(),
         email: "u1@test.com".to_string(),
         display_name: "User 1".to_string(),
-    }).unwrap();
+    }).await.unwrap();
 
     // Create warning and receipt
     let warning_id = warnings::create_warning(
-        &conn,
+        pool,
         "medium",
         "test",
         "test.action",
         "Test warning",
         "test_key=1",
         "test",
-    ).unwrap();
+    ).await.unwrap();
 
-    let receipt_ids = warnings::create_receipts(&conn, warning_id, &[user_id]).unwrap();
+    let receipt_ids = warnings::create_receipts(pool, warning_id, &[user_id]).await.unwrap();
     let expected_receipt_id = receipt_ids[0];
 
     // Find receipt for this user
-    let found_receipt_id = warnings::queries::find_receipt_for_user(&conn, warning_id, user_id).unwrap();
+    let found_receipt_id = warnings::queries::find_receipt_for_user(pool, warning_id, user_id).await.unwrap();
     assert_eq!(found_receipt_id, Some(expected_receipt_id));
 
     // Try to find receipt for non-existent user
-    let not_found = warnings::queries::find_receipt_for_user(&conn, warning_id, user_id + 999).unwrap();
+    let not_found = warnings::queries::find_receipt_for_user(pool, warning_id, user_id + 999).await.unwrap();
     assert!(not_found.is_none());
-
-    println!("[PASS] test_find_receipt_for_user");
 }
-

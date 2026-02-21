@@ -1,176 +1,166 @@
-use tempfile::TempDir;
+mod common;
+
 use ahlt::models::role;
+use common::*;
 
-const MIGRATIONS: &str = include_str!("../src/schema.sql");
+#[tokio::test]
+async fn test_create_role_via_builder() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
-fn setup_test_db() -> (TempDir, rusqlite::Connection) {
-    let dir = TempDir::new().expect("Failed to create temp dir");
-    let db_path = dir.path().join("test.db");
-    let conn = rusqlite::Connection::open(&db_path).expect("Failed to open test DB");
-    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;")
-        .expect("Failed to set pragmas");
-    conn.execute_batch(MIGRATIONS).expect("Failed to run migrations");
-    (dir, conn)
-}
-
-#[test]
-fn test_create_role_via_builder() {
-    let (_dir, conn) = setup_test_db();
-
-    // Create has_permission relation type
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (900, 'relation_type', 'has_permission', 'Has Permission')",
-        [],
-    ).unwrap();
+    // Create has_permission relation type (may already exist from seed, but insert anyway)
+    let hp_rt_id = insert_entity(pool, "relation_type", "has_permission", "Has Permission").await;
 
     // Create test permissions
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (1, 'permission', 'test.read', 'Test Read')",
-        [],
-    ).unwrap();
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (2, 'permission', 'test.write', 'Test Write')",
-        [],
-    ).unwrap();
+    let perm_read_id = insert_entity(pool, "permission", "test.read", "Test Read").await;
+    let perm_write_id = insert_entity(pool, "permission", "test.write", "Test Write").await;
 
     // Create role via builder simulation
-    let role_id = conn.query_row(
+    let role_id: i64 = sqlx::query_as::<_, (i64,)>(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', 'test_role', 'Test Role') RETURNING id",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).unwrap();
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .0;
 
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'description', 'Test description')",
-        [role_id],
-    ).unwrap();
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'description', 'Test description')",
+    )
+    .bind(role_id)
+    .execute(pool)
+    .await
+    .unwrap();
 
-    let rt_id: i64 = 900;
-
-    for perm_id in [1, 2] {
-        conn.execute(
-            "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (?1, ?2, ?3)",
-            [rt_id, role_id, perm_id],
-        ).unwrap();
+    for perm_id in [perm_read_id, perm_write_id] {
+        sqlx::query(
+            "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES ($1, $2, $3)",
+        )
+        .bind(hp_rt_id)
+        .bind(role_id)
+        .bind(perm_id)
+        .execute(pool)
+        .await
+        .unwrap();
     }
 
     // Verify role
-    let role = role::find_by_id(&conn, role_id).unwrap().unwrap();
+    let role = role::find_by_id(pool, role_id).await.unwrap().unwrap();
     assert_eq!(role.name, "test_role");
     assert_eq!(role.label, "Test Role");
 
     // Verify permissions
-    let permissions = role::find_permission_checkboxes(&conn, role_id).unwrap();
+    let permissions = role::find_permission_checkboxes(pool, role_id).await.unwrap();
     let granted = permissions.iter().filter(|p| p.checked).count();
     assert_eq!(granted, 2);
 }
 
-#[test]
-fn test_role_name_uniqueness() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_role_name_uniqueness() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create first role
-    conn.execute(
+    sqlx::query(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', 'duplicate', 'First')",
-        [],
-    ).unwrap();
+    )
+    .execute(pool)
+    .await
+    .unwrap();
 
     // Attempt duplicate
-    let result = conn.execute(
+    let result = sqlx::query(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', 'duplicate', 'Second')",
-        [],
-    );
+    )
+    .execute(pool)
+    .await;
 
     assert!(result.is_err());
 }
 
-#[test]
-fn test_menu_preview_calculation() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_menu_preview_calculation() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create permission
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (100, 'permission', 'admin.settings', 'Admin Settings')",
-        [],
-    ).unwrap();
+    let perm_id = insert_entity(pool, "permission", "admin.settings", "Admin Settings").await;
 
     // Create nav module
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (200, 'nav_module', 'admin', 'Admin')",
-        [],
-    ).unwrap();
+    let _module_id = insert_entity(pool, "nav_module", "admin", "Admin").await;
 
     // Create nav item
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (201, 'nav_item', 'settings', 'Settings')",
-        [],
-    ).unwrap();
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (201, 'path', '/settings')",
-        [],
-    ).unwrap();
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (201, 'permission_required', 'admin.settings')",
-        [],
-    ).unwrap();
+    let nav_item_id = insert_entity(pool, "nav_item", "settings", "Settings").await;
+    insert_prop(pool, nav_item_id, "path", "/settings").await;
+    insert_prop(pool, nav_item_id, "permission_required", "admin.settings").await;
 
     // Create in_module relation type
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, name, label) VALUES (999, 'relation_type', 'in_module', 'In Module')",
-        [],
-    ).unwrap();
+    let rt_id = insert_entity(pool, "relation_type", "in_module", "In Module").await;
 
     // Link nav item to module
-    conn.execute(
-        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES (999, 201, 200)",
-        [],
-    ).unwrap();
+    sqlx::query(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES ($1, $2, $3)",
+    )
+    .bind(rt_id)
+    .bind(nav_item_id)
+    .bind(_module_id)
+    .execute(pool)
+    .await
+    .unwrap();
 
     // Query accessible items
-    let items = role::builder::find_accessible_nav_items(&conn, &[100]).unwrap();
+    let items = role::builder::find_accessible_nav_items(pool, &[perm_id]).await.unwrap();
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].label, "Settings");
 }
 
-#[test]
-fn test_no_permissions_selected() {
-    let (_dir, conn) = setup_test_db();
+#[tokio::test]
+async fn test_no_permissions_selected() {
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create role with no permissions (valid but not useful)
-    let role_id = conn.query_row(
+    let role_id: i64 = sqlx::query_as::<_, (i64,)>(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', 'empty_role', 'Empty Role') RETURNING id",
-        [],
-        |row| row.get::<_, i64>(0),
-    ).unwrap();
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .0;
 
     // Verify role exists
-    let role = role::find_by_id(&conn, role_id).unwrap().unwrap();
+    let role = role::find_by_id(pool, role_id).await.unwrap().unwrap();
     assert_eq!(role.name, "empty_role");
 
     // Verify no permissions
-    let permissions = role::find_permission_checkboxes(&conn, role_id).unwrap();
+    let permissions = role::find_permission_checkboxes(pool, role_id).await.unwrap();
     let granted = permissions.iter().filter(|p| p.checked).count();
     assert_eq!(granted, 0);
 }
 
-#[test]
-fn test_builder_requires_admin_permission() {
+#[tokio::test]
+async fn test_builder_requires_admin_permission() {
     // This would be tested at the handler level with mock sessions
     // For now, we just verify the permission code can be created
-    let (_dir, conn) = setup_test_db();
+    let db = setup_test_db().await;
+    let pool = db.pool();
 
     // Create the admin.roles permission
-    conn.execute(
+    sqlx::query(
         "INSERT INTO entities (entity_type, name, label) VALUES ('permission', 'admin.roles', 'Manage Roles')",
-        [],
-    ).unwrap();
+    )
+    .execute(pool)
+    .await
+    .unwrap();
 
-    let exists = conn.query_row(
-        "SELECT 1 FROM entities WHERE entity_type='permission' AND name='admin.roles'",
-        [],
-        |_| Ok(true),
-    ).unwrap_or(false);
+    let exists: bool = sqlx::query_as::<_, (bool,)>(
+        "SELECT EXISTS(SELECT 1 FROM entities WHERE entity_type='permission' AND name='admin.roles')",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+    .0;
 
     assert!(exists, "admin.roles permission should exist");
 }

@@ -1,46 +1,51 @@
 use ahlt::models::{entity, relation, opinion};
 mod common;
+use common::{setup_test_db, insert_entity};
 
 /// Insert opinion-related relation types not included in the base seed.
-fn seed_opinion_relation_types(conn: &rusqlite::Connection) {
+async fn seed_opinion_relation_types(pool: &sqlx::PgPool) {
     for rt in &["opinion_on", "opinion_by", "prefers_coa"] {
-        conn.execute(
-            "INSERT OR IGNORE INTO entities (entity_type, name, label) VALUES ('relation_type', ?1, ?1)",
-            [rt],
+        sqlx::query(
+            "INSERT INTO entities (entity_type, name, label) VALUES ('relation_type', $1, $1) \
+             ON CONFLICT DO NOTHING",
         )
+        .bind(rt)
+        .execute(pool)
+        .await
         .expect("Failed to seed opinion relation type");
     }
 }
 
-#[test]
-fn test_find_opinions_via_relations_only() {
+#[tokio::test]
+async fn test_find_opinions_via_relations_only() {
     // Simulate seeded opinions: only relations, no entity_properties for recorded_by_id etc.
-    let (_dir, conn) = common::setup_test_db();
-    seed_opinion_relation_types(&conn);
+    let db = setup_test_db().await;
+    let pool = db.pool();
+    seed_opinion_relation_types(pool).await;
 
-    let _tor_id = entity::create(&conn, "tor", "test_tor", "Test ToR").unwrap();
-    let ap_id = entity::create(&conn, "agenda_point", "test_ap", "Test AP").unwrap();
-    let coa_a_id = entity::create(&conn, "coa", "coa_a", "COA A").unwrap();
-    let coa_b_id = entity::create(&conn, "coa", "coa_b", "COA B").unwrap();
-    let user_alice = entity::create(&conn, "user", "alice_test", "Alice Test").unwrap();
-    let user_bob = entity::create(&conn, "user", "bob_test", "Bob Test").unwrap();
+    let _tor_id = entity::create(pool, "tor", "test_tor", "Test ToR").await.unwrap();
+    let ap_id = entity::create(pool, "agenda_point", "test_ap", "Test AP").await.unwrap();
+    let coa_a_id = entity::create(pool, "coa", "coa_a", "COA A").await.unwrap();
+    let coa_b_id = entity::create(pool, "coa", "coa_b", "COA B").await.unwrap();
+    let user_alice = entity::create(pool, "user", "alice_test", "Alice Test").await.unwrap();
+    let user_bob = entity::create(pool, "user", "bob_test", "Bob Test").await.unwrap();
 
-    let op_alice = entity::create(&conn, "opinion", "opinion_alice_test", "Alice opinion").unwrap();
-    let op_bob = entity::create(&conn, "opinion", "opinion_bob_test", "Bob opinion").unwrap();
+    let op_alice = entity::create(pool, "opinion", "opinion_alice_test", "Alice opinion").await.unwrap();
+    let op_bob = entity::create(pool, "opinion", "opinion_bob_test", "Bob opinion").await.unwrap();
 
     // opinion_on: opinion -> agenda_point
-    relation::create(&conn, "opinion_on", op_alice, ap_id).unwrap();
-    relation::create(&conn, "opinion_on", op_bob, ap_id).unwrap();
+    relation::create(pool, "opinion_on", op_alice, ap_id).await.unwrap();
+    relation::create(pool, "opinion_on", op_bob, ap_id).await.unwrap();
 
     // opinion_by: opinion -> user (seeded direction)
-    relation::create(&conn, "opinion_by", op_alice, user_alice).unwrap();
-    relation::create(&conn, "opinion_by", op_bob, user_bob).unwrap();
+    relation::create(pool, "opinion_by", op_alice, user_alice).await.unwrap();
+    relation::create(pool, "opinion_by", op_bob, user_bob).await.unwrap();
 
     // prefers_coa: opinion -> coa
-    relation::create(&conn, "prefers_coa", op_alice, coa_a_id).unwrap();
-    relation::create(&conn, "prefers_coa", op_bob, coa_b_id).unwrap();
+    relation::create(pool, "prefers_coa", op_alice, coa_a_id).await.unwrap();
+    relation::create(pool, "prefers_coa", op_bob, coa_b_id).await.unwrap();
 
-    let opinions = opinion::find_opinions_for_agenda_point(&conn, ap_id).unwrap();
+    let opinions = opinion::find_opinions_for_agenda_point(pool, ap_id).await.unwrap();
     assert_eq!(opinions.len(), 2);
 
     let alice_op = opinions.iter().find(|o| o.recorded_by_name == "Alice Test");
@@ -52,20 +57,21 @@ fn test_find_opinions_via_relations_only() {
     assert_eq!(bob_op.unwrap().preferred_coa_id, coa_b_id);
 }
 
-#[test]
-fn test_find_opinions_via_entity_properties_still_works() {
+#[tokio::test]
+async fn test_find_opinions_via_entity_properties_still_works() {
     // Ensure programmatic opinions (entity_properties) still work after query rewrite
-    let (_dir, conn) = common::setup_test_db();
-    seed_opinion_relation_types(&conn);
+    let db = setup_test_db().await;
+    let pool = db.pool();
+    seed_opinion_relation_types(pool).await;
 
-    let ap_id = entity::create(&conn, "agenda_point", "prog_ap", "Prog AP").unwrap();
-    let coa_id = entity::create(&conn, "coa", "prog_coa", "Prog COA").unwrap();
-    let user_id = entity::create(&conn, "user", "prog_user", "Prog User").unwrap();
+    let ap_id = entity::create(pool, "agenda_point", "prog_ap", "Prog AP").await.unwrap();
+    let coa_id = entity::create(pool, "coa", "prog_coa", "Prog COA").await.unwrap();
+    let user_id = entity::create(pool, "user", "prog_user", "Prog User").await.unwrap();
 
     // Programmatic opinion creation
-    opinion::record_opinion(&conn, ap_id, user_id, coa_id, "My commentary").unwrap();
+    opinion::record_opinion(pool, ap_id, user_id, coa_id, "My commentary").await.unwrap();
 
-    let opinions = opinion::find_opinions_for_agenda_point(&conn, ap_id).unwrap();
+    let opinions = opinion::find_opinions_for_agenda_point(pool, ap_id).await.unwrap();
     assert_eq!(opinions.len(), 1);
     assert_eq!(opinions[0].recorded_by_name, "Prog User");
     assert_eq!(opinions[0].preferred_coa_id, coa_id);
