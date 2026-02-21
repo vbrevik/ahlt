@@ -36,13 +36,12 @@ pub async fn list(
         entity::find_by_type(&pool, et).await?
     } else {
         // Get all entities by querying directly
-        sqlx::query_as!(
-            entity::Entity,
-            "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at FROM entities ORDER BY id"
+        sqlx::query_as::<_, entity::Entity>(
+            "SELECT id, entity_type, name, label, sort_order::BIGINT as sort_order, is_active, \
+             created_at::TEXT, updated_at::TEXT FROM entities ORDER BY id"
         )
         .fetch_all(pool.get_ref())
-        .await
-        .map_err(|e| AppError::Db(e.to_string()))?
+        .await?
     };
 
     // Apply pagination
@@ -228,15 +227,14 @@ pub async fn update(
     }
 
     // Update entity name and label
-    sqlx::query!(
+    sqlx::query(
         "UPDATE entities SET name = $1, label = $2, updated_at = NOW() WHERE id = $3",
-        body.name,
-        body.label.as_deref().unwrap_or(""),
-        entity_id
     )
+    .bind(&body.name)
+    .bind(body.label.as_deref().unwrap_or(""))
+    .bind(entity_id)
     .execute(pool.get_ref())
-    .await
-    .map_err(|e| AppError::Db(e.to_string()))?;
+    .await?;
 
     // Update properties if provided
     if let Some(props) = &body.properties {

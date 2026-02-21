@@ -7,6 +7,18 @@
 mod common;
 use common::*;
 
+/// Look up a seeded relation type by name, returning its entity ID.
+async fn lookup_relation_type(pool: &sqlx::PgPool, name: &str) -> i64 {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = $1"
+    )
+    .bind(name)
+    .fetch_one(pool)
+    .await
+    .unwrap_or_else(|_| panic!("Relation type '{}' should exist from seed", name));
+    row.0
+}
+
 #[tokio::test]
 async fn test_phase2b_database_schema() {
     let db = setup_test_db().await;
@@ -78,12 +90,10 @@ async fn test_phase2b_relation_types() {
     let db = setup_test_db().await;
     let pool = db.pool();
 
-    // Create relation types
+    // Create a new relation type (use unique name that isn't in seed data)
     let _rel_member_of = insert_entity(pool, "relation_type", "member_of", "Member Of").await;
-    let _rel_submitted_to = insert_entity(pool, "relation_type", "submitted_to", "Submitted To").await;
-    let _rel_considers_coa = insert_entity(pool, "relation_type", "considers_coa", "Considers COA").await;
 
-    // Verify relation types were created (includes seeded ones from common module)
+    // Verify relation types exist (seed_base_entities creates 35, plus 1 we just created)
     let count: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM entities WHERE entity_type = 'relation_type'"
     )
@@ -91,8 +101,7 @@ async fn test_phase2b_relation_types() {
     .await
     .expect("Failed to get count");
 
-    // Common module seeds 11 relation types, plus 3 we just created = 14
-    assert!(count.0 >= 3, "Should have at least 3 relation types we created");
+    assert!(count.0 >= 30, "Should have at least 30 seeded relation types");
 
     println!("Relation types created successfully");
 }
@@ -232,8 +241,14 @@ async fn test_phase2b_coa_with_sections() {
     let db = setup_test_db().await;
     let pool = db.pool();
 
-    // Create relation type for COA sections
-    let rel_has_section = insert_entity(pool, "relation_type", "has_section", "Has Section").await;
+    // Look up seeded relation type for COA sections
+    let rel_has_section: (i64,) = sqlx::query_as(
+        "SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_section'"
+    )
+    .fetch_one(pool)
+    .await
+    .expect("has_section relation type should exist from seed");
+    let rel_has_section = rel_has_section.0;
 
     // Create COA
     let coa_id = insert_entity(pool, "coa", "coa_001", "Course of Action 001").await;
@@ -288,10 +303,10 @@ async fn test_phase2b_opinion_recording() {
     let db = setup_test_db().await;
     let pool = db.pool();
 
-    // Create relation types
-    let rel_opinion_by = insert_entity(pool, "relation_type", "opinion_by", "Opinion By").await;
-    let rel_opinion_on = insert_entity(pool, "relation_type", "opinion_on", "Opinion On").await;
-    let rel_prefers_coa = insert_entity(pool, "relation_type", "prefers_coa", "Prefers COA").await;
+    // Look up seeded relation types
+    let rel_opinion_by = lookup_relation_type(pool, "opinion_by").await;
+    let rel_opinion_on = lookup_relation_type(pool, "opinion_on").await;
+    let rel_prefers_coa = lookup_relation_type(pool, "prefers_coa").await;
 
     // Create user (person providing opinion)
     let user_id = insert_entity(pool, "user", "user_001", "Alice").await;
@@ -473,14 +488,14 @@ async fn test_phase2b_complete_workflow_data_model() {
     let db = setup_test_db().await;
     let pool = db.pool();
 
-    // Create relation types
+    // Look up seeded relation types and create non-seeded ones
     let rel_member_of = insert_entity(pool, "relation_type", "member_of", "Member Of").await;
-    let rel_submitted_to = insert_entity(pool, "relation_type", "submitted_to", "Submitted To").await;
-    let rel_agenda_submitted_to = insert_entity(pool, "relation_type", "agenda_submitted_to", "Submitted To").await;
-    let rel_considers_coa = insert_entity(pool, "relation_type", "considers_coa", "Considers COA").await;
-    let rel_opinion_on = insert_entity(pool, "relation_type", "opinion_on", "Opinion On").await;
-    let rel_opinion_by = insert_entity(pool, "relation_type", "opinion_by", "Opinion By").await;
-    let rel_prefers_coa = insert_entity(pool, "relation_type", "prefers_coa", "Prefers COA").await;
+    let rel_submitted_to = lookup_relation_type(pool, "submitted_to").await;
+    let rel_agenda_submitted_to = insert_entity(pool, "relation_type", "agenda_submitted_to", "Agenda Submitted To").await;
+    let rel_considers_coa = lookup_relation_type(pool, "considers_coa").await;
+    let rel_opinion_on = lookup_relation_type(pool, "opinion_on").await;
+    let rel_opinion_by = lookup_relation_type(pool, "opinion_by").await;
+    let rel_prefers_coa = lookup_relation_type(pool, "prefers_coa").await;
 
     // 1. Create ToR (committee)
     let tor_id = insert_entity(pool, "tor", "test_tor", "Governance Committee").await;

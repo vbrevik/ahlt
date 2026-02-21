@@ -193,6 +193,7 @@ pub struct TorFormTemplate {
 }
 
 /// UserOption for the "add member" dropdown.
+#[derive(sqlx::FromRow)]
 pub struct UserOption {
     pub id: i64,
     pub name: String,

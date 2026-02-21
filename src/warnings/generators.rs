@@ -58,7 +58,7 @@ pub async fn check_users_without_role(pool: &PgPool, conn_map: &ConnectionMap) {
         let _ = receipt_ids; // receipts created
         crate::handlers::warning_handlers::ws::notify_users(
             conn_map, pool, &admin_ids, warning_id, "medium", &message,
-        );
+        ).await;
     }
 }
 
@@ -114,7 +114,7 @@ pub async fn check_database_size(pool: &PgPool, conn_map: &ConnectionMap) {
     if super::create_receipts(pool, warning_id, &admin_ids).await.is_ok() {
         crate::handlers::warning_handlers::ws::notify_users(
             conn_map, pool, &admin_ids, warning_id, severity, &message,
-        );
+        ).await;
     }
 }
 
@@ -211,7 +211,7 @@ pub async fn check_tor_vacancies(pool: &PgPool, conn_map: &ConnectionMap) {
         if super::create_receipts(pool, warning_id, &target_ids).await.is_ok() {
             crate::handlers::warning_handlers::ws::notify_users(
                 conn_map, pool, &target_ids, warning_id, "medium", &message,
-            );
+            ).await;
         }
     }
 

@@ -5,7 +5,7 @@ use super::types::{User, UserDisplay, UserPage, NewUser, UserWithRoles};
 /// Uses STRING_AGG to collect multiple roles into comma-separated strings.
 const SELECT_USER_DISPLAY: &str = "\
     SELECT e.id, e.name AS username, e.label AS display_name, \
-           COALESCE(p_email.value, '') AS email, \
+           COALESCE(MAX(p_email.value), '') AS email, \
            COALESCE(STRING_AGG(DISTINCT role_e.id::TEXT, ','), '') AS role_ids, \
            COALESCE(STRING_AGG(DISTINCT role_e.name, ','), '') AS role_names, \
            COALESCE(STRING_AGG(DISTINCT role_e.label, ','), '') AS role_labels, \

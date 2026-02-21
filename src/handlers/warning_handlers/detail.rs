@@ -31,25 +31,22 @@ pub async fn detail(
     };
 
     // Get users for forward dropdown (exclude self)
-    let users = sqlx::query_as!(
-        UserOption,
+    let users: Vec<UserOption> = sqlx::query_as(
         "SELECT id, name, label FROM entities WHERE entity_type = 'user' AND id != $1 ORDER BY name",
-        user_id
     )
+    .bind(user_id)
     .fetch_all(pool.get_ref())
-    .await
-    .map_err(|e| AppError::Db(e.to_string()))?;
+    .await?;
 
     // Auto-mark as read when viewing
     if receipt_id > 0 {
-        let current_status: String = sqlx::query_scalar!(
+        let current_status: String = sqlx::query_as::<_, (String,)>(
             "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'status'",
-            receipt_id
         )
+        .bind(receipt_id)
         .fetch_optional(pool.get_ref())
-        .await
-        .map_err(|e| AppError::Db(e.to_string()))?
-        .flatten()
+        .await?
+        .map(|r| r.0)
         .unwrap_or_default();
 
         if current_status == "unread" {

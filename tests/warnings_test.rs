@@ -1,13 +1,10 @@
 mod common;
 use common::*;
 
-async fn seed_warning_types(pool: &sqlx::PgPool) {
-    // Seed the relation types needed by the warning system
-    insert_entity(pool, "relation_type", "targets_user", "Targets User").await;
-    insert_entity(pool, "relation_type", "for_warning", "For Warning").await;
-    insert_entity(pool, "relation_type", "for_user", "For User").await;
-    insert_entity(pool, "relation_type", "on_receipt", "On Receipt").await;
-    insert_entity(pool, "relation_type", "forwarded_to_user", "Forwarded To User").await;
+async fn seed_warning_types(_pool: &sqlx::PgPool) {
+    // All warning relation types are now seeded by seed_base_entities:
+    // for_warning, for_user, targets_user, on_receipt, forwarded_to_user
+    // Nothing additional to create.
 }
 
 async fn seed_users(pool: &sqlx::PgPool) -> (i64, i64) {

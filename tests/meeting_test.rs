@@ -12,9 +12,13 @@ async fn setup_tor_with_relation_types(pool: &sqlx::PgPool) -> (i64, i64, i64) {
     .await
     .expect("belongs_to_tor relation type not found");
 
-    // Create scheduled_for_meeting relation type (not in common seed)
-    let scheduled_for_meeting_rt =
-        insert_entity(pool, "relation_type", "scheduled_for_meeting", "Scheduled For Meeting").await;
+    // Look up scheduled_for_meeting relation type from seed
+    let (scheduled_for_meeting_rt,): (i64,) = sqlx::query_as(
+        "SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'scheduled_for_meeting'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("scheduled_for_meeting relation type not found");
 
     let tor_id = insert_entity(pool, "tor", "test-tor", "Test ToR").await;
     insert_prop(pool, tor_id, "meeting_cadence", "weekly").await;

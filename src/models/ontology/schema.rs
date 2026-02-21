@@ -43,7 +43,7 @@ pub struct SchemaNode {
 }
 
 /// Schema-level edge: one per (source_type, target_type, relation_type) pattern.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct SchemaEdge {
     pub source: String,
     pub target: String,

@@ -9,6 +9,7 @@ use std::collections::HashMap;
 /// Run with --test-threads=1 because tests share a single Neo4j instance
 /// and full_resync clears all data: cargo test --test graph_sync_test -- --test-threads=1
 #[tokio::test]
+#[ignore] // Requires running Neo4j: cargo test --test graph_sync_test -- --ignored --test-threads=1
 async fn test_neo4j_connect() {
     let uri = std::env::var("NEO4J_URI").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
     let user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
@@ -19,6 +20,7 @@ async fn test_neo4j_connect() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_sync_entity_and_delete() {
     let uri = std::env::var("NEO4J_URI").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
     let user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
@@ -54,6 +56,7 @@ async fn test_sync_entity_and_delete() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_sync_relation_and_delete() {
     let uri = std::env::var("NEO4J_URI").unwrap_or_else(|_| "bolt://localhost:7687".to_string());
     let user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
@@ -111,6 +114,7 @@ async fn test_sync_relation_and_delete() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_full_resync() {
     let db = common::setup_test_db().await;
     let pool = db.pool();

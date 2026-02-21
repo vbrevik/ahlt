@@ -8,8 +8,14 @@ async fn test_create_role_via_builder() {
     let db = setup_test_db().await;
     let pool = db.pool();
 
-    // Create has_permission relation type (may already exist from seed, but insert anyway)
-    let hp_rt_id = insert_entity(pool, "relation_type", "has_permission", "Has Permission").await;
+    // Look up has_permission relation type from seed data
+    let hp_rt_id: i64 = sqlx::query_as::<_, (i64,)>(
+        "SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission'"
+    )
+    .fetch_one(pool)
+    .await
+    .expect("has_permission relation type should exist from seed")
+    .0;
 
     // Create test permissions
     let perm_read_id = insert_entity(pool, "permission", "test.read", "Test Read").await;

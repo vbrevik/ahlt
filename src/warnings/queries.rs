@@ -130,7 +130,7 @@ pub async fn find_for_user(
         "SELECT w.id as warning_id, receipt.id as receipt_id, \
                 wsev.value as severity, wcat.value as category, \
                 wmsg.value as message, rst.value as status, \
-                rsa.value as status_at, w.created_at \
+                rsa.value as status_at, w.created_at::TEXT \
          {} {} \
          ORDER BY CASE rst.value WHEN 'unread' THEN 0 ELSE 1 END, w.created_at DESC \
          LIMIT ${} OFFSET ${}",
@@ -201,7 +201,7 @@ pub struct WarningTimelineEvent {
 /// Get full warning detail by warning entity ID.
 pub async fn get_warning_detail(pool: &PgPool, warning_id: i64) -> Result<Option<WarningDetail>, sqlx::Error> {
     let row: Option<(i64, String, String, String, String, String, String, String, String)> = sqlx::query_as(
-        "SELECT e.id, e.created_at,
+        "SELECT e.id, e.created_at::TEXT,
                 COALESCE(psev.value, '') as severity,
                 COALESCE(pcat.value, '') as category,
                 COALESCE(pmsg.value, '') as message,
@@ -277,7 +277,7 @@ pub async fn get_receipt_timeline(pool: &PgPool, receipt_id: i64) -> Result<Vec<
         "SELECT COALESCE(pa.value, '') as action,
                 COALESCE(pau.value, '0') as actor_user_id,
                 COALESCE(u.name, 'system') as actor_username,
-                evt.created_at,
+                evt.created_at::TEXT,
                 COALESCE(pn.value, '') as note
          FROM entities evt
          JOIN relations r ON r.source_id = evt.id

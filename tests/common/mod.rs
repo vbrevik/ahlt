@@ -140,6 +140,7 @@ fn unique_id() -> String {
 async fn seed_base_entities(pool: &PgPool) -> Result<(), sqlx::Error> {
     // Create relation types
     let relation_types = vec![
+        // Core EAV relations
         "has_role",
         "has_permission",
         "requires_permission",
@@ -147,10 +148,35 @@ async fn seed_base_entities(pool: &PgPool) -> Result<(), sqlx::Error> {
         "fills_position",
         "participates_in",
         "is_blocking",
+        // Workflow
         "transition_from",
         "transition_to",
+        // Minutes & documents
         "minutes_of",
         "section_of",
+        "has_section",
+        "has_subsection",
+        "protocol_of",
+        "template_of",
+        "slide_of",
+        // Governance pipeline
+        "submitted_to",
+        "spawns_proposal",
+        "suggested_to",
+        "scoped_to_tor",
+        "spawns_agenda_point",
+        "considers_coa",
+        "scheduled_for_meeting",
+        // Opinions
+        "opinion_by",
+        "opinion_on",
+        "prefers_coa",
+        // Warning system
+        "for_warning",
+        "for_user",
+        "targets_user",
+        "on_receipt",
+        "forwarded_to_user",
     ];
 
     for rt in relation_types {
