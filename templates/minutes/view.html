@@ -27,6 +27,7 @@
         <span class="badge badge-warning">Pending Approval</span>
         {% else %}
         <span class="badge badge-success">Approved</span>
+        <a href="/meetings/{{ minutes.meeting_id }}/export" class="btn btn-sm" target="_blank">Export</a>
         {% endif %}
     </div>
 </div>

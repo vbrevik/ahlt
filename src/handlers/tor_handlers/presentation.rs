@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use crate::models::{presentation_template as pt, tor};
 use crate::auth::csrf;
-use crate::auth::session::require_permission;
+use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, PresentationTemplatesTemplate};
 
@@ -134,6 +134,14 @@ pub async fn handle_add_slide(
 
     pt::add_slide(&pool, template_id, name.trim(), label.trim(), slide_order, required_content, notes).await?;
 
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let details = serde_json::json!({
+        "template_id": template_id,
+        "name": name.trim(),
+        "summary": format!("Added slide '{}' to template", label.trim())
+    });
+    let _ = crate::audit::log(&pool, user_id, "tor.slide_added", "tor", tor_id, details).await;
+
     let _ = session.insert("flash", "Slide added");
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/tor/{tor_id}/templates?selected={template_id}")))
@@ -153,6 +161,14 @@ pub async fn handle_delete_slide(
     let (tor_id, template_id, slide_id) = path.into_inner();
 
     pt::delete_slide(&pool, slide_id).await?;
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let details = serde_json::json!({
+        "template_id": template_id,
+        "slide_id": slide_id,
+        "summary": "Deleted slide from template"
+    });
+    let _ = crate::audit::log(&pool, user_id, "tor.slide_deleted", "tor", tor_id, details).await;
 
     let _ = session.insert("flash", "Slide deleted");
     Ok(HttpResponse::SeeOther()
@@ -185,6 +201,15 @@ pub async fn handle_move_slide(
             pt::reorder_slides(&pool, slide_id, other_id).await?;
         }
     }
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let details = serde_json::json!({
+        "template_id": template_id,
+        "slide_id": slide_id,
+        "direction": direction,
+        "summary": format!("Moved slide {}", direction)
+    });
+    let _ = crate::audit::log(&pool, user_id, "tor.slide_moved", "tor", tor_id, details).await;
 
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/tor/{tor_id}/templates?selected={template_id}")))

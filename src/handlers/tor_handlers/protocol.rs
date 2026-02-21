@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use crate::models::protocol;
 use crate::auth::csrf;
-use crate::auth::session::require_permission;
+use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::AppError;
 
 pub async fn add_step(
@@ -109,6 +109,14 @@ pub async fn move_step(
             protocol::reorder_steps(&pool, steps[idx].id, steps[other_idx].id).await?;
         }
     }
+
+    let user_id = get_user_id(&session).unwrap_or(0);
+    let details = serde_json::json!({
+        "step_id": step_id,
+        "direction": direction,
+        "summary": format!("Moved protocol step {}", direction)
+    });
+    let _ = crate::audit::log(&pool, user_id, "tor.protocol_step_moved", "tor", tor_id, details).await;
 
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/tor/{tor_id}")))

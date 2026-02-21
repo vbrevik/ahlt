@@ -434,11 +434,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Phase 4: Kubernetes Helm** — Shared infra charts (`helm/infra/`) for PostgreSQL + Neo4j. Application chart (`helm/ahlt/`) with deployment, service, configmap, secret, ingress templates. Per-environment values files (dev/staging/prod).
 - **Build**: PASS | **Tests**: 171 passing (8 ignored: 4 Neo4j + 4 E2E)
 
-### Codebase Audit Fixes (CA.1)
-- **Queue template**: Replaced stub `templates/workflow/queue.html` with full implementation (table, checkboxes, bulk schedule form, unqueue per-row)
-- **Agenda transition handler**: Replaced "not yet implemented" stub in `agenda_handlers.rs` with working workflow transition (validate → set_property → audit log)
-- **Seed missing permissions**: Added 5 permission entities (`entities.list/create/edit/delete`, `minutes.view`) + 11 `has_permission` relations for admin role to `ontology.json`
-- **Opinion seed direction**: Standardized 2 `opinion_by` relations in `staging.json` to match programmatic direction (`user → opinion`)
+### Codebase Audit Fixes (CA.1–CA.2)
+- **CA.1 — Queue template**: Replaced stub `templates/workflow/queue.html` with full implementation (table, checkboxes, bulk schedule form, unqueue per-row)
+- **CA.1 — Agenda transition handler**: Replaced "not yet implemented" stub in `agenda_handlers.rs` with working workflow transition (validate → set_property → audit log)
+- **CA.1 — Seed missing permissions**: Added 5 permission entities (`entities.list/create/edit/delete`, `minutes.view`) + 11 `has_permission` relations for admin role to `ontology.json`
+- **CA.1 — Opinion seed direction**: Standardized 2 `opinion_by` relations in `staging.json` to match programmatic direction (`user → opinion`)
+- **CA.2 — Minutes export button**: Added Export button to `minutes/view.html` (visible only when status is "approved", opens in new tab)
+- **CA.2 — Audit logging gaps**: Added `audit::log()` calls to 6 mutation handlers: `mark_deleted`, `forward` (warning actions), `move_step` (protocol), `handle_add_slide`, `handle_delete_slide`, `handle_move_slide` (presentation)
 - **Build**: PASS | **Tests**: 171 passing (unchanged)
 
 ### Ontology Graph Redesign (OG.1)
@@ -563,6 +565,7 @@ Enterprise Infrastructure Migration (5 phases)                                  
 OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down)      ✓ done
 F.6b Dashboard Personalization (user ToRs, meetings, attention items)                 ✓ done
 CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)            ✓ done
+CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers)    ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════

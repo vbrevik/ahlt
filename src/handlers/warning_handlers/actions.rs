@@ -35,6 +35,12 @@ pub async fn mark_deleted(
         warnings::update_receipt_status(&pool, receipt_id, "deleted", user_id).await?;
     }
 
+    let details = serde_json::json!({
+        "warning_id": warning_id,
+        "summary": "Deleted warning"
+    });
+    let _ = crate::audit::log(&pool, user_id, "warning.deleted", "warning", warning_id, details).await;
+
     send_count_update(&conn_map, &pool, user_id).await;
 
     Ok(HttpResponse::SeeOther()
@@ -70,6 +76,13 @@ pub async fn forward(
             warning_id, &w.severity, &w.message,
         ).await;
     }
+
+    let details = serde_json::json!({
+        "warning_id": warning_id,
+        "target_user_id": form.target_user_id,
+        "summary": format!("Forwarded warning {} to user {}", warning_id, form.target_user_id)
+    });
+    let _ = crate::audit::log(&pool, user_id, "warning.forwarded", "warning", warning_id, details).await;
 
     send_count_update(&conn_map, &pool, user_id).await;
 
