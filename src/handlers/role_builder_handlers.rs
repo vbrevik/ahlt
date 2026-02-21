@@ -221,7 +221,7 @@ pub async fn update_role(
             let _ = crate::warnings::create_receipts(&pool, wid, &admins).await;
             crate::handlers::warning_handlers::ws::notify_users(
                 &conn_map, &pool, &admins, wid, "info", &msg,
-            );
+            ).await;
         }
     }
 
