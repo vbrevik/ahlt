@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::{user, entity};
 use crate::auth::{csrf, password, validate};
 use crate::auth::session::get_user_id;
@@ -28,17 +28,16 @@ pub struct ProfileUpdateForm {
 }
 
 pub async fn form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/account")?;
+    let ctx = PageContext::build(&session, &pool, "/account").await?;
     let tmpl = AccountTemplate { ctx, errors: vec![] };
     render(tmpl)
 }
 
 pub async fn submit(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<ChangePasswordForm>,
 ) -> Result<HttpResponse, AppError> {
@@ -46,8 +45,6 @@ pub async fn submit(
 
     let user_id = get_user_id(&session)
         .ok_or_else(|| AppError::Session("User not logged in".to_string()))?;
-
-    let conn = pool.get()?;
 
     // Validate inputs
     let mut errors: Vec<String> = vec![];
@@ -57,19 +54,19 @@ pub async fn submit(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/account")?;
+        let ctx = PageContext::build(&session, &pool, "/account").await?;
         let tmpl = AccountTemplate { ctx, errors };
         return render(tmpl);
     }
 
     // Verify current password
-    let stored_hash = user::find_password_hash_by_id(&conn, user_id)?
+    let stored_hash = user::find_password_hash_by_id(&pool, user_id).await?
         .ok_or_else(|| AppError::Session("Could not verify current password".to_string()))?;
 
     match password::verify_password(&form.current_password, &stored_hash) {
         Ok(true) => {}
         _ => {
-            let ctx = PageContext::build(&session, &conn, "/account")?;
+            let ctx = PageContext::build(&session, &pool, "/account").await?;
             let tmpl = AccountTemplate { ctx, errors: vec!["Current password is incorrect".to_string()] };
             return render(tmpl);
         }
@@ -78,7 +75,7 @@ pub async fn submit(
     // Hash and save new password
     let new_hash = password::hash_password(&form.new_password)
         .map_err(AppError::Hash)?;
-    user::update_password(&conn, user_id, &new_hash)?;
+    user::update_password(&pool, user_id, &new_hash).await?;
 
     let _ = session.insert("flash", "Password changed successfully");
     Ok(HttpResponse::SeeOther()
@@ -88,7 +85,7 @@ pub async fn submit(
 
 /// Handle profile updates (avatar upload, delete, display name change)
 pub async fn update_profile(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<ProfileUpdateForm>,
 ) -> Result<HttpResponse, AppError> {
@@ -96,8 +93,6 @@ pub async fn update_profile(
 
     let user_id = get_user_id(&session)
         .ok_or_else(|| AppError::Session("User not logged in".to_string()))?;
-
-    let conn = pool.get()?;
 
     match form.action.as_str() {
         "upload_avatar" => {
@@ -116,25 +111,25 @@ pub async fn update_profile(
             }
 
             // Save avatar to entity_properties
-            entity::set_property(&conn, user_id, "avatar_data_uri", &form.avatar_data_uri)?;
+            entity::set_property(&pool, user_id, "avatar_data_uri", &form.avatar_data_uri).await?;
 
             // Audit log
             let details = serde_json::json!({
                 "summary": "User avatar uploaded"
             });
-            let _ = crate::audit::log(&conn, user_id, "user.avatar_uploaded", "user", user_id, details);
+            let _ = crate::audit::log(&pool, user_id, "user.avatar_uploaded", "user", user_id, details).await;
 
             Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
         }
         "delete_avatar" => {
             // Delete avatar property
-            entity::delete_property(&conn, user_id, "avatar_data_uri")?;
+            entity::delete_property(&pool, user_id, "avatar_data_uri").await?;
 
             // Audit log
             let details = serde_json::json!({
                 "summary": "User avatar deleted"
             });
-            let _ = crate::audit::log(&conn, user_id, "user.avatar_deleted", "user", user_id, details);
+            let _ = crate::audit::log(&pool, user_id, "user.avatar_deleted", "user", user_id, details).await;
 
             Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
         }
@@ -151,18 +146,18 @@ pub async fn update_profile(
             }
 
             // Get current user data
-            let current_user = user::find_display_by_id(&conn, user_id)?
+            let current_user = user::find_display_by_id(&pool, user_id).await?
                 .ok_or(AppError::NotFound)?;
 
             // Update display name
             user::update(
-                &conn,
+                &pool,
                 user_id,
                 &current_user.username,
                 None,
                 &current_user.email,
                 &form.display_name,
-            )?;
+            ).await?;
 
             // Update session label
             let _ = session.insert("label", form.display_name.clone());
@@ -173,7 +168,7 @@ pub async fn update_profile(
                 "new_display_name": form.display_name,
                 "summary": "User display name updated"
             });
-            let _ = crate::audit::log(&conn, user_id, "user.display_name_updated", "user", user_id, details);
+            let _ = crate::audit::log(&pool, user_id, "user.display_name_updated", "user", user_id, details).await;
 
             Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
         }

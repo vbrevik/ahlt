@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
-use crate::db::DbPool;
+use sqlx::PgPool;
 use crate::models::{user, role};
 use crate::models::table_filter::{FilterTree, SortSpec};
 use crate::models::table_filter::columns as col_resolver;
@@ -20,14 +20,13 @@ pub struct ListQuery {
 }
 
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<ListQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.list")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/users")?;
+    let ctx = PageContext::build(&session, &pool, "/users").await?;
     let user_id = get_user_id(&session).unwrap_or(0);
 
     let page = query.page.unwrap_or(1);
@@ -45,17 +44,17 @@ pub async fn list(
 
     // Resolve columns
     let all_cols = uf::default_columns();
-    let columns = col_resolver::resolve_columns("users", user_id, &conn, &all_cols);
+    let columns = col_resolver::resolve_columns("users", user_id, &pool, &all_cols).await;
 
     // Fetch roles for filter builder dropdown
-    let roles = role::queries::find_all_list_items(&conn)?;
+    let roles = role::queries::find_all_list_items(&pool).await?;
     let available_roles: Vec<(String, String)> = roles.iter()
         .map(|r| (r.name.clone(), r.label.clone()))
         .collect();
 
     let fields_json = uf::fields_json(&available_roles);
 
-    let user_page = user::find_paginated(&conn, page, per_page, &filter, &sort)?;
+    let user_page = user::find_paginated(&pool, page, per_page, &filter, &sort).await?;
 
     let tmpl = UserListTemplate {
         ctx,

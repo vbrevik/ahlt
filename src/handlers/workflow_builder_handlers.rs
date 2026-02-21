@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::audit;
 use crate::auth::csrf;
 use crate::auth::session::{require_permission, get_user_id};
@@ -12,35 +12,33 @@ use crate::templates_structs::{PageContext, WorkflowBuilderListTemplate, Workflo
 
 /// GET /workflow/builder
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "workflow.manage")?;
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/workflow/builder")?;
-    let scopes = workflow::list_workflow_scopes(&conn)?;
+    let ctx = PageContext::build(&session, &pool, "/workflow/builder").await?;
+    let scopes = workflow::list_workflow_scopes(&pool).await?;
     render(WorkflowBuilderListTemplate { ctx, scopes })
 }
 
 /// GET /workflow/builder/{scope}
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<String>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "workflow.manage")?;
     let scope = path.into_inner();
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/workflow/builder")?;
-    let statuses = workflow::list_statuses_for_scope(&conn, &scope)?;
-    let transitions = workflow::list_transitions_for_scope(&conn, &scope)?;
-    let permissions = entity::find_by_type(&conn, "permission").map_err(AppError::Db)?;
+    let ctx = PageContext::build(&session, &pool, "/workflow/builder").await?;
+    let statuses = workflow::list_statuses_for_scope(&pool, &scope).await?;
+    let transitions = workflow::list_transitions_for_scope(&pool, &scope).await?;
+    let permissions = entity::find_by_type(&pool, "permission").await.map_err(AppError::Db)?;
     render(WorkflowBuilderDetailTemplate { ctx, scope, statuses, transitions, permissions })
 }
 
 /// POST /workflow/builder/{scope}/statuses — create a new status
 pub async fn create_status(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<String>,
     body: web::Bytes,
@@ -64,15 +62,14 @@ pub async fn create_status(
             .finish());
     }
 
-    let conn = pool.get()?;
-    let id = workflow::create_status(&conn, &scope, status_code, label, order, is_initial, is_terminal)?;
+    let id = workflow::create_status(&pool, &scope, status_code, label, order, is_initial, is_terminal).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "scope": scope, "status_code": status_code, "label": label,
         "summary": format!("Created workflow status '{}'", label)
     });
-    let _ = audit::log(&conn, user_id, "workflow_status.create", "workflow_status", id, details);
+    let _ = audit::log(&pool, user_id, "workflow_status.create", "workflow_status", id, details).await;
 
     session.insert("flash", format!("Status '{}' created.", label)).ok();
     Ok(HttpResponse::SeeOther()
@@ -82,7 +79,7 @@ pub async fn create_status(
 
 /// POST /workflow/builder/{scope}/statuses/{id}/update
 pub async fn update_status(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(String, i64)>,
     body: web::Bytes,
@@ -98,15 +95,14 @@ pub async fn update_status(
     let is_initial = get_field(&params, "is_initial") == "true";
     let is_terminal = get_field(&params, "is_terminal") == "true";
 
-    let conn = pool.get()?;
-    workflow::update_status(&conn, status_id, &label, order, is_initial, is_terminal)?;
+    workflow::update_status(&pool, status_id, &label, order, is_initial, is_terminal).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "scope": scope, "status_id": status_id, "label": label,
         "summary": format!("Updated workflow status '{}'", label)
     });
-    let _ = audit::log(&conn, user_id, "workflow_status.update", "workflow_status", status_id, details);
+    let _ = audit::log(&pool, user_id, "workflow_status.update", "workflow_status", status_id, details).await;
 
     session.insert("flash", format!("Status '{}' updated.", label)).ok();
     Ok(HttpResponse::SeeOther()
@@ -116,7 +112,7 @@ pub async fn update_status(
 
 /// POST /workflow/builder/{scope}/statuses/{id}/delete
 pub async fn delete_status(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(String, i64)>,
     body: web::Bytes,
@@ -127,17 +123,16 @@ pub async fn delete_status(
     let params = parse_form_body(&body_str);
     csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
-    let conn = pool.get()?;
-    let ent = entity::find_by_id(&conn, status_id).map_err(AppError::Db)?.ok_or(AppError::NotFound)?;
+    let ent = entity::find_by_id(&pool, status_id).await.map_err(AppError::Db)?.ok_or(AppError::NotFound)?;
 
-    match workflow::delete_status(&conn, status_id) {
+    match workflow::delete_status(&pool, status_id).await {
         Ok(()) => {
             let user_id = get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
                 "scope": scope, "status_id": status_id, "label": ent.label,
                 "summary": format!("Deleted workflow status '{}'", ent.label)
             });
-            let _ = audit::log(&conn, user_id, "workflow_status.delete", "workflow_status", status_id, details);
+            let _ = audit::log(&pool, user_id, "workflow_status.delete", "workflow_status", status_id, details).await;
             session.insert("flash", format!("Status '{}' deleted.", ent.label)).ok();
         }
         Err(e) => {
@@ -152,7 +147,7 @@ pub async fn delete_status(
 
 /// POST /workflow/builder/{scope}/transitions — create a new transition
 pub async fn create_transition(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<String>,
     body: web::Bytes,
@@ -177,18 +172,17 @@ pub async fn create_transition(
             .finish());
     }
 
-    let conn = pool.get()?;
     let id = workflow::create_transition(
-        &conn, &scope, from_status_id, to_status_id,
+        &pool, &scope, from_status_id, to_status_id,
         label, required_permission, requires_outcome, condition,
-    )?;
+    ).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "scope": scope, "label": label,
         "summary": format!("Created workflow transition '{}'", label)
     });
-    let _ = audit::log(&conn, user_id, "workflow_transition.create", "workflow_transition", id, details);
+    let _ = audit::log(&pool, user_id, "workflow_transition.create", "workflow_transition", id, details).await;
 
     session.insert("flash", format!("Transition '{}' created.", label)).ok();
     Ok(HttpResponse::SeeOther()
@@ -198,7 +192,7 @@ pub async fn create_transition(
 
 /// POST /workflow/builder/{scope}/transitions/{id}/update
 pub async fn update_transition(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(String, i64)>,
     body: web::Bytes,
@@ -214,15 +208,14 @@ pub async fn update_transition(
     let requires_outcome = get_field(&params, "requires_outcome") == "true";
     let condition = get_field(&params, "condition").to_string();
 
-    let conn = pool.get()?;
-    workflow::update_transition(&conn, transition_id, &label, &required_permission, requires_outcome, &condition)?;
+    workflow::update_transition(&pool, transition_id, &label, &required_permission, requires_outcome, &condition).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "scope": scope, "transition_id": transition_id, "label": label,
         "summary": format!("Updated workflow transition '{}'", label)
     });
-    let _ = audit::log(&conn, user_id, "workflow_transition.update", "workflow_transition", transition_id, details);
+    let _ = audit::log(&pool, user_id, "workflow_transition.update", "workflow_transition", transition_id, details).await;
 
     session.insert("flash", format!("Transition '{}' updated.", label)).ok();
     Ok(HttpResponse::SeeOther()
@@ -232,7 +225,7 @@ pub async fn update_transition(
 
 /// POST /workflow/builder/{scope}/transitions/{id}/delete
 pub async fn delete_transition(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(String, i64)>,
     body: web::Bytes,
@@ -243,17 +236,16 @@ pub async fn delete_transition(
     let params = parse_form_body(&body_str);
     csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
-    let conn = pool.get()?;
-    let ent = entity::find_by_id(&conn, transition_id).map_err(AppError::Db)?.ok_or(AppError::NotFound)?;
+    let ent = entity::find_by_id(&pool, transition_id).await.map_err(AppError::Db)?.ok_or(AppError::NotFound)?;
 
-    workflow::delete_transition(&conn, transition_id)?;
+    workflow::delete_transition(&pool, transition_id).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "scope": scope, "transition_id": transition_id, "label": ent.label,
         "summary": format!("Deleted workflow transition '{}'", ent.label)
     });
-    let _ = audit::log(&conn, user_id, "workflow_transition.delete", "workflow_transition", transition_id, details);
+    let _ = audit::log(&pool, user_id, "workflow_transition.delete", "workflow_transition", transition_id, details).await;
 
     session.insert("flash", format!("Transition '{}' deleted.", ent.label)).ok();
     Ok(HttpResponse::SeeOther()

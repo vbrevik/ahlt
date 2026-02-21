@@ -1,14 +1,14 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::tor;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
 use crate::errors::AppError;
 
 pub async fn handle_add_dependency(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -17,7 +17,6 @@ pub async fn handle_add_dependency(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
 
     let target_tor_id: i64 = form.get("target_tor_id")
         .and_then(|s| s.parse().ok())
@@ -35,7 +34,7 @@ pub async fn handle_add_dependency(
             .finish());
     }
 
-    tor::add_dependency(&conn, tor_id, target_tor_id, relation_type, output_types, description, is_blocking)?;
+    tor::add_dependency(&pool, tor_id, target_tor_id, relation_type, output_types, description, is_blocking).await?;
 
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
@@ -43,7 +42,7 @@ pub async fn handle_add_dependency(
         "relation_type": relation_type,
         "summary": format!("Added {} dependency", relation_type)
     });
-    let _ = crate::audit::log(&conn, current_user_id, "tor.dependency_added", "tor", tor_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "tor.dependency_added", "tor", tor_id, details).await;
 
     let _ = session.insert("flash", "Dependency added");
     Ok(HttpResponse::SeeOther()
@@ -52,7 +51,7 @@ pub async fn handle_add_dependency(
 }
 
 pub async fn handle_remove_dependency(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -61,16 +60,15 @@ pub async fn handle_remove_dependency(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let (tor_id, relation_id) = path.into_inner();
-    let conn = pool.get()?;
 
-    tor::remove_dependency(&conn, relation_id)?;
+    tor::remove_dependency(&pool, relation_id).await?;
 
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "relation_id": relation_id,
         "summary": "Removed dependency"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "tor.dependency_removed", "tor", tor_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "tor.dependency_removed", "tor", tor_id, details).await;
 
     let _ = session.insert("flash", "Dependency removed");
     Ok(HttpResponse::SeeOther()

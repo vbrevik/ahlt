@@ -1,6 +1,6 @@
 use actix_session::Session;
 use askama::Template;
-use rusqlite::Connection;
+use sqlx::PgPool;
 use serde::{Serialize, Deserialize};
 
 use crate::errors::AppError;
@@ -41,18 +41,18 @@ pub struct PageContext {
 }
 
 impl PageContext {
-    pub fn build(session: &Session, conn: &Connection, current_path: &str) -> Result<Self, AppError> {
+    pub async fn build(session: &Session, pool: &PgPool, current_path: &str) -> Result<Self, AppError> {
         let username = get_username(session)
             .map_err(|e| AppError::Session(format!("Failed to get username: {}", e)))?;
         let permissions = get_permissions(session)
             .map_err(|e| AppError::Session(format!("Failed to get permissions: {}", e)))?;
         let flash = take_flash(session);
-        let (nav_modules, sidebar_items) = nav_item::find_navigation(conn, &permissions, current_path);
-        let app_name = setting::get_value(conn, "app.name", "Ahlt");
+        let (nav_modules, sidebar_items) = nav_item::find_navigation(pool, &permissions, current_path).await;
+        let app_name = setting::get_value(pool, "app.name", "Ahlt").await;
         let csrf_token = csrf::get_or_create_token(session);
         let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
         let user_id = crate::auth::session::get_user_id(session).unwrap_or(0);
-        let warning_count = crate::warnings::queries::count_unread(conn, user_id);
+        let warning_count = crate::warnings::queries::count_unread(pool, user_id).await;
         Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count })
     }
 }

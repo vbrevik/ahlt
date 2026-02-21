@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use chrono::{Local, Timelike};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::{user, entity, audit, proposal};
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, DashboardTemplate};
@@ -19,32 +19,33 @@ fn time_greeting(username: &str) -> String {
 }
 
 pub async fn index(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/dashboard")?;
+    let ctx = PageContext::build(&session, &pool, "/dashboard").await?;
 
     // Multi-role: derive role labels from DB (union of all assigned roles)
     let user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
-    let role_label: String = conn.query_row(
-        "SELECT COALESCE(GROUP_CONCAT(role_e.label, ', '), '') \
+    let role_label: String = sqlx::query_scalar(
+        "SELECT COALESCE(STRING_AGG(role_e.label, ', '), '') \
          FROM relations r \
          JOIN entities role_e ON r.target_id = role_e.id \
-         WHERE r.source_id = ?1 \
-           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role')",
-        rusqlite::params![user_id],
-        |row| row.get(0),
-    ).unwrap_or_else(|_| String::new());
+         WHERE r.source_id = $1 \
+           AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role')"
+    )
+    .bind(user_id)
+    .fetch_one(pool.get_ref())
+    .await
+    .unwrap_or_else(|_| String::new());
 
     let greeting = time_greeting(&ctx.username);
-    let user_count = user::count(&conn)?;
-    let role_count = entity::count_by_type(&conn, "role")?;
-    let proposal_count = proposal::count_by_status(&conn, "submitted");
-    let tor_position_count = entity::count_by_type(&conn, "tor_function")?;
-    let audit_entry_count = entity::count_by_type(&conn, "audit_entry")?;
+    let user_count = user::count(&pool).await?;
+    let role_count = entity::count_by_type(&pool, "role").await?;
+    let proposal_count = proposal::count_by_status(&pool, "submitted").await;
+    let tor_position_count = entity::count_by_type(&pool, "tor_function").await?;
+    let audit_entry_count = entity::count_by_type(&pool, "audit_entry").await?;
 
-    let recent_activity = audit::find_recent(&conn, 5).unwrap_or_default();
+    let recent_activity = audit::find_recent(&pool, 5).await.unwrap_or_default();
 
     let tmpl = DashboardTemplate {
         ctx,

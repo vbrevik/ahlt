@@ -1,24 +1,23 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::minutes;
 use crate::auth::session::require_permission;
 use crate::errors::AppError;
 
 /// GET /meetings/{id}/export — Return print-friendly HTML export of approved minutes
 pub async fn export_minutes_html(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "minutes.view")?;
 
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
     // Fetch minutes
-    let min = minutes::find_by_id(&conn, minutes_id)?
+    let min = minutes::find_by_id(&pool, minutes_id).await?
         .ok_or(AppError::NotFound)?;
 
     // Only allow export of approved minutes
@@ -27,7 +26,7 @@ pub async fn export_minutes_html(
     }
 
     // Fetch sections
-    let sections = minutes::find_sections(&conn, minutes_id)?;
+    let sections = minutes::find_sections(&pool, minutes_id).await?;
 
     // Build HTML content
     let sections_html = sections
@@ -41,7 +40,7 @@ pub async fn export_minutes_html(
                 "action_items" => "🎯",
                 _ => "📄",
             };
-            
+
             format!(
                 r#"<section class="minutes-section">
                     <h2>{} {}</h2>
@@ -167,11 +166,11 @@ pub async fn export_minutes_html(
                 </div>
             </div>
         </header>
-        
+
         <main>
             {}
         </main>
-        
+
         <footer>
             <p>This is an approved record. Print this page to PDF for permanent archival.</p>
         </footer>
@@ -192,7 +191,7 @@ pub async fn export_minutes_html(
         "format": "html",
         "summary": "Minutes exported to HTML"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "minutes.exported", "minutes", minutes_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "minutes.exported", "minutes", minutes_id, details).await;
 
     Ok(HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")

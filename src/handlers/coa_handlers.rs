@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::csrf;
 use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
@@ -16,21 +16,20 @@ use crate::templates_structs::{PageContext, CoaFormTemplate};
 /// GET /tor/{id}/workflow/agenda/{agenda_id}/coa/new
 /// Renders the COA creation form.
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "coa.create")?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify agenda point exists in this ToR
-    match agenda_point::find_by_id(&conn, agenda_point_id) {
+    match agenda_point::find_by_id(&pool, agenda_point_id).await {
         Ok(_) => {
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
             let tmpl = CoaFormTemplate {
                 ctx,
@@ -49,7 +48,7 @@ pub async fn new_form(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa
 /// Creates a new COA linked to an agenda point.
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<CoaForm>,
@@ -58,12 +57,11 @@ pub async fn create(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify agenda point exists
-    if agenda_point::find_by_id(&conn, agenda_point_id).is_err() {
+    if agenda_point::find_by_id(&pool, agenda_point_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
@@ -87,7 +85,7 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,
@@ -100,10 +98,10 @@ pub async fn create(
     }
 
     // Create COA
-    let coa_id = coa::create(&conn, title, description, coa_type, user_id)?;
+    let coa_id = coa::create(&pool, title, description, coa_type, user_id).await?;
 
     // Create considers_coa relation (agenda_point → coa)
-    relation::create(&conn, "considers_coa", agenda_point_id, coa_id).map_err(AppError::Db)?;
+    relation::create(&pool, "considers_coa", agenda_point_id, coa_id).await.map_err(AppError::Db)?;
 
     // Audit log
     let details = serde_json::json!({
@@ -113,7 +111,7 @@ pub async fn create(
         "coa_type": coa_type,
         "summary": format!("Created COA '{}' ({}) for agenda point", title, coa_type)
     });
-    let _ = crate::audit::log(&conn, user_id, "coa.created", "coa", coa_id, details);
+    let _ = crate::audit::log(&pool, user_id, "coa.created", "coa", coa_id, details).await;
 
     let _ = session.insert("flash", "Course of Action created successfully");
     Ok(HttpResponse::SeeOther()
@@ -124,25 +122,24 @@ pub async fn create(
 /// GET /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/edit
 /// Renders the COA edit form.
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "coa.edit")?;
 
     let (tor_id, agenda_point_id, coa_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify agenda point exists and COA is linked to it
-    if agenda_point::find_by_id(&conn, agenda_point_id).is_err() {
+    if agenda_point::find_by_id(&pool, agenda_point_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
-    match coa::find_by_id(&conn, coa_id) {
+    match coa::find_by_id(&pool, coa_id).await {
         Ok(coa_detail) => {
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
             let tmpl = CoaFormTemplate {
                 ctx,
@@ -161,7 +158,7 @@ pub async fn edit_form(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}
 /// Updates an existing COA.
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64)>,
     form: web::Form<CoaForm>,
@@ -170,15 +167,14 @@ pub async fn update(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id, coa_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify agenda point exists and COA exists
-    if agenda_point::find_by_id(&conn, agenda_point_id).is_err() {
+    if agenda_point::find_by_id(&pool, agenda_point_id).await.is_err() {
         return Err(AppError::NotFound);
     }
-    if coa::find_by_id(&conn, coa_id).is_err() {
+    if coa::find_by_id(&pool, coa_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
@@ -195,8 +191,8 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let coa_detail = coa::find_by_id(&conn, coa_id).ok();
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let coa_detail = coa::find_by_id(&pool, coa_id).await.ok();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,
@@ -209,7 +205,7 @@ pub async fn update(
     }
 
     // Update COA
-    coa::update(&conn, coa_id, title, description)?;
+    coa::update(&pool, coa_id, title, description).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -218,7 +214,7 @@ pub async fn update(
         "title": title,
         "summary": format!("Updated COA '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "coa.updated", "coa", coa_id, details);
+    let _ = crate::audit::log(&pool, user_id, "coa.updated", "coa", coa_id, details).await;
 
     let _ = session.insert("flash", "Course of Action updated successfully");
     Ok(HttpResponse::SeeOther()
@@ -229,28 +225,27 @@ pub async fn update(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/delete
 /// Deletes a COA.
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "coa.edit")?;
 
     let (tor_id, agenda_point_id, coa_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify agenda point exists and COA exists
-    if agenda_point::find_by_id(&conn, agenda_point_id).is_err() {
+    if agenda_point::find_by_id(&pool, agenda_point_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
     // Get COA details before deleting for audit log
-    let coa_detail = coa::find_by_id(&conn, coa_id)?;
+    let coa_detail = coa::find_by_id(&pool, coa_id).await?;
     let coa_title = coa_detail.title.clone();
 
     // Delete COA (cascades to sections and relations)
-    crate::models::entity::delete(&conn, coa_id).map_err(AppError::Db)?;
+    crate::models::entity::delete(&pool, coa_id).await.map_err(AppError::Db)?;
 
     // Audit log
     let details = serde_json::json!({
@@ -260,7 +255,7 @@ pub async fn delete(
         "title": coa_title,
         "summary": format!("Deleted COA '{}'", coa_title)
     });
-    let _ = crate::audit::log(&conn, user_id, "coa.deleted", "coa", coa_id, details);
+    let _ = crate::audit::log(&pool, user_id, "coa.deleted", "coa", coa_id, details).await;
 
     let _ = session.insert("flash", "Course of Action deleted successfully");
     Ok(HttpResponse::SeeOther()
@@ -271,7 +266,7 @@ pub async fn delete(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections
 /// Adds a section to a complex COA.
 pub async fn add_section(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64)>,
     form: web::Form<AddSectionForm>,
@@ -280,12 +275,11 @@ pub async fn add_section(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id, coa_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify COA exists and is complex type
-    let coa_detail = coa::find_by_id(&conn, coa_id);
+    let coa_detail = coa::find_by_id(&pool, coa_id).await;
     match coa_detail {
         Ok(coa) if coa.coa_type == "complex" => {
             // Validate
@@ -301,7 +295,7 @@ pub async fn add_section(
             }
 
             // Create section
-            let _section_id = coa::add_section(&conn, coa_id, title, content, order)?;
+            let _section_id = coa::add_section(&pool, coa_id, title, content, order).await?;
 
             // Audit log
             let details = serde_json::json!({
@@ -309,7 +303,7 @@ pub async fn add_section(
                 "section_title": title,
                 "summary": format!("Added section '{}' to COA", title)
             });
-            let _ = crate::audit::log(&conn, user_id, "coa.section_added", "coa", coa_id, details);
+            let _ = crate::audit::log(&pool, user_id, "coa.section_added", "coa", coa_id, details).await;
 
             let _ = session.insert("flash", "Section added successfully");
             Ok(HttpResponse::SeeOther()
@@ -324,7 +318,7 @@ pub async fn add_section(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections/{section_id}
 /// Updates a section of a COA.
 pub async fn update_section(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64, i64)>,
     form: web::Form<AddSectionForm>,
@@ -333,12 +327,11 @@ pub async fn update_section(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id, coa_id, section_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify COA and section exist
-    if coa::find_by_id(&conn, coa_id).is_err() {
+    if coa::find_by_id(&pool, coa_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
@@ -355,9 +348,9 @@ pub async fn update_section(
     }
 
     // Update section properties
-    crate::models::entity::set_property(&conn, section_id, "title", title).map_err(AppError::Db)?;
-    crate::models::entity::set_property(&conn, section_id, "content", content).map_err(AppError::Db)?;
-    crate::models::entity::set_property(&conn, section_id, "order", &order.to_string()).map_err(AppError::Db)?;
+    crate::models::entity::set_property(&pool, section_id, "title", title).await.map_err(AppError::Db)?;
+    crate::models::entity::set_property(&pool, section_id, "content", content).await.map_err(AppError::Db)?;
+    crate::models::entity::set_property(&pool, section_id, "order", &order.to_string()).await.map_err(AppError::Db)?;
 
     // Audit log
     let details = serde_json::json!({
@@ -366,7 +359,7 @@ pub async fn update_section(
         "section_title": title,
         "summary": format!("Updated section '{}' in COA", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "coa.section_updated", "coa", coa_id, details);
+    let _ = crate::audit::log(&pool, user_id, "coa.section_updated", "coa", coa_id, details).await;
 
     let _ = session.insert("flash", "Section updated successfully");
     Ok(HttpResponse::SeeOther()
@@ -377,24 +370,23 @@ pub async fn update_section(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/coa/{coa_id}/sections/{section_id}/delete
 /// Deletes a section from a COA.
 pub async fn delete_section(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64, i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "coa.edit")?;
 
     let (tor_id, agenda_point_id, coa_id, section_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify COA exists
-    if coa::find_by_id(&conn, coa_id).is_err() {
+    if coa::find_by_id(&pool, coa_id).await.is_err() {
         return Err(AppError::NotFound);
     }
 
     // Delete section (cascades to subsections via relations)
-    crate::models::entity::delete(&conn, section_id).map_err(AppError::Db)?;
+    crate::models::entity::delete(&pool, section_id).await.map_err(AppError::Db)?;
 
     // Audit log
     let details = serde_json::json!({
@@ -402,7 +394,7 @@ pub async fn delete_section(
         "section_id": section_id,
         "summary": "Deleted section from COA"
     });
-    let _ = crate::audit::log(&conn, user_id, "coa.section_deleted", "coa", coa_id, details);
+    let _ = crate::audit::log(&pool, user_id, "coa.section_deleted", "coa", coa_id, details).await;
 
     let _ = session.insert("flash", "Section deleted successfully");
     Ok(HttpResponse::SeeOther()

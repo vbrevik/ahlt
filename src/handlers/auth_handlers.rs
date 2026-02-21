@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::{user, permission, setting};
 use crate::auth::{csrf, password, rate_limit::RateLimiter};
 use crate::errors::{AppError, render};
@@ -21,7 +21,7 @@ pub struct CsrfOnly {
 }
 
 pub async fn login_page(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     // If already logged in, redirect to dashboard
@@ -31,8 +31,7 @@ pub async fn login_page(
             .finish());
     }
 
-    let conn = pool.get()?;
-    let app_name = setting::get_value(&conn, "app.name", "Ahlt");
+    let app_name = setting::get_value(&pool, "app.name", "Ahlt").await;
 
     let csrf_token = csrf::get_or_create_token(&session);
     let tmpl = LoginTemplate { error: None, app_name, csrf_token };
@@ -41,7 +40,7 @@ pub async fn login_page(
 
 pub async fn login_submit(
     req: HttpRequest,
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<LoginForm>,
     limiter: web::Data<RateLimiter>,
@@ -54,8 +53,7 @@ pub async fn login_submit(
         .unwrap_or_else(|| std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
 
     if limiter.is_blocked(ip) {
-        let conn = pool.get()?;
-        let app_name = setting::get_value(&conn, "app.name", "Ahlt");
+        let app_name = setting::get_value(&pool, "app.name", "Ahlt").await;
         let csrf_token = csrf::get_or_create_token(&session);
         let tmpl = LoginTemplate {
             error: Some("Too many failed login attempts. Please try again later.".to_string()),
@@ -65,22 +63,10 @@ pub async fn login_submit(
         return render(tmpl);
     }
 
-    let conn = pool.get()?;
-    let app_name = setting::get_value(&conn, "app.name", "Ahlt");
-
-    // Helper to render error page
-    let render_error = |msg: &str| -> Result<HttpResponse, AppError> {
-        let csrf_token = csrf::get_or_create_token(&session);
-        let tmpl = LoginTemplate {
-            error: Some(msg.to_string()),
-            app_name: app_name.clone(),
-            csrf_token,
-        };
-        render(tmpl)
-    };
+    let app_name = setting::get_value(&pool, "app.name", "Ahlt").await;
 
     // Look up user
-    let found = user::find_by_username(&conn, &form.username)?;
+    let found = user::find_by_username(&pool, &form.username).await?;
 
     match found {
         Some(u) => {
@@ -90,7 +76,7 @@ pub async fn login_submit(
                     limiter.clear(ip);
 
                     // Multi-role: aggregate permissions across all assigned roles
-                    let perms = permission::find_codes_by_user_id(&conn, u.id)?;
+                    let perms = permission::find_codes_by_user_id(&pool, u.id).await?;
                     let perms_csv = perms.join(",");
 
                     let _ = session.insert("user_id", u.id);
@@ -102,13 +88,25 @@ pub async fn login_submit(
                 }
                 _ => {
                     limiter.record_failure(ip);
-                    render_error("Invalid username or password")
+                    let csrf_token = csrf::get_or_create_token(&session);
+                    let tmpl = LoginTemplate {
+                        error: Some("Invalid username or password".to_string()),
+                        app_name,
+                        csrf_token,
+                    };
+                    render(tmpl)
                 }
             }
         }
         None => {
             limiter.record_failure(ip);
-            render_error("Invalid username or password")
+            let csrf_token = csrf::get_or_create_token(&session);
+            let tmpl = LoginTemplate {
+                error: Some("Invalid username or password".to_string()),
+                app_name,
+                csrf_token,
+            };
+            render(tmpl)
         }
     }
 }

@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::entity;
 use crate::auth::session::{get_user_id, require_permission};
 use crate::errors::AppError;
@@ -12,7 +12,7 @@ use crate::templates_structs::{
 /// GET /api/v1/entities - List entities with optional type filter and pagination
 /// Query params: entity_type (filter), page (default 1), per_page (default 25)
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
@@ -31,28 +31,18 @@ pub async fn list(
         .max(1)
         .min(100);
 
-    let conn = pool.get()?;
-
     // Get all entities of requested type (or all if no filter)
     let all_entities = if let Some(et) = entity_type_filter {
-        entity::find_by_type(&conn, et)?
+        entity::find_by_type(&pool, et).await?
     } else {
         // Get all entities by querying directly
-        let mut stmt = conn.prepare("SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at FROM entities ORDER BY id")?;
-        let entities = stmt.query_map([], |row| {
-            Ok(entity::Entity {
-                id: row.get(0)?,
-                entity_type: row.get(1)?,
-                name: row.get(2)?,
-                label: row.get(3)?,
-                sort_order: row.get(4)?,
-                is_active: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-        entities
+        sqlx::query_as!(
+            entity::Entity,
+            "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at FROM entities ORDER BY id"
+        )
+        .fetch_all(pool.get_ref())
+        .await
+        .map_err(|e| AppError::Db(e.to_string()))?
     };
 
     // Apply pagination
@@ -65,29 +55,27 @@ pub async fn list(
         .collect();
 
     // Convert to API response format
-    let items: Vec<ApiEntityResponse> = paginated
-        .into_iter()
-        .map(|e| {
-            // Fetch properties for each entity
-            let props = entity::get_properties(&conn, e.id)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| ApiEntityProperty { key: k, value: v })
-                .collect();
+    let mut items: Vec<ApiEntityResponse> = Vec::new();
+    for e in paginated {
+        // Fetch properties for each entity
+        let props = entity::get_properties(&pool, e.id).await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| ApiEntityProperty { key: k, value: v })
+            .collect();
 
-            ApiEntityResponse {
-                id: e.id,
-                entity_type: e.entity_type,
-                name: e.name,
-                label: if e.label.is_empty() {
-                    None
-                } else {
-                    Some(e.label)
-                },
-                properties: props,
-            }
-        })
-        .collect();
+        items.push(ApiEntityResponse {
+            id: e.id,
+            entity_type: e.entity_type,
+            name: e.name,
+            label: if e.label.is_empty() {
+                None
+            } else {
+                Some(e.label)
+            },
+            properties: props,
+        });
+    }
 
     let response = PaginatedResponse {
         items,
@@ -101,18 +89,17 @@ pub async fn list(
 
 /// GET /api/v1/entities/{id} - Get single entity by ID with properties
 pub async fn read(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "entities.list")?;
 
     let entity_id = path.into_inner();
-    let conn = pool.get()?;
 
-    let entity = entity::find_by_id(&conn, entity_id)?.ok_or(AppError::NotFound)?;
+    let entity = entity::find_by_id(&pool, entity_id).await?.ok_or(AppError::NotFound)?;
 
-    let props = entity::get_properties(&conn, entity_id)?
+    let props = entity::get_properties(&pool, entity_id).await?
         .into_iter()
         .map(|(k, v)| ApiEntityProperty { key: k, value: v })
         .collect();
@@ -134,13 +121,11 @@ pub async fn read(
 
 /// POST /api/v1/entities - Create new entity
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     body: web::Json<ApiEntityRequest>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "entities.create")?;
-
-    let conn = pool.get()?;
 
     // Validate request
     let mut errors = Vec::new();
@@ -165,16 +150,16 @@ pub async fn create(
 
     // Create entity with label (use provided label or empty string)
     let entity_id = entity::create(
-        &conn,
+        &pool,
         &body.entity_type,
         &body.name,
         body.label.as_deref().unwrap_or(""),
-    )?;
+    ).await?;
 
     // Set properties if provided
     if let Some(props) = &body.properties {
         for prop in props {
-            entity::set_property(&conn, entity_id, &prop.key, &prop.value)?;
+            entity::set_property(&pool, entity_id, &prop.key, &prop.value).await?;
         }
     }
 
@@ -186,11 +171,11 @@ pub async fn create(
         "label": body.label,
         "summary": "Entity created via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "entity.created", "entity", entity_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "entity.created", "entity", entity_id, details).await;
 
     // Fetch and return created entity
-    let created_entity = entity::find_by_id(&conn, entity_id)?.ok_or(AppError::NotFound)?;
-    let props = entity::get_properties(&conn, entity_id)?
+    let created_entity = entity::find_by_id(&pool, entity_id).await?.ok_or(AppError::NotFound)?;
+    let props = entity::get_properties(&pool, entity_id).await?
         .into_iter()
         .map(|(k, v)| ApiEntityProperty { key: k, value: v })
         .collect();
@@ -212,7 +197,7 @@ pub async fn create(
 
 /// PUT /api/v1/entities/{id} - Update entity
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     body: web::Json<ApiEntityRequest>,
@@ -220,10 +205,9 @@ pub async fn update(
     require_permission(&session, "entities.edit")?;
 
     let entity_id = path.into_inner();
-    let conn = pool.get()?;
 
     // Check if entity exists
-    let _existing = entity::find_by_id(&conn, entity_id)?.ok_or(AppError::NotFound)?;
+    let _existing = entity::find_by_id(&pool, entity_id).await?.ok_or(AppError::NotFound)?;
 
     // Validate
     let mut errors = Vec::new();
@@ -244,15 +228,20 @@ pub async fn update(
     }
 
     // Update entity name and label
-    conn.execute(
-        "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?3",
-        rusqlite::params![&body.name, body.label.as_deref().unwrap_or(""), entity_id],
-    )?;
+    sqlx::query!(
+        "UPDATE entities SET name = $1, label = $2, updated_at = NOW() WHERE id = $3",
+        body.name,
+        body.label.as_deref().unwrap_or(""),
+        entity_id
+    )
+    .execute(pool.get_ref())
+    .await
+    .map_err(|e| AppError::Db(e.to_string()))?;
 
     // Update properties if provided
     if let Some(props) = &body.properties {
         for prop in props {
-            entity::set_property(&conn, entity_id, &prop.key, &prop.value)?;
+            entity::set_property(&pool, entity_id, &prop.key, &prop.value).await?;
         }
     }
 
@@ -263,11 +252,11 @@ pub async fn update(
         "label": body.label,
         "summary": "Entity updated via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "entity.updated", "entity", entity_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "entity.updated", "entity", entity_id, details).await;
 
     // Fetch and return updated entity
-    let updated_entity = entity::find_by_id(&conn, entity_id)?.ok_or(AppError::NotFound)?;
-    let props = entity::get_properties(&conn, entity_id)?
+    let updated_entity = entity::find_by_id(&pool, entity_id).await?.ok_or(AppError::NotFound)?;
+    let props = entity::get_properties(&pool, entity_id).await?
         .into_iter()
         .map(|(k, v)| ApiEntityProperty { key: k, value: v })
         .collect();
@@ -289,27 +278,26 @@ pub async fn update(
 
 /// DELETE /api/v1/entities/{id} - Delete entity
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "entities.delete")?;
 
     let entity_id = path.into_inner();
-    let conn = pool.get()?;
 
     // Check if entity exists
-    entity::find_by_id(&conn, entity_id)?.ok_or(AppError::NotFound)?;
+    entity::find_by_id(&pool, entity_id).await?.ok_or(AppError::NotFound)?;
 
     // Delete entity
-    entity::delete(&conn, entity_id)?;
+    entity::delete(&pool, entity_id).await?;
 
     // Audit log
     let current_user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "summary": "Entity deleted via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "entity.deleted", "entity", entity_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "entity.deleted", "entity", entity_id, details).await;
 
     Ok(HttpResponse::NoContent().finish())
 }

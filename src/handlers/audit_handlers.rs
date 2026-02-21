@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::audit;
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
@@ -18,14 +18,13 @@ pub struct AuditQuery {
 }
 
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<AuditQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "audit.view")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/audit")?;
+    let ctx = PageContext::build(&session, &pool, "/audit").await?;
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(25);
     let search = query.q.as_deref();
@@ -33,13 +32,13 @@ pub async fn list(
     let target_type_filter = query.target_type.as_deref();
 
     let audit_page = audit::find_paginated(
-        &conn,
+        &pool,
         page,
         per_page,
         search,
         action_filter,
         target_type_filter,
-    )?;
+    ).await?;
 
     let tmpl = AuditListTemplate {
         ctx,

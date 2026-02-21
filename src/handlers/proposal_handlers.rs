@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use std::collections::HashMap;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::csrf;
 use crate::auth::session::{require_permission, get_user_id, get_permissions};
 use crate::errors::{AppError, render};
@@ -17,20 +17,19 @@ use crate::templates_structs::{PageContext, ProposalFormTemplate, ProposalDetail
 /// GET /tor/{tor_id}/proposals/{id}
 /// Renders the proposal detail page.
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "proposal.view")?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    match proposal::find_by_id(&conn, proposal_id)? {
+    match proposal::find_by_id(&pool, proposal_id).await? {
         Some(p) => {
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
             let tmpl = ProposalDetailTemplate {
                 ctx,
                 tor_id,
@@ -45,19 +44,18 @@ pub async fn detail(
 /// GET /tor/{tor_id}/proposals/new
 /// Renders the proposal creation form.
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "proposal.create")?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    let tor_name = tor::get_tor_name(&conn, tor_id)?;
-    let ctx = PageContext::build(&session, &conn, "/workflow")?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
     let tmpl = ProposalFormTemplate {
         ctx,
@@ -74,7 +72,7 @@ pub async fn new_form(
 /// POST /tor/{tor_id}/proposals
 /// Creates a new proposal linked to the ToR.
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<ProposalForm>,
@@ -83,9 +81,8 @@ pub async fn create(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Validate
     let title = form.title.trim();
@@ -101,8 +98,8 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = ProposalFormTemplate {
             ctx,
             tor_id,
@@ -115,12 +112,14 @@ pub async fn create(
         return render(tmpl);
     }
 
-    // Get today's date from SQLite (zero external dependencies)
-    let today: String = conn.query_row("SELECT date('now')", [], |row| row.get(0))?;
+    // Get today's date from PostgreSQL
+    let today: String = sqlx::query_scalar("SELECT CURRENT_DATE::text")
+        .fetch_one(pool.get_ref())
+        .await?;
 
     let proposal_id = proposal::create(
-        &conn, tor_id, title, description, rationale, user_id, &today, None,
-    )?;
+        &pool, tor_id, title, description, rationale, user_id, &today, None,
+    ).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -128,7 +127,7 @@ pub async fn create(
         "title": title,
         "summary": format!("Created proposal '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.created", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.created", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal created successfully");
     Ok(HttpResponse::SeeOther()
@@ -139,18 +138,17 @@ pub async fn create(
 /// GET /tor/{tor_id}/proposals/{id}/edit
 /// Renders the proposal edit form (only for draft or rejected proposals).
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "proposal.edit")?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    match proposal::find_by_id(&conn, proposal_id)? {
+    match proposal::find_by_id(&pool, proposal_id).await? {
         Some(p) => {
             // Check via workflow engine if editing is allowed for this status
             // Only draft and rejected proposals should allow editing
@@ -161,8 +159,8 @@ pub async fn edit_form(
                     .finish());
             }
 
-            let tor_name = tor::get_tor_name(&conn, tor_id)?;
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
             let tmpl = ProposalFormTemplate {
                 ctx,
                 tor_id,
@@ -181,7 +179,7 @@ pub async fn edit_form(
 /// POST /tor/{tor_id}/proposals/{id}
 /// Updates an existing proposal's title, description, and rationale.
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<ProposalForm>,
@@ -190,9 +188,8 @@ pub async fn update(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Validate
     let title = form.title.trim();
@@ -208,9 +205,9 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let existing = proposal::find_by_id(&conn, proposal_id).ok().flatten();
-        let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let existing = proposal::find_by_id(&pool, proposal_id).await.ok().flatten();
+        let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = ProposalFormTemplate {
             ctx,
             tor_id,
@@ -223,7 +220,7 @@ pub async fn update(
         return render(tmpl);
     }
 
-    proposal::update(&conn, proposal_id, title, description, rationale)?;
+    proposal::update(&pool, proposal_id, title, description, rationale).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -231,7 +228,7 @@ pub async fn update(
         "title": title,
         "summary": format!("Updated proposal '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.updated", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.updated", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal updated successfully");
     Ok(HttpResponse::SeeOther()
@@ -246,7 +243,7 @@ pub async fn update(
 /// POST /tor/{tor_id}/proposals/{id}/submit
 /// Submits a draft proposal for review.
 pub async fn submit(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<crate::handlers::auth_handlers::CsrfOnly>,
@@ -255,12 +252,11 @@ pub async fn submit(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Get current status for workflow validation
-    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+    let current_proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
     let user_permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(e))?;
@@ -268,15 +264,15 @@ pub async fn submit(
 
     // Validate workflow transition via workflow engine
     workflow::validate_transition(
-        &conn,
+        &pool,
         "proposal",
         &current_proposal.status,
         "submitted",
         &user_permissions,
         &entity_props,
-    )?;
+    ).await?;
 
-    proposal::update_status(&conn, proposal_id, "submitted", None)?;
+    proposal::update_status(&pool, proposal_id, "submitted", None).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -284,7 +280,7 @@ pub async fn submit(
         "new_status": "submitted",
         "summary": format!("Submitted proposal #{} for review", proposal_id)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.submitted", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.submitted", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal submitted for review");
     Ok(HttpResponse::SeeOther()
@@ -295,7 +291,7 @@ pub async fn submit(
 /// POST /tor/{tor_id}/proposals/{id}/review
 /// Starts review of a submitted proposal.
 pub async fn review(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<crate::handlers::auth_handlers::CsrfOnly>,
@@ -304,12 +300,11 @@ pub async fn review(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Get current status for workflow validation
-    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+    let current_proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
     let user_permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(e))?;
@@ -317,15 +312,15 @@ pub async fn review(
 
     // Validate workflow transition via workflow engine
     workflow::validate_transition(
-        &conn,
+        &pool,
         "proposal",
         &current_proposal.status,
         "under_review",
         &user_permissions,
         &entity_props,
-    )?;
+    ).await?;
 
-    proposal::update_status(&conn, proposal_id, "under_review", None)?;
+    proposal::update_status(&pool, proposal_id, "under_review", None).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -333,7 +328,7 @@ pub async fn review(
         "new_status": "under_review",
         "summary": format!("Started review of proposal #{}", proposal_id)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.review_started", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.review_started", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal is now under review");
     Ok(HttpResponse::SeeOther()
@@ -344,7 +339,7 @@ pub async fn review(
 /// POST /tor/{tor_id}/proposals/{id}/approve
 /// Approves a proposal under review.
 pub async fn approve(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<crate::handlers::auth_handlers::CsrfOnly>,
@@ -353,12 +348,11 @@ pub async fn approve(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Get current status for workflow validation
-    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+    let current_proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
     let user_permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(e))?;
@@ -366,15 +360,15 @@ pub async fn approve(
 
     // Validate workflow transition via workflow engine
     workflow::validate_transition(
-        &conn,
+        &pool,
         "proposal",
         &current_proposal.status,
         "approved",
         &user_permissions,
         &entity_props,
-    )?;
+    ).await?;
 
-    proposal::update_status(&conn, proposal_id, "approved", None)?;
+    proposal::update_status(&pool, proposal_id, "approved", None).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -382,7 +376,7 @@ pub async fn approve(
         "new_status": "approved",
         "summary": format!("Approved proposal #{}", proposal_id)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.approved", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.approved", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal approved");
     Ok(HttpResponse::SeeOther()
@@ -393,7 +387,7 @@ pub async fn approve(
 /// POST /tor/{tor_id}/proposals/{id}/reject
 /// Rejects a proposal with a required reason.
 pub async fn reject(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<HashMap<String, String>>,
@@ -403,9 +397,8 @@ pub async fn reject(
     csrf::validate_csrf(&session, csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     let rejection_reason = form.get("rejection_reason").map(|s| s.trim().to_string()).unwrap_or_default();
     if rejection_reason.is_empty() {
@@ -416,7 +409,7 @@ pub async fn reject(
     }
 
     // Get current status for workflow validation
-    let current_proposal = proposal::find_by_id(&conn, proposal_id)?
+    let current_proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
     let user_permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(e))?;
@@ -424,15 +417,15 @@ pub async fn reject(
 
     // Validate workflow transition via workflow engine
     workflow::validate_transition(
-        &conn,
+        &pool,
         "proposal",
         &current_proposal.status,
         "rejected",
         &user_permissions,
         &entity_props,
-    )?;
+    ).await?;
 
-    proposal::update_status(&conn, proposal_id, "rejected", Some(&rejection_reason))?;
+    proposal::update_status(&pool, proposal_id, "rejected", Some(&rejection_reason)).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -441,7 +434,7 @@ pub async fn reject(
         "rejection_reason": &rejection_reason,
         "summary": format!("Rejected proposal #{}", proposal_id)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.rejected", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.rejected", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal rejected");
     Ok(HttpResponse::SeeOther()

@@ -1,58 +1,59 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
-use rusqlite::params;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::session::get_user_id;
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, WarningDetailTemplate, UserOption};
 use crate::warnings::queries;
 
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     let warning_id = path.into_inner();
     let user_id = get_user_id(&session).ok_or_else(|| AppError::Session("No user".into()))?;
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/warnings")?;
+    let ctx = PageContext::build(&session, &pool, "/warnings").await?;
 
-    let warning = queries::get_warning_detail(&conn, warning_id)?
+    let warning = queries::get_warning_detail(&pool, warning_id).await?
         .ok_or(AppError::NotFound)?;
 
-    let recipients = queries::get_recipients(&conn, warning_id)?;
+    let recipients = queries::get_recipients(&pool, warning_id).await?;
 
     // Get timeline for current user's receipt
-    let receipt_id = queries::find_receipt_for_user(&conn, warning_id, user_id)?
+    let receipt_id = queries::find_receipt_for_user(&pool, warning_id, user_id).await?
         .unwrap_or(0);
     let timeline = if receipt_id > 0 {
-        queries::get_receipt_timeline(&conn, receipt_id)?
+        queries::get_receipt_timeline(&pool, receipt_id).await?
     } else {
         Vec::new()
     };
 
     // Get users for forward dropdown (exclude self)
-    let mut stmt = conn.prepare(
-        "SELECT id, name, label FROM entities WHERE entity_type = 'user' AND id != ?1 ORDER BY name"
-    )?;
-    let users = stmt.query_map(params![user_id], |row| {
-        Ok(UserOption {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            label: row.get(2)?,
-        })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let users = sqlx::query_as!(
+        UserOption,
+        "SELECT id, name, label FROM entities WHERE entity_type = 'user' AND id != $1 ORDER BY name",
+        user_id
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    .map_err(|e| AppError::Db(e.to_string()))?;
 
     // Auto-mark as read when viewing
     if receipt_id > 0 {
-        let current_status: String = conn.query_row(
-            "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = 'status'",
-            params![receipt_id],
-            |row| row.get(0),
-        ).unwrap_or_default();
+        let current_status: String = sqlx::query_scalar!(
+            "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'status'",
+            receipt_id
+        )
+        .fetch_optional(pool.get_ref())
+        .await
+        .map_err(|e| AppError::Db(e.to_string()))?
+        .flatten()
+        .unwrap_or_default();
+
         if current_status == "unread" {
-            crate::warnings::update_receipt_status(&conn, receipt_id, "read", user_id)?;
+            crate::warnings::update_receipt_status(&pool, receipt_id, "read", user_id).await?;
         }
     }
 

@@ -1,10 +1,10 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
 use crate::auth::abac;
 use crate::auth::csrf;
 use crate::auth::session::{get_user_id, require_permission};
-use crate::db::DbPool;
 use crate::errors::{AppError, render};
 use crate::models::meeting;
 use crate::models::minutes;
@@ -12,14 +12,12 @@ use crate::templates_structs::{PageContext, MinutesViewTemplate};
 
 /// Generate minutes scaffold for a meeting.
 pub async fn generate_minutes(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "minutes.generate")?;
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
-
-    let conn = pool.get()?;
 
     let meeting_id: i64 = form.get("meeting_id")
         .and_then(|s| s.parse().ok())
@@ -37,14 +35,14 @@ pub async fn generate_minutes(
     }
 
     // Check if minutes already exist for this meeting
-    if minutes::find_by_meeting(&conn, meeting_id)?.is_some() {
+    if minutes::find_by_meeting(&pool, meeting_id).await?.is_some() {
         let _ = session.insert("flash", "Minutes already exist for this meeting");
         return Ok(HttpResponse::SeeOther()
             .insert_header(("Location", "/tor"))
             .finish());
     }
 
-    let minutes_id = minutes::generate_scaffold(&conn, meeting_id, tor_id, meeting_name)?;
+    let minutes_id = minutes::generate_scaffold(&pool, meeting_id, tor_id, meeting_name).await?;
 
     let current_user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
@@ -53,7 +51,7 @@ pub async fn generate_minutes(
         "minutes_id": minutes_id,
         "summary": "Generated minutes scaffold"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "minutes.generated", "minutes", minutes_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "minutes.generated", "minutes", minutes_id, details).await;
 
     let _ = session.insert("flash", "Minutes generated");
     Ok(HttpResponse::SeeOther()
@@ -63,19 +61,18 @@ pub async fn generate_minutes(
 
 /// View minutes with all sections.
 pub async fn view_minutes(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "minutes.edit")?;
 
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
-    match minutes::find_by_id(&conn, minutes_id)? {
+    match minutes::find_by_id(&pool, minutes_id).await? {
         Some(mins) => {
-            let ctx = PageContext::build(&session, &conn, "/minutes")?;
-            let sections = minutes::find_sections(&conn, minutes_id)?;
+            let ctx = PageContext::build(&session, &pool, "/minutes").await?;
+            let sections = minutes::find_sections(&pool, minutes_id).await?;
             let tmpl = MinutesViewTemplate {
                 ctx,
                 minutes: mins,
@@ -89,7 +86,7 @@ pub async fn view_minutes(
 
 /// Update a section's content.
 pub async fn update_section(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -98,10 +95,9 @@ pub async fn update_section(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let (minutes_id, section_id) = path.into_inner();
-    let conn = pool.get()?;
 
     // Check if minutes are approved (read-only)
-    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)?
+    if let Some(mins) = minutes::find_by_id(&pool, minutes_id).await?
         && mins.status == "approved"
     {
         let _ = session.insert("flash", "Cannot edit approved minutes");
@@ -111,14 +107,14 @@ pub async fn update_section(
     }
 
     let content = form.get("content").map(|s| s.as_str()).unwrap_or("");
-    minutes::update_section_content(&conn, section_id, content)?;
+    minutes::update_section_content(&pool, section_id, content).await?;
 
     let current_user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "section_id": section_id,
         "summary": "Updated minutes section"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "minutes.section_edited", "minutes", minutes_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "minutes.section_edited", "minutes", minutes_id, details).await;
 
     let _ = session.insert("flash", "Section updated");
     Ok(HttpResponse::SeeOther()
@@ -128,13 +124,12 @@ pub async fn update_section(
 
 /// Update minutes status (draft -> pending_approval -> approved).
 pub async fn update_minutes_status(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
     let new_status = form.get("status").map(|s| s.as_str()).unwrap_or("");
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
@@ -152,7 +147,7 @@ pub async fn update_minutes_status(
     }
 
     // Validate transition
-    if let Some(mins) = minutes::find_by_id(&conn, minutes_id)? {
+    if let Some(mins) = minutes::find_by_id(&pool, minutes_id).await? {
         let valid_transition = matches!(
             (mins.status.as_str(), new_status),
             ("draft", "pending_approval") | ("pending_approval", "approved")
@@ -165,14 +160,14 @@ pub async fn update_minutes_status(
         }
     }
 
-    minutes::update_status(&conn, minutes_id, new_status)?;
+    minutes::update_status(&pool, minutes_id, new_status).await?;
 
     let current_user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "new_status": new_status,
         "summary": format!("Minutes status changed to {}", new_status)
     });
-    let _ = crate::audit::log(&conn, current_user_id, "minutes.status_changed", "minutes", minutes_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "minutes.status_changed", "minutes", minutes_id, details).await;
 
     let _ = session.insert("flash", format!("Minutes status updated to {}", new_status));
     Ok(HttpResponse::SeeOther()
@@ -210,7 +205,7 @@ pub struct ActionItemsForm {
 
 /// Save the distribution list for a minutes document.
 pub async fn save_distribution(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<DistributionForm>,
@@ -218,9 +213,8 @@ pub async fn save_distribution(
     require_permission(&session, "minutes.edit")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
-    if let Some(m) = minutes::find_by_id(&conn, minutes_id)?
+    if let Some(m) = minutes::find_by_id(&pool, minutes_id).await?
         && m.status == "approved"
     {
         let _ = session.insert("flash", "Cannot edit approved minutes");
@@ -230,11 +224,11 @@ pub async fn save_distribution(
     }
 
     let json = lines_to_json(&form.distribution_list);
-    minutes::update_distribution_list(&conn, minutes_id, &json)?;
+    minutes::update_distribution_list(&pool, minutes_id, &json).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
-    let _ = crate::audit::log(&conn, user_id, "minutes.distribution_saved", "minutes", minutes_id,
-        serde_json::json!({"minutes_id": minutes_id, "summary": "Distribution list updated"}));
+    let _ = crate::audit::log(&pool, user_id, "minutes.distribution_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Distribution list updated"})).await;
 
     let _ = session.insert("flash", "Distribution list saved");
     Ok(HttpResponse::SeeOther()
@@ -244,18 +238,17 @@ pub async fn save_distribution(
 
 /// Save structured attendance for a minutes document.
 pub async fn save_attendance(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<AttendanceForm>,
 ) -> Result<HttpResponse, AppError> {
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
-    let mins = minutes::find_by_id(&conn, minutes_id)?.ok_or(AppError::NotFound)?;
-    let meeting_rec = meeting::find_by_id(&conn, mins.meeting_id)?.ok_or(AppError::NotFound)?;
-    abac::require_tor_capability(&conn, &session, meeting_rec.tor_id, "can_record_decisions")?;
+    let mins = minutes::find_by_id(&pool, minutes_id).await?.ok_or(AppError::NotFound)?;
+    let meeting_rec = meeting::find_by_id(&pool, mins.meeting_id).await?.ok_or(AppError::NotFound)?;
+    abac::require_tor_capability(&pool, &session, meeting_rec.tor_id, "can_record_decisions").await?;
 
     if mins.status == "approved" {
         let _ = session.insert("flash", "Cannot edit approved minutes");
@@ -264,11 +257,11 @@ pub async fn save_attendance(
             .finish());
     }
 
-    minutes::update_structured_attendance(&conn, minutes_id, &form.structured_attendance)?;
+    minutes::update_structured_attendance(&pool, minutes_id, &form.structured_attendance).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
-    let _ = crate::audit::log(&conn, user_id, "minutes.attendance_saved", "minutes", minutes_id,
-        serde_json::json!({"minutes_id": minutes_id, "summary": "Attendance updated"}));
+    let _ = crate::audit::log(&pool, user_id, "minutes.attendance_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Attendance updated"})).await;
 
     let _ = session.insert("flash", "Attendance saved");
     Ok(HttpResponse::SeeOther()
@@ -278,18 +271,17 @@ pub async fn save_attendance(
 
 /// Save structured action items for a minutes document.
 pub async fn save_action_items(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<ActionItemsForm>,
 ) -> Result<HttpResponse, AppError> {
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let minutes_id = path.into_inner();
-    let conn = pool.get()?;
 
-    let mins = minutes::find_by_id(&conn, minutes_id)?.ok_or(AppError::NotFound)?;
-    let meeting_rec = meeting::find_by_id(&conn, mins.meeting_id)?.ok_or(AppError::NotFound)?;
-    abac::require_tor_capability(&conn, &session, meeting_rec.tor_id, "can_record_decisions")?;
+    let mins = minutes::find_by_id(&pool, minutes_id).await?.ok_or(AppError::NotFound)?;
+    let meeting_rec = meeting::find_by_id(&pool, mins.meeting_id).await?.ok_or(AppError::NotFound)?;
+    abac::require_tor_capability(&pool, &session, meeting_rec.tor_id, "can_record_decisions").await?;
 
     if mins.status == "approved" {
         let _ = session.insert("flash", "Cannot edit approved minutes");
@@ -298,11 +290,11 @@ pub async fn save_action_items(
             .finish());
     }
 
-    minutes::update_structured_action_items(&conn, minutes_id, &form.structured_action_items)?;
+    minutes::update_structured_action_items(&pool, minutes_id, &form.structured_action_items).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
-    let _ = crate::audit::log(&conn, user_id, "minutes.action_items_saved", "minutes", minutes_id,
-        serde_json::json!({"minutes_id": minutes_id, "summary": "Action items updated"}));
+    let _ = crate::audit::log(&pool, user_id, "minutes.action_items_saved", "minutes", minutes_id,
+        serde_json::json!({"minutes_id": minutes_id, "summary": "Action items updated"})).await;
 
     let _ = session.insert("flash", "Action items saved");
     Ok(HttpResponse::SeeOther()

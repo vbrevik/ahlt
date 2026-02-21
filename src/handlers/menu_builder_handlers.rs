@@ -2,11 +2,11 @@ use std::collections::HashSet;
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde_json::json;
+use sqlx::PgPool;
 
 use crate::audit;
 use crate::auth::csrf;
 use crate::auth::session::{get_user_id, require_permission};
-use crate::db::DbPool;
 use crate::errors::{render, AppError};
 use crate::handlers::role_handlers::helpers::parse_form_body;
 use crate::models::{permission, role};
@@ -17,14 +17,13 @@ use crate::templates_structs::{
 /// GET /menu-builder — render the permission matrix.
 pub async fn index(
     session: Session,
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "roles.manage")?;
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/menu-builder")?;
+    let ctx = PageContext::build(&session, &pool, "/menu-builder").await?;
 
     // Load all roles (columns)
-    let all_roles = role::find_all_display(&conn)?;
+    let all_roles = role::find_all_display(&pool).await?;
     let roles: Vec<RoleColumn> = all_roles
         .iter()
         .map(|r| RoleColumn {
@@ -35,10 +34,10 @@ pub async fn index(
         .collect();
 
     // Load all permissions with group_name (rows)
-    let all_perms = permission::find_all_with_groups(&conn)?;
+    let all_perms = permission::find_all_with_groups(&pool).await?;
 
     // Load current grants (role_id, permission_id) pairs
-    let grants = permission::find_all_role_grants(&conn)?;
+    let grants = permission::find_all_role_grants(&pool).await?;
 
     // Group permissions by group_name and build matrix cells
     let mut groups: Vec<PageGroup> = Vec::new();
@@ -93,11 +92,10 @@ pub async fn index(
 /// POST /menu-builder — save permission matrix changes.
 pub async fn save(
     session: Session,
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     body: String,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "roles.manage")?;
-    let conn = pool.get()?;
 
     // Parse form and validate CSRF
     let params = parse_form_body(&body);
@@ -121,7 +119,7 @@ pub async fn save(
         .collect();
 
     // Load current grants
-    let current = permission::find_all_role_grants(&conn)?;
+    let current = permission::find_all_role_grants(&pool).await?;
 
     // Compute diff
     let to_grant: Vec<(i64, i64)> = submitted.difference(&current).copied().collect();
@@ -130,10 +128,10 @@ pub async fn save(
 
     // Apply changes
     for (role_id, perm_id) in &to_grant {
-        permission::grant_permission(&conn, *role_id, *perm_id)?;
+        permission::grant_permission(&pool, *role_id, *perm_id).await?;
     }
     for (role_id, perm_id) in &to_revoke {
-        permission::revoke_permission(&conn, *role_id, *perm_id)?;
+        permission::revoke_permission(&pool, *role_id, *perm_id).await?;
     }
 
     // Audit log
@@ -141,13 +139,13 @@ pub async fn save(
         let user_id = get_user_id(&session).unwrap_or(0);
         let summary = format!("{} granted, {} revoked via Menu Builder", to_grant.len(), to_revoke.len());
         if let Err(e) = audit::log(
-            &conn,
+            &pool,
             user_id,
             "role.permissions_changed",
             "role",
             0,
             json!({ "summary": summary, "granted": to_grant.len(), "revoked": to_revoke.len() }),
-        ) {
+        ).await {
             eprintln!("Audit log failed: {}", e);
         }
     }

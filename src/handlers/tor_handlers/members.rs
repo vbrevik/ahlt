@@ -1,14 +1,14 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::tor;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
 use crate::errors::AppError;
 
 pub async fn manage_members(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -17,7 +17,6 @@ pub async fn manage_members(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
 
     let action = form.get("action").map(|s| s.as_str()).unwrap_or("");
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
@@ -41,14 +40,14 @@ pub async fn manage_members(
                     .finish());
             }
 
-            tor::assign_to_position(&conn, user_id, position_id, membership_type)?;
+            tor::assign_to_position(&pool, user_id, position_id, membership_type).await?;
             let details = serde_json::json!({
                 "user_id": user_id,
                 "position_id": position_id,
                 "membership_type": membership_type,
                 "summary": "Assigned user to position"
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.position_assigned", "tor", tor_id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "tor.position_assigned", "tor", tor_id, details).await;
             let _ = session.insert("flash", "User assigned to position");
         }
         "vacate" => {
@@ -63,12 +62,12 @@ pub async fn manage_members(
                     .finish());
             }
 
-            tor::vacate_position(&conn, position_id)?;
+            tor::vacate_position(&pool, position_id).await?;
             let details = serde_json::json!({
                 "position_id": position_id,
                 "summary": "Vacated position"
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.position_vacated", "tor", tor_id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "tor.position_vacated", "tor", tor_id, details).await;
             let _ = session.insert("flash", "Position vacated");
         }
         _ => {

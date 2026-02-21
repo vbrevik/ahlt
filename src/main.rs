@@ -1,5 +1,6 @@
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, cookie::Key, middleware, web};
+use sqlx::PgPool;
 
 use ahlt::{audit, auth, db, handlers, warnings};
 
@@ -7,32 +8,27 @@ use ahlt::{audit, auth, db, handlers, warnings};
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    // Determine environment and data directory
+    // Determine environment
     let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "dev".to_string());
-    let data_dir = format!("data/{}", app_env);
-    log::info!("Environment: {} | Data directory: {}", app_env, data_dir);
+    log::info!("Environment: {}", app_env);
 
-    // Ensure data directory exists
-    std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
+    // Read DATABASE_URL from environment
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    // Initialize database
-    let db_path = format!("{}/app.db", data_dir);
-    let pool = db::init_pool(&db_path);
-    db::run_migrations(&pool);
+    // Initialize database pool
+    let pool = db::init_pool(&database_url).await;
+    db::run_migrations(&pool).await;
 
     // Seed data based on environment
     let admin_hash = auth::password::hash_password("admin123")
         .expect("Failed to hash default password");
     match app_env.as_str() {
-        "staging" => db::seed_staging(&pool, &admin_hash),
-        _ => db::seed_ontology(&pool, &admin_hash),
+        "staging" => db::seed_staging(&pool, &admin_hash).await,
+        _ => db::seed_ontology(&pool, &admin_hash).await,
     }
 
     // Clean up old audit entries based on retention policy
-    {
-        let conn = pool.get().expect("Failed to get connection for audit cleanup");
-        audit::cleanup_old_entries(&conn);
-    }
+    audit::cleanup_old_entries(&pool).await;
 
     // Session encryption key — load from SESSION_KEY env var for persistent sessions across restarts
     let secret_key = match std::env::var("SESSION_KEY") {
@@ -75,7 +71,7 @@ async fn main() -> std::io::Result<()> {
     let conn_map = handlers::warning_handlers::ws::new_connection_map();
 
     // Spawn background scheduler for warning generators and cleanup
-    warnings::scheduler::spawn_scheduler(pool.clone(), conn_map.clone(), data_dir.clone());
+    warnings::scheduler::spawn_scheduler(pool.clone(), conn_map.clone());
 
     HttpServer::new(move || {
         let session_mw = SessionMiddleware::builder(

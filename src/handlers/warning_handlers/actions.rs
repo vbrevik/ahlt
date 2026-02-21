@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::{csrf, session::get_user_id};
 use crate::errors::AppError;
 use crate::warnings::{self, queries};
@@ -21,7 +21,7 @@ pub struct ForwardForm {
 }
 
 pub async fn mark_deleted(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<ReceiptForm>,
@@ -30,13 +30,12 @@ pub async fn mark_deleted(
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let warning_id = path.into_inner();
     let user_id = get_user_id(&session).ok_or_else(|| AppError::Session("No user".into()))?;
-    let conn = pool.get()?;
 
-    if let Some(receipt_id) = queries::find_receipt_for_user(&conn, warning_id, user_id)? {
-        warnings::update_receipt_status(&conn, receipt_id, "deleted", user_id)?;
+    if let Some(receipt_id) = queries::find_receipt_for_user(&pool, warning_id, user_id).await? {
+        warnings::update_receipt_status(&pool, receipt_id, "deleted", user_id).await?;
     }
 
-    send_count_update(&conn_map, &pool, user_id);
+    send_count_update(&conn_map, &pool, user_id).await;
 
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", "/warnings"))
@@ -44,7 +43,7 @@ pub async fn mark_deleted(
 }
 
 pub async fn forward(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<ForwardForm>,
@@ -53,27 +52,26 @@ pub async fn forward(
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let warning_id = path.into_inner();
     let user_id = get_user_id(&session).ok_or_else(|| AppError::Session("No user".into()))?;
-    let conn = pool.get()?;
 
     // Update sender's receipt to forwarded
-    if let Some(receipt_id) = queries::find_receipt_for_user(&conn, warning_id, user_id)? {
-        warnings::update_receipt_status(&conn, receipt_id, "forwarded", user_id)?;
-        crate::models::relation::create(&conn, "forwarded_to_user", receipt_id, form.target_user_id)?;
-        warnings::create_event(&conn, receipt_id, "forwarded", user_id, None)?;
+    if let Some(receipt_id) = queries::find_receipt_for_user(&pool, warning_id, user_id).await? {
+        warnings::update_receipt_status(&pool, receipt_id, "forwarded", user_id).await?;
+        crate::models::relation::create(&pool, "forwarded_to_user", receipt_id, form.target_user_id).await?;
+        warnings::create_event(&pool, receipt_id, "forwarded", user_id, None).await?;
     }
 
     // Create receipt for target user
-    warnings::create_receipts(&conn, warning_id, &[form.target_user_id])?;
+    warnings::create_receipts(&pool, warning_id, &[form.target_user_id]).await?;
 
     // Notify target user via WS
-    if let Some(w) = queries::get_warning_detail(&conn, warning_id)? {
+    if let Some(w) = queries::get_warning_detail(&pool, warning_id).await? {
         crate::handlers::warning_handlers::ws::notify_users(
             &conn_map, &pool, &[form.target_user_id],
             warning_id, &w.severity, &w.message,
-        );
+        ).await;
     }
 
-    send_count_update(&conn_map, &pool, user_id);
+    send_count_update(&conn_map, &pool, user_id).await;
 
     let location = format!("/warnings/{}", warning_id);
     Ok(HttpResponse::SeeOther()

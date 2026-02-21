@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::tor;
 use crate::models::protocol;
 use crate::models::meeting;
@@ -22,13 +22,12 @@ fn lines_to_json(text: &str) -> String {
 }
 
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "tor.create")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/tor")?;
+    let ctx = PageContext::build(&session, &pool, "/tor").await?;
 
     let tmpl = TorFormTemplate {
         ctx,
@@ -41,14 +40,12 @@ pub async fn new_form(
 }
 
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "tor.create")?;
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
-
-    let conn = pool.get()?;
 
     let name = form.get("name").map(|s| s.as_str()).unwrap_or("");
     let label = form.get("label").map(|s| s.as_str()).unwrap_or("");
@@ -81,7 +78,7 @@ pub async fn create(
     errors.extend(validate::validate_optional(description, "Description", 500));
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/tor")?;
+        let ctx = PageContext::build(&session, &pool, "/tor").await?;
         let tmpl = TorFormTemplate {
             ctx,
             form_action: "/tor".to_string(),
@@ -116,14 +113,14 @@ pub async fn create(
         ("invite_policy", invite_policy),
     ];
 
-    match tor::create(&conn, name.trim(), label.trim(), &props) {
+    match tor::create(&pool, name.trim(), label.trim(), &props).await {
         Ok(tor_id) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
                 "tor_name": name.trim(),
                 "summary": format!("Created Terms of Reference '{}'", label.trim())
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.created", "tor", tor_id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "tor.created", "tor", tor_id, details).await;
 
             let _ = session.insert("flash", "Terms of Reference created successfully");
             Ok(HttpResponse::SeeOther()
@@ -136,7 +133,7 @@ pub async fn create(
             } else {
                 format!("Error creating ToR: {e}")
             };
-            let ctx = PageContext::build(&session, &conn, "/tor")?;
+            let ctx = PageContext::build(&session, &pool, "/tor").await?;
             let tmpl = TorFormTemplate {
                 ctx,
                 form_action: "/tor".to_string(),
@@ -150,29 +147,28 @@ pub async fn create(
 }
 
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "tor.list")?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
-    match tor::find_detail_by_id(&conn, id)? {
+    match tor::find_detail_by_id(&pool, id).await? {
         Some(tor_detail) => {
-            let ctx = PageContext::build(&session, &conn, "/tor")?;
-            let members = tor::find_members(&conn, id)?;
-            let functions = tor::find_functions(&conn, id)?;
-            let protocol_steps = protocol::find_steps_for_tor(&conn, id)?;
-            let non_members = tor::find_non_members(&conn, id)?;
+            let ctx = PageContext::build(&session, &pool, "/tor").await?;
+            let members = tor::find_members(&pool, id).await?;
+            let functions = tor::find_functions(&pool, id).await?;
+            let protocol_steps = protocol::find_steps_for_tor(&pool, id).await?;
+            let non_members = tor::find_non_members(&pool, id).await?;
             let available_users = non_members.into_iter()
                 .map(|(id, name, label)| UserOption { id, name, label })
                 .collect();
-            let upstream_deps = tor::find_upstream(&conn, id)?;
-            let downstream_deps = tor::find_downstream(&conn, id)?;
-            let other_tors = tor::find_other_tors(&conn, id)?;
-            let meetings = meeting::find_by_tor(&conn, id)?;
+            let upstream_deps = tor::find_upstream(&pool, id).await?;
+            let downstream_deps = tor::find_downstream(&pool, id).await?;
+            let other_tors = tor::find_other_tors(&pool, id).await?;
+            let meetings = meeting::find_by_tor(&pool, id).await?;
 
             let tmpl = TorDetailTemplate {
                 ctx,
@@ -193,18 +189,17 @@ pub async fn detail(
 }
 
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "tor.edit")?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
-    match tor::find_detail_by_id(&conn, id)? {
+    match tor::find_detail_by_id(&pool, id).await? {
         Some(t) => {
-            let ctx = PageContext::build(&session, &conn, "/tor")?;
+            let ctx = PageContext::build(&session, &pool, "/tor").await?;
             let tmpl = TorFormTemplate {
                 ctx,
                 form_action: format!("/tor/{id}"),
@@ -219,7 +214,7 @@ pub async fn edit_form(
 }
 
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -228,7 +223,6 @@ pub async fn update(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
     let name = form.get("name").map(|s| s.as_str()).unwrap_or("");
     let label = form.get("label").map(|s| s.as_str()).unwrap_or("");
@@ -261,8 +255,8 @@ pub async fn update(
     errors.extend(validate::validate_optional(description, "Description", 500));
 
     if !errors.is_empty() {
-        let existing = tor::find_detail_by_id(&conn, id).ok().flatten();
-        let ctx = PageContext::build(&session, &conn, "/tor")?;
+        let existing = tor::find_detail_by_id(&pool, id).await.ok().flatten();
+        let ctx = PageContext::build(&session, &pool, "/tor").await?;
         let tmpl = TorFormTemplate {
             ctx,
             form_action: format!("/tor/{id}"),
@@ -297,14 +291,14 @@ pub async fn update(
         ("invite_policy", invite_policy),
     ];
 
-    match tor::update(&conn, id, name.trim(), label.trim(), &props) {
+    match tor::update(&pool, id, name.trim(), label.trim(), &props).await {
         Ok(_) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             let details = serde_json::json!({
                 "tor_name": name.trim(),
                 "summary": format!("Updated Terms of Reference '{}'", label.trim())
             });
-            let _ = crate::audit::log(&conn, current_user_id, "tor.updated", "tor", id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "tor.updated", "tor", id, details).await;
 
             let _ = session.insert("flash", "Terms of Reference updated successfully");
             Ok(HttpResponse::SeeOther()
@@ -317,8 +311,8 @@ pub async fn update(
             } else {
                 format!("Error updating ToR: {e}")
             };
-            let existing = tor::find_detail_by_id(&conn, id).ok().flatten();
-            let ctx = PageContext::build(&session, &conn, "/tor")?;
+            let existing = tor::find_detail_by_id(&pool, id).await.ok().flatten();
+            let ctx = PageContext::build(&session, &pool, "/tor").await?;
             let tmpl = TorFormTemplate {
                 ctx,
                 form_action: format!("/tor/{id}"),
@@ -332,7 +326,7 @@ pub async fn update(
 }
 
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
@@ -341,10 +335,9 @@ pub async fn delete(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
     // Prevent deleting a ToR that has members
-    let member_count = tor::count_members(&conn, id)?;
+    let member_count = tor::count_members(&pool, id).await?;
     if member_count > 0 {
         let _ = session.insert("flash", format!("Cannot delete ToR: {member_count} member(s) still assigned"));
         return Ok(HttpResponse::SeeOther()
@@ -352,9 +345,9 @@ pub async fn delete(
             .finish());
     }
 
-    let tor_details = tor::find_detail_by_id(&conn, id).ok().flatten();
+    let tor_details = tor::find_detail_by_id(&pool, id).await.ok().flatten();
 
-    match tor::delete(&conn, id) {
+    match tor::delete(&pool, id).await {
         Ok(_) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             if let Some(deleted) = tor_details {
@@ -362,7 +355,7 @@ pub async fn delete(
                     "tor_name": deleted.name,
                     "summary": format!("Deleted Terms of Reference '{}'", deleted.label)
                 });
-                let _ = crate::audit::log(&conn, current_user_id, "tor.deleted", "tor", id, details);
+                let _ = crate::audit::log(&pool, current_user_id, "tor.deleted", "tor", id, details).await;
             }
 
             let _ = session.insert("flash", "Terms of Reference deleted");

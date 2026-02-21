@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::role;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
@@ -9,7 +9,7 @@ use crate::errors::AppError;
 use crate::handlers::auth_handlers::CsrfOnly;
 
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
@@ -19,9 +19,7 @@ pub async fn delete(
 
     let id = path.into_inner();
 
-    let conn = pool.get()?;
-
-    let user_count = role::count_users(&conn, id)?;
+    let user_count = role::count_users(&pool, id).await?;
     if user_count > 0 {
         let _ = session.insert("flash", format!("Cannot delete role: {user_count} user(s) still assigned"));
         return Ok(HttpResponse::SeeOther()
@@ -29,9 +27,9 @@ pub async fn delete(
             .finish());
     }
 
-    let role_details = role::find_detail_by_id(&conn, id).ok().flatten();
+    let role_details = role::find_detail_by_id(&pool, id).await.ok().flatten();
 
-    match role::delete(&conn, id) {
+    match role::delete(&pool, id).await {
         Ok(_) => {
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
             if let Some(deleted_role) = role_details {
@@ -39,8 +37,8 @@ pub async fn delete(
                     "role_name": deleted_role.name,
                     "summary": format!("Deleted role '{}'", deleted_role.label)
                 });
-                let _ = crate::audit::log(&conn, current_user_id, "role.deleted",
-                                          "role", id, details);
+                let _ = crate::audit::log(&pool, current_user_id, "role.deleted",
+                                          "role", id, details).await;
             }
 
             let _ = session.insert("flash", "Role deleted");

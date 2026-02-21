@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::csrf;
 use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
@@ -41,22 +41,21 @@ pub struct BulkScheduleForm {
 /// View the queue of proposals ready to be scheduled into agenda points.
 /// Requires: agenda.queue permission and ToR membership
 pub async fn view_queue(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "agenda.queue")?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Fetch queued proposals
-    let queued_proposals = proposal::find_queued_proposals(&conn, tor_id)?;
+    let queued_proposals = proposal::find_queued_proposals(&pool, tor_id).await?;
 
-    let tor_name = tor::get_tor_name(&conn, tor_id)?;
-    let ctx = PageContext::build(&session, &conn, "/workflow")?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
     let tmpl = QueueTemplate {
         ctx,
@@ -72,7 +71,7 @@ pub async fn view_queue(
 /// Mark a proposal as ready for the agenda queue.
 /// Requires: agenda.queue permission
 pub async fn mark_ready(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<MarkReadyForm>,
@@ -81,12 +80,11 @@ pub async fn mark_ready(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, proposal_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Verify the proposal exists and is approved
-    let proposal = proposal::find_by_id(&conn, proposal_id)?
+    let proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
 
     if proposal.status != "approved" {
@@ -96,7 +94,7 @@ pub async fn mark_ready(
     }
 
     // Mark as ready for agenda
-    proposal::mark_ready_for_agenda(&conn, proposal_id)?;
+    proposal::mark_ready_for_agenda(&pool, proposal_id).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -104,7 +102,7 @@ pub async fn mark_ready(
         "title": proposal.title,
         "summary": format!("Marked proposal '{}' as ready for agenda", proposal.title)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.marked_ready_for_agenda", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.marked_ready_for_agenda", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal marked ready for agenda");
     Ok(HttpResponse::SeeOther()
@@ -116,7 +114,7 @@ pub async fn mark_ready(
 /// Remove a proposal from the queue by unsetting ready_for_agenda flag.
 /// Requires: agenda.queue permission
 pub async fn unqueue_proposal(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<UnqueueForm>,
@@ -125,18 +123,17 @@ pub async fn unqueue_proposal(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     let proposal_id = form.proposal_id;
 
     // Verify the proposal exists
-    let proposal = proposal::find_by_id(&conn, proposal_id)?
+    let proposal = proposal::find_by_id(&pool, proposal_id).await?
         .ok_or(AppError::NotFound)?;
 
     // Unqueue the proposal
-    proposal::unqueue_proposal(&conn, proposal_id)?;
+    proposal::unqueue_proposal(&pool, proposal_id).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -144,7 +141,7 @@ pub async fn unqueue_proposal(
         "title": proposal.title,
         "summary": format!("Unqueued proposal '{}'", proposal.title)
     });
-    let _ = crate::audit::log(&conn, user_id, "proposal.unqueued", "proposal", proposal_id, details);
+    let _ = crate::audit::log(&pool, user_id, "proposal.unqueued", "proposal", proposal_id, details).await;
 
     let _ = session.insert("flash", "Proposal removed from queue");
     Ok(HttpResponse::SeeOther()
@@ -156,22 +153,21 @@ pub async fn unqueue_proposal(
 /// Show the scheduling form with queued proposals and date/time picker.
 /// Requires: agenda.manage permission
 pub async fn schedule_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "agenda.manage")?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Fetch queued proposals
-    let queued_proposals = proposal::find_queued_proposals(&conn, tor_id)?;
+    let queued_proposals = proposal::find_queued_proposals(&pool, tor_id).await?;
 
-    let tor_name = tor::get_tor_name(&conn, tor_id)?;
-    let ctx = PageContext::build(&session, &conn, "/workflow")?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
     let tmpl = QueueTemplate {
         ctx,
@@ -187,7 +183,7 @@ pub async fn schedule_form(
 /// Bulk schedule selected proposals into agenda points for a specific date/time.
 /// Requires: agenda.manage permission
 pub async fn bulk_schedule(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<BulkScheduleForm>,
@@ -196,9 +192,8 @@ pub async fn bulk_schedule(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Validation
     let mut errors = vec![];
@@ -222,15 +217,18 @@ pub async fn bulk_schedule(
     }
 
     // Validate that scheduled_date is not in the past
-    let today: String = conn.query_row("SELECT date('now')", [], |row| row.get(0))?;
+    let today: String = sqlx::query_scalar("SELECT CURRENT_DATE::text")
+        .fetch_one(pool.get_ref())
+        .await
+        .map_err(AppError::Db)?;
     if form.scheduled_date < today {
         errors.push("Scheduled date cannot be in the past".to_string());
     }
 
     if !errors.is_empty() {
-        let queued_proposals = proposal::find_queued_proposals(&conn, tor_id)?;
-        let tor_name = tor::get_tor_name(&conn, tor_id)?;
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let queued_proposals = proposal::find_queued_proposals(&pool, tor_id).await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
         let tmpl = QueueTemplate {
             ctx,
@@ -247,12 +245,12 @@ pub async fn bulk_schedule(
     let mut scheduled_count = 0;
     for proposal_id in &form.proposal_ids {
         // Get the proposal to copy metadata
-        let proposal = proposal::find_by_id(&conn, *proposal_id)?
+        let proposal = proposal::find_by_id(&pool, *proposal_id).await?
             .ok_or(AppError::NotFound)?;
 
         // Create agenda point entity
         let agenda_point_id = agenda_point::create(
-            &conn,
+            &pool,
             tor_id,
             &proposal.title,
             &format!("From proposal: {}", proposal.title),
@@ -263,13 +261,13 @@ pub async fn bulk_schedule(
             "", // presenter
             "", // priority
             "", // pre_read_url
-        )?;
+        ).await?;
 
         // Create spawns_agenda_point relation: proposal → agenda_point
-        relation::create(&conn, "spawns_agenda_point", *proposal_id, agenda_point_id)?;
+        relation::create(&pool, "spawns_agenda_point", *proposal_id, agenda_point_id).await?;
 
         // Remove proposal from queue (set ready_for_agenda=false)
-        proposal::unqueue_proposal(&conn, *proposal_id)?;
+        proposal::unqueue_proposal(&pool, *proposal_id).await?;
 
         scheduled_count += 1;
     }
@@ -281,7 +279,7 @@ pub async fn bulk_schedule(
         "time_allocation_minutes": time_allocation_minutes,
         "summary": format!("Scheduled {} proposals for {}", scheduled_count, form.scheduled_date)
     });
-    let _ = crate::audit::log(&conn, user_id, "queue.bulk_scheduled", "agenda_point", tor_id, details);
+    let _ = crate::audit::log(&pool, user_id, "queue.bulk_scheduled", "agenda_point", tor_id, details).await;
 
     let _ = session.insert("flash", format!("Scheduled {} proposals", scheduled_count));
     Ok(HttpResponse::SeeOther()

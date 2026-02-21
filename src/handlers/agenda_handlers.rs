@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::csrf;
 use crate::auth::session::{require_permission, get_user_id};
 use crate::errors::{AppError, render};
@@ -16,18 +16,17 @@ use crate::templates_structs::{PageContext, AgendaPointFormTemplate, AgendaPoint
 /// GET /tor/{id}/workflow/agenda/new
 /// Renders the agenda point creation form.
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "agenda.create")?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    let ctx = PageContext::build(&session, &conn, "/workflow")?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
     let tmpl = AgendaPointFormTemplate {
         ctx,
@@ -43,7 +42,7 @@ pub async fn new_form(
 /// POST /tor/{id}/workflow/agenda
 /// Creates a new agenda point linked to the ToR.
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<AgendaPointForm>,
@@ -52,9 +51,8 @@ pub async fn create(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Validate
     let title = form.title.trim();
@@ -86,7 +84,7 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,
@@ -99,9 +97,9 @@ pub async fn create(
     }
 
     let agenda_point_id = agenda_point::create(
-        &conn, tor_id, title, description, item_type, scheduled_date, time_allocation_minutes, user_id,
+        &pool, tor_id, title, description, item_type, scheduled_date, time_allocation_minutes, user_id,
         presenter, priority, pre_read_url,
-    )?;
+    ).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -109,7 +107,7 @@ pub async fn create(
         "title": title,
         "summary": format!("Created agenda point '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "agenda_point.created", "agenda_point", agenda_point_id, details);
+    let _ = crate::audit::log(&pool, user_id, "agenda_point.created", "agenda_point", agenda_point_id, details).await;
 
     let _ = session.insert("flash", "Agenda point created successfully");
     Ok(HttpResponse::SeeOther()
@@ -120,31 +118,30 @@ pub async fn create(
 /// GET /tor/{id}/workflow/agenda/{agenda_id}
 /// Renders the agenda point detail page.
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "agenda.view")?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    match agenda_point::find_by_id(&conn, agenda_point_id)? {
+    match agenda_point::find_by_id(&pool, agenda_point_id).await? {
         Some(ap) => {
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
 
             // Fetch related COAs
             let mut coas = vec![];
             for coa_id in &ap.coa_ids {
-                if let Ok(coa_detail) = coa::find_by_id(&conn, *coa_id) {
+                if let Ok(coa_detail) = coa::find_by_id(&pool, *coa_id).await {
                     coas.push(coa_detail);
                 }
             }
 
             // Fetch opinions
-            let opinions_list = opinion::find_opinions_for_agenda_point(&conn, agenda_point_id)?;
+            let opinions_list = opinion::find_opinions_for_agenda_point(&pool, agenda_point_id).await?;
 
             // Build opinions summary grouped by COA
             let mut opinions: Vec<crate::models::opinion::OpinionSummary> = vec![];
@@ -173,12 +170,12 @@ pub async fn detail(
 
             // Get available transitions
             let available_transitions = workflow::find_available_transitions(
-                &conn,
+                &pool,
                 "agenda_point",
                 &ap.status,
                 &permissions,
                 &entity_properties,
-            )?;
+            ).await?;
 
             let tmpl = AgendaPointDetailTemplate {
                 ctx,
@@ -197,20 +194,19 @@ pub async fn detail(
 /// GET /tor/{id}/workflow/agenda/{agenda_id}/edit
 /// Renders the agenda point edit form.
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "agenda.manage")?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    match agenda_point::find_by_id(&conn, agenda_point_id)? {
+    match agenda_point::find_by_id(&pool, agenda_point_id).await? {
         Some(ap) => {
-            let ctx = PageContext::build(&session, &conn, "/workflow")?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
             let tmpl = AgendaPointFormTemplate {
                 ctx,
                 tor_id,
@@ -228,7 +224,7 @@ pub async fn edit_form(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}
 /// Updates an existing agenda point's title, description, item_type, scheduled_date, and time allocation.
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<AgendaPointForm>,
@@ -237,9 +233,8 @@ pub async fn update(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // Validate
     let title = form.title.trim();
@@ -271,8 +266,8 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let existing = agenda_point::find_by_id(&conn, agenda_point_id).ok().flatten();
-        let ctx = PageContext::build(&session, &conn, "/workflow")?;
+        let existing = agenda_point::find_by_id(&pool, agenda_point_id).await.ok().flatten();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,
@@ -284,7 +279,7 @@ pub async fn update(
         return render(tmpl);
     }
 
-    agenda_point::update(&conn, agenda_point_id, title, description, item_type, scheduled_date, time_allocation_minutes, presenter, priority, pre_read_url)?;
+    agenda_point::update(&pool, agenda_point_id, title, description, item_type, scheduled_date, time_allocation_minutes, presenter, priority, pre_read_url).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -292,7 +287,7 @@ pub async fn update(
         "title": title,
         "summary": format!("Updated agenda point '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "agenda_point.updated", "agenda_point", agenda_point_id, details);
+    let _ = crate::audit::log(&pool, user_id, "agenda_point.updated", "agenda_point", agenda_point_id, details).await;
 
     let _ = session.insert("flash", "Agenda point updated successfully");
     Ok(HttpResponse::SeeOther()
@@ -303,7 +298,7 @@ pub async fn update(
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/transition
 /// Generic workflow transition handler using the workflow engine.
 pub async fn transition(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<crate::handlers::auth_handlers::CsrfOnly>,
@@ -311,9 +306,8 @@ pub async fn transition(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
-    tor::require_tor_membership(&conn, user_id, tor_id)?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     // For now, this is a stub. Workflow transitions will be fully implemented
     // as part of a future task when the workflow engine is more mature.

@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::user;
 use crate::auth::{password, validate};
 use crate::auth::session::{get_user_id, require_permission};
@@ -13,7 +13,7 @@ use crate::templates_structs::{
 /// GET /api/v1/users - List users with pagination
 /// Query params: page (default 1), per_page (default 25)
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, AppError> {
@@ -31,8 +31,7 @@ pub async fn list(
         .max(1)
         .min(100); // Cap at 100
 
-    let conn = pool.get()?;
-    let user_page = user::find_paginated(&conn, page, per_page, &crate::models::table_filter::FilterTree::default(), &crate::models::table_filter::SortSpec::default())?;
+    let user_page = user::find_paginated(&pool, page, per_page, &crate::models::table_filter::FilterTree::default(), &crate::models::table_filter::SortSpec::default()).await?;
 
     let response = PaginatedResponse {
         items: user_page
@@ -50,16 +49,15 @@ pub async fn list(
 
 /// GET /api/v1/users/{id} - Get single user by ID
 pub async fn read(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.list")?;
 
     let user_id = path.into_inner();
-    let conn = pool.get()?;
 
-    let user = user::find_display_by_id(&conn, user_id)?
+    let user = user::find_display_by_id(&pool, user_id).await?
         .ok_or(AppError::NotFound)?;
 
     Ok(HttpResponse::Ok().json(ApiUserResponse::from(user)))
@@ -67,13 +65,11 @@ pub async fn read(
 
 /// POST /api/v1/users - Create new user
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     body: web::Json<ApiUserRequest>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.create")?;
-
-    let conn = pool.get()?;
 
     // Validate request
     let mut errors = Vec::new();
@@ -105,10 +101,10 @@ pub async fn create(
         display_name: body.display_name.clone(),
     };
 
-    let created_id = user::create(&conn, &new_user)?;
+    let created_id = user::create(&pool, &new_user).await?;
 
     // Assign default viewer role
-    let _ = user::assign_default_role(&conn, created_id);
+    let _ = user::assign_default_role(&pool, created_id).await;
 
     // Audit log
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -118,10 +114,10 @@ pub async fn create(
         "display_name": body.display_name,
         "summary": "User created via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "user.created", "user", created_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "user.created", "user", created_id, details).await;
 
     // Fetch and return created user
-    let created_user = user::find_display_by_id(&conn, created_id)?
+    let created_user = user::find_display_by_id(&pool, created_id).await?
         .ok_or(AppError::NotFound)?;
 
     Ok(HttpResponse::Created().json(ApiUserResponse::from(created_user)))
@@ -129,7 +125,7 @@ pub async fn create(
 
 /// PUT /api/v1/users/{id} - Update user
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     body: web::Json<ApiUserRequest>,
@@ -137,10 +133,9 @@ pub async fn update(
     require_permission(&session, "users.edit")?;
 
     let user_id = path.into_inner();
-    let conn = pool.get()?;
 
     // Check if user exists
-    let _existing = user::find_display_by_id(&conn, user_id)?
+    let _existing = user::find_display_by_id(&pool, user_id).await?
         .ok_or(AppError::NotFound)?;
 
     // Validate
@@ -168,13 +163,13 @@ pub async fn update(
     };
 
     user::update(
-        &conn,
+        &pool,
         user_id,
         &body.username,
         hashed.as_deref(),
         &body.email,
         &body.display_name,
-    )?;
+    ).await?;
 
     // Audit log
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -184,10 +179,10 @@ pub async fn update(
         "display_name": body.display_name,
         "summary": "User updated via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "user.updated", "user", user_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "user.updated", "user", user_id, details).await;
 
     // Fetch and return updated user
-    let updated_user = user::find_display_by_id(&conn, user_id)?
+    let updated_user = user::find_display_by_id(&pool, user_id).await?
         .ok_or(AppError::NotFound)?;
 
     Ok(HttpResponse::Ok().json(ApiUserResponse::from(updated_user)))
@@ -195,28 +190,27 @@ pub async fn update(
 
 /// DELETE /api/v1/users/{id} - Delete user
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.delete")?;
 
     let user_id = path.into_inner();
-    let conn = pool.get()?;
 
     // Check if user exists
-    user::find_display_by_id(&conn, user_id)?
+    user::find_display_by_id(&pool, user_id).await?
         .ok_or(AppError::NotFound)?;
 
     // Prevent self-deletion and last-admin check (via model function)
-    user::delete(&conn, user_id)?;
+    user::delete(&pool, user_id).await?;
 
     // Audit log
     let current_user_id = get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "summary": "User deleted via API"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "user.deleted", "user", user_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "user.deleted", "user", user_id, details).await;
 
     Ok(HttpResponse::NoContent().finish())
 }

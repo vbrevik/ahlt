@@ -1,11 +1,11 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use std::collections::HashMap;
+use sqlx::PgPool;
 
 use crate::auth::abac;
 use crate::auth::csrf;
 use crate::auth::session::{get_permissions, get_user_id, require_permission};
-use crate::db::DbPool;
 use crate::errors::{render, AppError};
 use crate::models::meeting;
 use crate::models::minutes;
@@ -62,16 +62,15 @@ pub struct CsrfOnly {
 
 /// GET /tor/{id}/meetings/{mid} — meeting detail page.
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "meetings.view")?;
     let (tor_id, mid) = path.into_inner();
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/meetings")?;
+    let ctx = PageContext::build(&session, &pool, "/meetings").await?;
 
-    let meeting = meeting::find_by_id(&conn, mid)?
+    let meeting = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
 
     // Verify the meeting belongs to the requested ToR
@@ -79,21 +78,22 @@ pub async fn detail(
         return Err(AppError::NotFound);
     }
 
-    let agenda_points = meeting::find_agenda_points(&conn, mid)?;
-    let unassigned_points = meeting::find_unassigned_agenda_points(&conn, tor_id)?;
-    let protocol_steps = protocol::find_steps_for_tor(&conn, tor_id)?;
+    let agenda_points = meeting::find_agenda_points(&pool, mid).await?;
+    let unassigned_points = meeting::find_unassigned_agenda_points(&pool, tor_id).await?;
+    let protocol_steps = protocol::find_steps_for_tor(&pool, tor_id).await?;
     let permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(format!("Failed to get permissions: {}", e)))?;
     let transitions = workflow::find_available_transitions(
-        &conn,
+        &pool,
         "meeting",
         &meeting.status,
         &permissions,
         &HashMap::new(),
-    )?;
-    let existing_minutes = minutes::find_by_meeting(&conn, mid)?;
+    ).await?;
+    let existing_minutes = minutes::find_by_meeting(&pool, mid).await?;
     let user_id = get_user_id(&session).unwrap_or(0);
-    let tor_capabilities = abac::load_tor_capabilities(&conn, user_id, tor_id)
+    let tor_capabilities = abac::load_tor_capabilities(&pool, user_id, tor_id)
+        .await
         .unwrap_or_default();
 
     let tmpl = MeetingDetailTemplate {
@@ -119,7 +119,7 @@ pub async fn detail(
 /// Creates the meeting entity (which starts as "projected" internally) then
 /// immediately transitions it to "confirmed".
 pub async fn confirm(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<ConfirmForm>,
@@ -127,8 +127,7 @@ pub async fn confirm(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_call_meetings")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_call_meetings").await?;
 
     let location = form.location.as_deref().unwrap_or("");
     let notes = form.notes.as_deref().unwrap_or("");
@@ -139,7 +138,7 @@ pub async fn confirm(
     let secretary_user_id = form.secretary_user_id.as_deref().unwrap_or("");
 
     let meeting_id = meeting::create(
-        &conn,
+        &pool,
         tor_id,
         &form.meeting_date,
         &form.tor_name,
@@ -150,10 +149,10 @@ pub async fn confirm(
         vtc_details,
         chair_user_id,
         secretary_user_id,
-    )?;
+    ).await?;
 
     // Immediately transition to "confirmed" status.
-    meeting::update_status(&conn, meeting_id, "confirmed")?;
+    meeting::update_status(&pool, meeting_id, "confirmed").await?;
 
     // Audit
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -164,13 +163,13 @@ pub async fn confirm(
         "summary": format!("Meeting confirmed for {} on {}", &form.tor_name, &form.meeting_date),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.confirmed",
         "meeting",
         meeting_id,
         details,
-    );
+    ).await;
 
     let _ = session.insert("flash", "Meeting confirmed successfully");
     Ok(HttpResponse::SeeOther()
@@ -189,10 +188,10 @@ pub async fn confirm(
 ///
 /// Returns JSON `{"ok":true,"meeting_id":N}` on success.
 /// Handles two cases:
-///   - meeting_id present  → meeting already exists as "projected", just update status
-///   - meeting_id absent   → cadence slot, create the meeting entity then confirm it
+///   - meeting_id present  -> meeting already exists as "projected", just update status
+///   - meeting_id absent   -> cadence slot, create the meeting entity then confirm it
 pub async fn confirm_calendar(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CalendarConfirmForm>,
@@ -204,26 +203,19 @@ pub async fn confirm_calendar(
     }
 
     let tor_id = path.into_inner();
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => {
-            return Ok(HttpResponse::InternalServerError()
-                .content_type("application/json")
-                .body(serde_json::json!({"ok": false, "error": "Database error"}).to_string()));
-        }
-    };
     let current_user_id = get_user_id(&session).unwrap_or(0);
 
     // Two-phase access check: global tor.edit bypass OR resource-scoped ABAC capability.
-    let has_access = require_permission(&session, "tor.edit").is_ok()
-        || abac::has_resource_capability(
-            &conn,
-            current_user_id,
-            tor_id,
-            "belongs_to_tor",
-            "can_call_meetings",
-        )
-        .unwrap_or(false);
+    let has_abac = abac::has_resource_capability(
+        &pool,
+        current_user_id,
+        tor_id,
+        "belongs_to_tor",
+        "can_call_meetings",
+    )
+    .await
+    .unwrap_or(false);
+    let has_access = require_permission(&session, "tor.edit").is_ok() || has_abac;
     if !has_access {
         return Ok(HttpResponse::Forbidden()
             .content_type("application/json")
@@ -255,7 +247,7 @@ pub async fn confirm_calendar(
 
     let meeting_id = if let Some(mid) = form.meeting_id {
         // Meeting already exists — verify ownership then update status
-        let existing = match meeting::find_by_id(&conn, mid) {
+        let existing = match meeting::find_by_id(&pool, mid).await {
             Ok(Some(m)) => m,
             Ok(None) => {
                 return Ok(HttpResponse::NotFound()
@@ -279,7 +271,7 @@ pub async fn confirm_calendar(
                 .content_type("application/json")
                 .body(serde_json::json!({"ok": false, "error": format!("Meeting is already '{}' and cannot be confirmed", existing.status)}).to_string()));
         }
-        match meeting::update_status(&conn, mid, "confirmed") {
+        match meeting::update_status(&pool, mid, "confirmed").await {
             Ok(_) => mid,
             Err(_) => {
                 return Ok(HttpResponse::InternalServerError()
@@ -289,7 +281,7 @@ pub async fn confirm_calendar(
         }
     } else {
         // No persisted meeting yet — create it and confirm in one step
-        let mid = match meeting::create(&conn, tor_id, &form.meeting_date, &form.tor_name, "", "", "", "", "", "", "") {
+        let mid = match meeting::create(&pool, tor_id, &form.meeting_date, &form.tor_name, "", "", "", "", "", "", "").await {
             Ok(id) => id,
             Err(_) => {
                 return Ok(HttpResponse::InternalServerError()
@@ -297,7 +289,7 @@ pub async fn confirm_calendar(
                     .body(serde_json::json!({"ok": false, "error": "Failed to create meeting"}).to_string()));
             }
         };
-        match meeting::update_status(&conn, mid, "confirmed") {
+        match meeting::update_status(&pool, mid, "confirmed").await {
             Ok(_) => mid,
             Err(_) => {
                 return Ok(HttpResponse::InternalServerError()
@@ -314,13 +306,13 @@ pub async fn confirm_calendar(
         "summary": format!("Meeting confirmed for {} on {}", &form.tor_name, &form.meeting_date),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.confirmed",
         "meeting",
         meeting_id,
         details,
-    );
+    ).await;
 
     Ok(HttpResponse::Ok()
         .content_type("application/json")
@@ -333,7 +325,7 @@ pub async fn confirm_calendar(
 
 /// POST /tor/{id}/meetings/{mid}/transition — advance meeting lifecycle state.
 pub async fn transition(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<TransitionForm>,
@@ -341,10 +333,9 @@ pub async fn transition(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_call_meetings")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_call_meetings").await?;
 
-    let meeting_detail = meeting::find_by_id(&conn, mid)?
+    let meeting_detail = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
 
     if meeting_detail.tor_id != tor_id {
@@ -356,15 +347,15 @@ pub async fn transition(
 
     // Validate the transition via the workflow engine (returns error if invalid).
     workflow::validate_transition(
-        &conn,
+        &pool,
         "meeting",
         &meeting_detail.status,
         &form.new_status,
         &permissions,
         &HashMap::new(),
-    )?;
+    ).await?;
 
-    meeting::update_status(&conn, mid, &form.new_status)?;
+    meeting::update_status(&pool, mid, &form.new_status).await?;
 
     // Audit
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -376,13 +367,13 @@ pub async fn transition(
         "summary": format!("Meeting transitioned from {} to {}", &meeting_detail.status, &form.new_status),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.transition",
         "meeting",
         mid,
         details,
-    );
+    ).await;
 
     let _ = session.insert(
         "flash",
@@ -399,7 +390,7 @@ pub async fn transition(
 
 /// POST /tor/{id}/meetings/{mid}/agenda/assign — assign an agenda point to a meeting.
 pub async fn assign_agenda(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<AgendaForm>,
@@ -407,10 +398,9 @@ pub async fn assign_agenda(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_manage_agenda")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_manage_agenda").await?;
 
-    meeting::assign_agenda(&conn, mid, form.agenda_point_id)?;
+    meeting::assign_agenda(&pool, mid, form.agenda_point_id).await?;
 
     // Audit
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -421,13 +411,13 @@ pub async fn assign_agenda(
         "summary": format!("Agenda point {} assigned to meeting {}", form.agenda_point_id, mid),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.agenda_assigned",
         "meeting",
         mid,
         details,
-    );
+    ).await;
 
     let _ = session.insert("flash", "Agenda point assigned to meeting");
     Ok(HttpResponse::SeeOther()
@@ -441,7 +431,7 @@ pub async fn assign_agenda(
 
 /// POST /tor/{id}/meetings/{mid}/agenda/remove — remove an agenda point from a meeting.
 pub async fn remove_agenda(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<AgendaForm>,
@@ -449,10 +439,9 @@ pub async fn remove_agenda(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_manage_agenda")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_manage_agenda").await?;
 
-    meeting::remove_agenda(&conn, mid, form.agenda_point_id)?;
+    meeting::remove_agenda(&pool, mid, form.agenda_point_id).await?;
 
     // Audit
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -463,13 +452,13 @@ pub async fn remove_agenda(
         "summary": format!("Agenda point {} removed from meeting {}", form.agenda_point_id, mid),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.agenda_removed",
         "meeting",
         mid,
         details,
-    );
+    ).await;
 
     let _ = session.insert("flash", "Agenda point removed from meeting");
     Ok(HttpResponse::SeeOther()
@@ -483,7 +472,7 @@ pub async fn remove_agenda(
 
 /// POST /tor/{id}/meetings/{mid}/minutes/generate — generate minutes for a meeting.
 pub async fn generate_minutes(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<CsrfOnly>,
@@ -491,10 +480,9 @@ pub async fn generate_minutes(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, mid) = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_record_decisions")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_record_decisions").await?;
 
-    let meeting_detail = meeting::find_by_id(&conn, mid)?
+    let meeting_detail = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
 
     if meeting_detail.tor_id != tor_id {
@@ -509,14 +497,14 @@ pub async fn generate_minutes(
     }
 
     // Prevent duplicate generation.
-    if minutes::find_by_meeting(&conn, mid)?.is_some() {
+    if minutes::find_by_meeting(&pool, mid).await?.is_some() {
         return Err(AppError::PermissionDenied(
             "Minutes already exist for this meeting".to_string(),
         ));
     }
 
     let minutes_id =
-        minutes::generate_scaffold(&conn, mid, tor_id, &meeting_detail.label)?;
+        minutes::generate_scaffold(&pool, mid, tor_id, &meeting_detail.label).await?;
 
     // Audit
     let current_user_id = get_user_id(&session).unwrap_or(0);
@@ -527,13 +515,13 @@ pub async fn generate_minutes(
         "summary": format!("Minutes generated for meeting {}", mid),
     });
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         current_user_id,
         "meeting.minutes_generated",
         "meeting",
         mid,
         details,
-    );
+    ).await;
 
     let _ = session.insert("flash", "Minutes generated successfully");
     Ok(HttpResponse::SeeOther()
@@ -553,33 +541,32 @@ pub struct RollCallForm {
 
 /// POST /tor/{id}/meetings/{mid}/roll-call — upsert roll call JSON data for a meeting.
 pub async fn save_roll_call(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<RollCallForm>,
 ) -> Result<HttpResponse, AppError> {
     csrf::validate_csrf(&session, &form.csrf_token)?;
     let (tor_id, meeting_id) = path.into_inner();
-    let conn = pool.get()?;
-    abac::require_tor_capability(&conn, &session, tor_id, "can_record_decisions")?;
+    abac::require_tor_capability(&pool, &session, tor_id, "can_record_decisions").await?;
 
-    let meeting = meeting::find_by_id(&conn, meeting_id)?
+    let meeting = meeting::find_by_id(&pool, meeting_id).await?
         .ok_or(AppError::NotFound)?;
     if meeting.tor_id != tor_id {
         return Err(AppError::NotFound);
     }
 
-    meeting::update_roll_call(&conn, meeting_id, &form.roll_call_data)?;
+    meeting::update_roll_call(&pool, meeting_id, &form.roll_call_data).await?;
 
     let user_id = get_user_id(&session).unwrap_or(0);
     let _ = crate::audit::log(
-        &conn,
+        &pool,
         user_id,
         "meeting.roll_call_saved",
         "meeting",
         meeting_id,
         serde_json::json!({"meeting_id": meeting_id, "tor_id": tor_id, "summary": "Roll call updated"}),
-    );
+    ).await;
 
     let _ = session.insert("flash", "Roll call saved");
     Ok(HttpResponse::SeeOther()

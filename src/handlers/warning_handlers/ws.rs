@@ -4,9 +4,9 @@ use actix_ws::Message;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use tokio::sync::mpsc;
+use sqlx::PgPool;
 
 use crate::auth::session::get_user_id;
-use crate::db::DbPool;
 use crate::warnings::queries;
 
 pub type ConnectionMap = std::sync::Arc<RwLock<HashMap<i64, Vec<mpsc::UnboundedSender<String>>>>>;
@@ -16,25 +16,21 @@ pub fn new_connection_map() -> ConnectionMap {
 }
 
 /// Notify connected users about a new warning.
-pub fn notify_users(
+pub async fn notify_users(
     conn_map: &ConnectionMap,
-    pool: &DbPool,
+    pool: &PgPool,
     target_user_ids: &[i64],
     warning_id: i64,
     severity: &str,
     title: &str,
 ) {
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
     let map = match conn_map.read() {
         Ok(m) => m,
         Err(_) => return,
     };
     for &user_id in target_user_ids {
         if let Some(senders) = map.get(&user_id) {
-            let unread = queries::count_unread(&conn, user_id);
+            let unread = queries::count_unread(pool, user_id).await;
             let msg = serde_json::json!({
                 "type": "new_warning",
                 "warning_id": warning_id,
@@ -51,12 +47,8 @@ pub fn notify_users(
 }
 
 /// Send count update to a specific user.
-pub fn send_count_update(conn_map: &ConnectionMap, pool: &DbPool, user_id: i64) {
-    let conn = match pool.get() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let unread = queries::count_unread(&conn, user_id);
+pub async fn send_count_update(conn_map: &ConnectionMap, pool: &PgPool, user_id: i64) {
+    let unread = queries::count_unread(pool, user_id).await;
     let msg = serde_json::json!({
         "type": "count_update",
         "unread_count": unread,

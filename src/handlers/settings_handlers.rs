@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::setting;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
@@ -40,14 +40,13 @@ fn parse_form_body(body: &str) -> Vec<(String, String)> {
 }
 
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "settings.manage")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/settings")?;
-    let settings = setting::find_all(&conn)?;
+    let ctx = PageContext::build(&session, &pool, "/settings").await?;
+    let settings = setting::find_all(&pool).await?;
 
     let tmpl = SettingsTemplate { ctx, settings };
     render(tmpl)
@@ -61,7 +60,7 @@ fn get_field<'a>(params: &'a [(String, String)], key: &str) -> &'a str {
 }
 
 pub async fn save(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     body: String,
 ) -> Result<HttpResponse, AppError> {
@@ -70,13 +69,11 @@ pub async fn save(
     let params = parse_form_body(&body);
     csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
-    let conn = pool.get()?;
-
     // Each setting is submitted as setting_<id>=<value>
     for (key, value) in &params {
         if let Some(id_str) = key.strip_prefix("setting_") {
             if let Ok(id) = id_str.parse::<i64>() {
-                setting::update_value(&conn, id, value.trim())?;
+                setting::update_value(&pool, id, value.trim()).await?;
             }
         }
     }

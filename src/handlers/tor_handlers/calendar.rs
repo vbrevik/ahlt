@@ -2,9 +2,9 @@ use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use chrono::{Datelike, Local, NaiveDate};
 use serde::Deserialize;
+use sqlx::PgPool;
 
 use crate::auth::session::require_permission;
-use crate::db::DbPool;
 use crate::errors::{render, AppError};
 use crate::models::tor;
 use crate::templates_structs::{PageContext, TorOutlookTemplate};
@@ -16,7 +16,7 @@ pub struct CalendarQuery {
 }
 
 pub async fn calendar_api(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<CalendarQuery>,
 ) -> Result<HttpResponse, AppError> {
@@ -42,19 +42,17 @@ pub async fn calendar_api(
         })));
     }
 
-    let conn = pool.get()?;
-    let events = tor::compute_meetings(&conn, start, end)?;
+    let events = tor::compute_meetings(&pool, start, end).await?;
     Ok(HttpResponse::Ok().json(events))
 }
 
 pub async fn outlook(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "tor.list")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/tor/outlook")?;
+    let ctx = PageContext::build(&session, &pool, "/tor/outlook").await?;
 
     // Compute initial week (Mon-Sun containing today)
     let today = Local::now().date_naive();
@@ -62,7 +60,7 @@ pub async fn outlook(
     let week_start = today - chrono::Duration::days(days_since_monday as i64);
     let week_end = week_start + chrono::Duration::days(6);
 
-    let events = tor::compute_meetings(&conn, week_start, week_end)?;
+    let events = tor::compute_meetings(&pool, week_start, week_end).await?;
     let events_json =
         serde_json::to_string(&events).unwrap_or_else(|_| "[]".to_string());
     let today_str = today.format("%Y-%m-%d").to_string();

@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::{role, user};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
@@ -14,15 +14,14 @@ pub struct AssignmentQuery {
 }
 
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<AssignmentQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "roles.assign")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/roles")?;
-    let roles = role::find_all_list_items(&conn)?;
+    let ctx = PageContext::build(&session, &pool, "/roles").await?;
+    let roles = role::find_all_list_items(&pool).await?;
 
     let active_tab = query.tab.clone().unwrap_or_else(|| "by-role".to_string());
 
@@ -32,18 +31,18 @@ pub async fn list(
     });
 
     let members = if selected_role_id > 0 {
-        role::find_users_by_role(&conn, selected_role_id)?
+        role::find_users_by_role(&pool, selected_role_id).await?
     } else {
         vec![]
     };
 
     let available_users = if selected_role_id > 0 {
-        role::find_users_not_in_role(&conn, selected_role_id)?
+        role::find_users_not_in_role(&pool, selected_role_id).await?
     } else {
         vec![]
     };
 
-    let users_with_roles = user::find_all_with_roles(&conn)?;
+    let users_with_roles = user::find_all_with_roles(&pool).await?;
 
     let tmpl = RoleAssignmentTemplate {
         ctx,

@@ -1,9 +1,9 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
-use crate::db::DbPool;
 use crate::errors::{render, AppError};
 use crate::models::data_manager::{export, import, jsonld};
 use crate::templates_structs::{DataManagerTemplate, PageContext};
@@ -17,22 +17,20 @@ pub struct ExportQuery {
 
 /// GET /data-manager — admin page
 pub async fn data_manager_page(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "settings.manage")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/data-manager")?;
+    let ctx = PageContext::build(&session, &pool, "/data-manager").await?;
 
     // Collect distinct entity types for the export filter
-    let mut stmt = conn.prepare(
+    let entity_types: Vec<String> = sqlx::query_scalar(
         "SELECT DISTINCT entity_type FROM entities ORDER BY entity_type",
-    )?;
-    let entity_types: Vec<String> = stmt
-        .query_map([], |row| row.get(0))?
-        .filter_map(|r| r.ok())
-        .collect();
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    .map_err(AppError::Db)?;
 
     let tmpl = DataManagerTemplate { ctx, entity_types };
     render(tmpl)
@@ -40,7 +38,7 @@ pub async fn data_manager_page(
 
 /// POST /api/data/import — import entities and relations
 pub async fn import_data(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     body: web::Json<serde_json::Value>,
 ) -> Result<HttpResponse, AppError> {
@@ -53,8 +51,6 @@ pub async fn import_data(
     } else {
         return Err(AppError::Csrf("missing csrf_token in request body".to_string()));
     }
-
-    let conn = pool.get()?;
 
     // Auto-detect JSON-LD vs native format
     let payload = if body.get("@context").is_some() || body.get("@graph").is_some() {
@@ -70,9 +66,7 @@ pub async fn import_data(
             .map_err(|e| AppError::Session(format!("Invalid import payload: {}", e)))?
     };
 
-    let result = web::block(move || import::import_data(&conn, &payload))
-        .await
-        .map_err(|e| AppError::Session(format!("Import thread error: {e}")))?
+    let result = import::import_data(&pool, &payload).await
         .map_err(|e| AppError::Session(format!("Import failed: {e}")))?;
 
     Ok(HttpResponse::Ok().json(result))
@@ -80,13 +74,11 @@ pub async fn import_data(
 
 /// GET /api/data/export — export entity graph
 pub async fn export_data(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<ExportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "settings.manage")?;
-
-    let conn = pool.get()?;
 
     let types_filter: Option<Vec<String>> = query.types.as_ref().map(|t| {
         t.split(',')
@@ -100,19 +92,19 @@ pub async fn export_data(
 
     match format {
         "jsonld" => {
-            let data = jsonld::export_jsonld(&conn, types_ref)?;
+            let data = jsonld::export_jsonld(&pool, types_ref).await?;
             Ok(HttpResponse::Ok()
                 .content_type("application/ld+json")
                 .json(data))
         }
         "sql" => {
-            let sql = export::export_sql(&conn, types_ref)?;
+            let sql = export::export_sql(&pool, types_ref).await?;
             Ok(HttpResponse::Ok()
                 .content_type("text/plain; charset=utf-8")
                 .body(sql))
         }
         _ => {
-            let data = export::export_entities(&conn, types_ref)?;
+            let data = export::export_entities(&pool, types_ref).await?;
             Ok(HttpResponse::Ok().json(data))
         }
     }
@@ -120,13 +112,12 @@ pub async fn export_data(
 
 /// GET /api/data/schema — return the JSON-LD @context
 pub async fn schema(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "settings.manage")?;
 
-    let conn = pool.get()?;
-    let context = jsonld::build_context(&conn)?;
+    let context = jsonld::build_context(&pool).await?;
 
     Ok(HttpResponse::Ok()
         .content_type("application/ld+json")

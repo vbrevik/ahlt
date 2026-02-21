@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::{csrf, session::{require_permission, get_user_id}};
 use crate::errors::{AppError, render};
 use crate::models::document;
@@ -10,13 +10,12 @@ use crate::templates_structs::{PageContext, DocumentDetailTemplate, DocumentForm
 /// GET /documents/new
 /// Renders the document creation form.
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "document.create")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/documents")?;
+    let ctx = PageContext::build(&session, &pool, "/documents").await?;
 
     let tmpl = DocumentFormTemplate {
         ctx,
@@ -31,14 +30,13 @@ pub async fn new_form(
 /// POST /documents
 /// Creates a new document.
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<document::DocumentForm>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "document.create")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
 
     // Validate
@@ -58,7 +56,7 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/documents")?;
+        let ctx = PageContext::build(&session, &pool, "/documents").await?;
         let tmpl = DocumentFormTemplate {
             ctx,
             form_title: "New Document".to_string(),
@@ -70,7 +68,7 @@ pub async fn create(
     }
 
     let tor_id = form.tor_id.as_ref().and_then(|s| s.parse::<i64>().ok());
-    let doc_id = document::create(&conn, title, doc_type, body, user_id, tor_id)?;
+    let doc_id = document::create(&pool, title, doc_type, body, user_id, tor_id).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -80,7 +78,7 @@ pub async fn create(
         "tor_id": tor_id,
         "summary": format!("Created document '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "document.created", "document", doc_id, details);
+    let _ = crate::audit::log(&pool, user_id, "document.created", "document", doc_id, details).await;
 
     let _ = session.insert("flash", "Document created successfully");
     Ok(HttpResponse::SeeOther()
@@ -91,18 +89,17 @@ pub async fn create(
 /// GET /documents/{id}
 /// Renders the document detail page.
 pub async fn detail(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "document.view")?;
 
     let doc_id = path.into_inner();
-    let conn = pool.get()?;
 
-    match document::find_by_id(&conn, doc_id)? {
+    match document::find_by_id(&pool, doc_id).await? {
         Some(doc) => {
-            let ctx = PageContext::build(&session, &conn, "/documents")?;
+            let ctx = PageContext::build(&session, &pool, "/documents").await?;
             let tmpl = DocumentDetailTemplate { ctx, document: doc };
             render(tmpl)
         }
@@ -113,18 +110,17 @@ pub async fn detail(
 /// GET /documents/{id}/edit
 /// Renders the document edit form.
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "document.edit")?;
 
     let doc_id = path.into_inner();
-    let conn = pool.get()?;
 
-    match document::find_by_id(&conn, doc_id)? {
+    match document::find_by_id(&pool, doc_id).await? {
         Some(doc) => {
-            let ctx = PageContext::build(&session, &conn, "/documents")?;
+            let ctx = PageContext::build(&session, &pool, "/documents").await?;
             let tmpl = DocumentFormTemplate {
                 ctx,
                 form_title: "Edit Document".to_string(),
@@ -141,7 +137,7 @@ pub async fn edit_form(
 /// POST /documents/{id}
 /// Updates an existing document.
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<document::DocumentForm>,
@@ -150,7 +146,6 @@ pub async fn update(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let doc_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
 
     // Validate
@@ -170,8 +165,8 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let existing = document::find_by_id(&conn, doc_id).ok().flatten();
-        let ctx = PageContext::build(&session, &conn, "/documents")?;
+        let existing = document::find_by_id(&pool, doc_id).await.ok().flatten();
+        let ctx = PageContext::build(&session, &pool, "/documents").await?;
         let tmpl = DocumentFormTemplate {
             ctx,
             form_title: "Edit Document".to_string(),
@@ -182,7 +177,7 @@ pub async fn update(
         return render(tmpl);
     }
 
-    document::update(&conn, doc_id, title, doc_type, body)?;
+    document::update(&pool, doc_id, title, doc_type, body).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -190,7 +185,7 @@ pub async fn update(
         "title": title,
         "summary": format!("Updated document '{}'", title)
     });
-    let _ = crate::audit::log(&conn, user_id, "document.updated", "document", doc_id, details);
+    let _ = crate::audit::log(&pool, user_id, "document.updated", "document", doc_id, details).await;
 
     let _ = session.insert("flash", "Document updated successfully");
     Ok(HttpResponse::SeeOther()
@@ -201,20 +196,19 @@ pub async fn update(
 /// POST /documents/{id}/delete
 /// Deletes a document.
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "document.delete")?;
 
     let doc_id = path.into_inner();
-    let conn = pool.get()?;
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
 
     // Get document details before deletion for audit log
-    let doc = document::find_by_id(&conn, doc_id)?.ok_or(AppError::NotFound)?;
+    let doc = document::find_by_id(&pool, doc_id).await?.ok_or(AppError::NotFound)?;
 
-    document::delete(&conn, doc_id)?;
+    document::delete(&pool, doc_id).await?;
 
     // Audit log
     let details = serde_json::json!({
@@ -222,7 +216,7 @@ pub async fn delete(
         "title": &doc.title,
         "summary": format!("Deleted document '{}'", &doc.title)
     });
-    let _ = crate::audit::log(&conn, user_id, "document.deleted", "document", doc_id, details);
+    let _ = crate::audit::log(&pool, user_id, "document.deleted", "document", doc_id, details).await;
 
     let _ = session.insert("flash", "Document deleted successfully");
     Ok(HttpResponse::SeeOther()

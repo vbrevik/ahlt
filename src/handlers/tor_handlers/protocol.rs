@@ -1,14 +1,14 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::protocol;
 use crate::auth::csrf;
 use crate::auth::session::require_permission;
 use crate::errors::AppError;
 
 pub async fn add_step(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -17,7 +17,6 @@ pub async fn add_step(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let tor_id = path.into_inner();
-    let conn = pool.get()?;
 
     let name = form.get("name").map(|s| s.as_str()).unwrap_or("");
     let label = form.get("label").map(|s| s.as_str()).unwrap_or("");
@@ -38,8 +37,8 @@ pub async fn add_step(
             .finish());
     }
 
-    protocol::create_step(&conn, tor_id, name.trim(), label.trim(), step_type,
-                          sequence_order, duration, description, is_required, responsible.trim())?;
+    protocol::create_step(&pool, tor_id, name.trim(), label.trim(), step_type,
+                          sequence_order, duration, description, is_required, responsible.trim()).await?;
 
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
@@ -48,7 +47,7 @@ pub async fn add_step(
         "step_type": step_type,
         "summary": "Added protocol step"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "tor.protocol_step_added", "tor", tor_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "tor.protocol_step_added", "tor", tor_id, details).await;
 
     let _ = session.insert("flash", "Protocol step added");
     Ok(HttpResponse::SeeOther()
@@ -57,7 +56,7 @@ pub async fn add_step(
 }
 
 pub async fn delete_step(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -66,16 +65,15 @@ pub async fn delete_step(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let (tor_id, step_id) = path.into_inner();
-    let conn = pool.get()?;
 
-    protocol::delete_step(&conn, step_id)?;
+    protocol::delete_step(&pool, step_id).await?;
 
     let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
     let details = serde_json::json!({
         "step_id": step_id,
         "summary": "Removed protocol step"
     });
-    let _ = crate::audit::log(&conn, current_user_id, "tor.protocol_step_removed", "tor", tor_id, details);
+    let _ = crate::audit::log(&pool, current_user_id, "tor.protocol_step_removed", "tor", tor_id, details).await;
 
     let _ = session.insert("flash", "Protocol step removed");
     Ok(HttpResponse::SeeOther()
@@ -84,7 +82,7 @@ pub async fn delete_step(
 }
 
 pub async fn move_step(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
     form: web::Form<std::collections::HashMap<String, String>>,
@@ -93,12 +91,11 @@ pub async fn move_step(
     csrf::validate_csrf(&session, form.get("csrf_token").map(|s| s.as_str()).unwrap_or(""))?;
 
     let (tor_id, step_id) = path.into_inner();
-    let conn = pool.get()?;
 
     let direction = form.get("direction").map(|s| s.as_str()).unwrap_or("");
 
     // Load all steps for this ToR to find the neighbor
-    let steps = protocol::find_steps_for_tor(&conn, tor_id)?;
+    let steps = protocol::find_steps_for_tor(&pool, tor_id).await?;
     let current_idx = steps.iter().position(|s| s.id == step_id);
 
     if let Some(idx) = current_idx {
@@ -109,7 +106,7 @@ pub async fn move_step(
         };
 
         if let Some(other_idx) = swap_idx {
-            protocol::reorder_steps(&conn, steps[idx].id, steps[other_idx].id)?;
+            protocol::reorder_steps(&pool, steps[idx].id, steps[other_idx].id).await?;
         }
     }
 

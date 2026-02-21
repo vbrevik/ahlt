@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::models::user::{self, UserForm};
 use crate::auth::{csrf, password, validate};
 use crate::auth::session::{get_user_id, require_permission};
@@ -11,13 +11,12 @@ use crate::handlers::warning_handlers::ws::ConnectionMap;
 use crate::templates_structs::{PageContext, UserFormTemplate};
 
 pub async fn new_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.create")?;
 
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/users")?;
+    let ctx = PageContext::build(&session, &pool, "/users").await?;
 
     let tmpl = UserFormTemplate {
         ctx,
@@ -30,15 +29,13 @@ pub async fn new_form(
 }
 
 pub async fn create(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<UserForm>,
     conn_map: web::Data<ConnectionMap>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.create")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
-
-    let conn = pool.get()?;
 
     // Validate
     let mut errors: Vec<String> = vec![];
@@ -48,7 +45,7 @@ pub async fn create(
     errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &conn, "/users")?;
+        let ctx = PageContext::build(&session, &pool, "/users").await?;
         let tmpl = UserFormTemplate {
             ctx,
             form_action: "/users".to_string(),
@@ -71,10 +68,10 @@ pub async fn create(
         display_name: form.display_name.trim().to_string(),
     };
 
-    match user::create(&conn, &new) {
+    match user::create(&pool, &new).await {
         Ok(user_id) => {
             // Assign default viewer role
-            let _ = user::assign_default_role(&conn, user_id);
+            let _ = user::assign_default_role(&pool, user_id).await;
 
             // Audit log
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
@@ -82,17 +79,17 @@ pub async fn create(
                 "email": new.email,
                 "summary": format!("Created user '{}'", new.username)
             });
-            let _ = crate::audit::log(&conn, current_user_id, "user.created",
-                                      "user", user_id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "user.created",
+                                      "user", user_id, details).await;
 
             // Generate info warning for admins
             let msg = format!("User '{}' was created", new.username);
             if let Ok(wid) = crate::warnings::create_warning(
-                &conn, "info", "governance", "event.user.created", &msg, "", "system"
-            ) {
-                let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                &pool, "info", "governance", "event.user.created", &msg, "", "system"
+            ).await {
+                let admins = crate::warnings::get_users_with_permission(&pool, "admin.settings").await.unwrap_or_default();
                 if !admins.is_empty() {
-                    let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                    let _ = crate::warnings::create_receipts(&pool, wid, &admins).await;
                     crate::handlers::warning_handlers::ws::notify_users(
                         &conn_map, &pool, &admins, wid, "info", &msg,
                     );
@@ -110,7 +107,7 @@ pub async fn create(
             } else {
                 format!("Error creating user: {e}")
             };
-            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let ctx = PageContext::build(&session, &pool, "/users").await?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: "/users".to_string(),
@@ -124,18 +121,17 @@ pub async fn create(
 }
 
 pub async fn edit_form(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.edit")?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
-    match user::find_display_by_id(&conn, id) {
+    match user::find_display_by_id(&pool, id).await {
         Ok(Some(u)) => {
-            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let ctx = PageContext::build(&session, &pool, "/users").await?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
@@ -150,7 +146,7 @@ pub async fn edit_form(
 }
 
 pub async fn update(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<UserForm>,
@@ -159,7 +155,6 @@ pub async fn update(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let id = path.into_inner();
-    let conn = pool.get()?;
 
     // Validate
     let mut errors: Vec<String> = vec![];
@@ -172,8 +167,8 @@ pub async fn update(
     }
 
     if !errors.is_empty() {
-        let existing = user::find_display_by_id(&conn, id).ok().flatten();
-        let ctx = PageContext::build(&session, &conn, "/users")?;
+        let existing = user::find_display_by_id(&pool, id).await.ok().flatten();
+        let ctx = PageContext::build(&session, &pool, "/users").await?;
         let tmpl = UserFormTemplate {
             ctx,
             form_action: format!("/users/{id}"),
@@ -195,13 +190,13 @@ pub async fn update(
     };
 
     match user::update(
-        &conn,
+        &pool,
         id,
         form.username.trim(),
         hashed.as_deref(),
         form.email.trim(),
         form.display_name.trim(),
-    ) {
+    ).await {
         Ok(_) => {
             // Audit log
             let current_user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
@@ -211,8 +206,8 @@ pub async fn update(
                 "password_changed": !form.password.is_empty(),
                 "summary": format!("Updated user '{}'", form.username.trim())
             });
-            let _ = crate::audit::log(&conn, current_user_id, "user.updated",
-                                      "user", id, details);
+            let _ = crate::audit::log(&pool, current_user_id, "user.updated",
+                                      "user", id, details).await;
 
             let _ = session.insert("flash", "User updated successfully");
             Ok(HttpResponse::SeeOther()
@@ -225,8 +220,8 @@ pub async fn update(
             } else {
                 format!("Error updating user: {e}")
             };
-            let existing = user::find_display_by_id(&conn, id).ok().flatten();
-            let ctx = PageContext::build(&session, &conn, "/users")?;
+            let existing = user::find_display_by_id(&pool, id).await.ok().flatten();
+            let ctx = PageContext::build(&session, &pool, "/users").await?;
             let tmpl = UserFormTemplate {
                 ctx,
                 form_action: format!("/users/{id}"),
@@ -240,7 +235,7 @@ pub async fn update(
 }
 
 pub async fn delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<i64>,
     form: web::Form<CsrfOnly>,
@@ -260,27 +255,28 @@ pub async fn delete(
             .finish());
     }
 
-    let conn = pool.get()?;
-
     // Last-admin protection — query has_role relation directly (multi-role safe)
-    let has_admin_role: bool = conn.query_row(
+    let has_admin_role: bool = sqlx::query_scalar(
         "SELECT COUNT(*) > 0 FROM relations r \
          JOIN entities role_e ON r.target_id = role_e.id \
-         WHERE r.source_id = ?1 \
+         WHERE r.source_id = $1 \
            AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
            AND role_e.name = 'admin'",
-        rusqlite::params![id],
-        |row| row.get::<_, bool>(0),
-    )?;
+    )
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await?;
+
     if has_admin_role {
-        let admin_count: i64 = conn.query_row(
+        let admin_count: i64 = sqlx::query_scalar(
             "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
              JOIN entities role_e ON r.target_id = role_e.id \
              WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
                AND role_e.name = 'admin'",
-            [],
-            |row| row.get(0),
-        )?;
+        )
+        .fetch_one(pool.get_ref())
+        .await?;
+
         if admin_count <= 1 {
             let _ = session.insert("flash", "Cannot delete the last administrator");
             return Ok(HttpResponse::SeeOther()
@@ -290,9 +286,9 @@ pub async fn delete(
     }
 
     // Fetch user details before deletion for audit log
-    let user_details = user::find_display_by_id(&conn, id).ok().flatten();
+    let user_details = user::find_display_by_id(&pool, id).await.ok().flatten();
 
-    match user::delete(&conn, id) {
+    match user::delete(&pool, id).await {
         Ok(_) => {
             // Audit log
             if let Some(deleted_user) = user_details {
@@ -300,17 +296,17 @@ pub async fn delete(
                     "username": deleted_user.username,
                     "summary": format!("Deleted user '{}'", deleted_user.username)
                 });
-                let _ = crate::audit::log(&conn, current_user_id, "user.deleted",
-                                          "user", id, details);
+                let _ = crate::audit::log(&pool, current_user_id, "user.deleted",
+                                          "user", id, details).await;
 
                 // Generate warning for admins
                 let msg = format!("User '{}' was deleted", deleted_user.username);
                 if let Ok(wid) = crate::warnings::create_warning(
-                    &conn, "medium", "governance", "event.user.deleted", &msg, "", "system"
-                ) {
-                    let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                    &pool, "medium", "governance", "event.user.deleted", &msg, "", "system"
+                ).await {
+                    let admins = crate::warnings::get_users_with_permission(&pool, "admin.settings").await.unwrap_or_default();
                     if !admins.is_empty() {
-                        let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                        let _ = crate::warnings::create_receipts(&pool, wid, &admins).await;
                         crate::handlers::warning_handlers::ws::notify_users(
                             &conn_map, &pool, &admins, wid, "medium", &msg,
                         );
@@ -341,7 +337,7 @@ pub struct BulkDeleteForm {
 }
 
 pub async fn bulk_delete(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<BulkDeleteForm>,
     conn_map: web::Data<ConnectionMap>,
@@ -350,7 +346,7 @@ pub async fn bulk_delete(
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let current_user_id = get_user_id(&session).unwrap_or(0);
-    
+
     // Parse the JSON array of user IDs
     let user_ids: Vec<i64> = match serde_json::from_str(&form.user_ids) {
         Ok(ids) => ids,
@@ -369,7 +365,6 @@ pub async fn bulk_delete(
             .finish());
     }
 
-    let conn = pool.get()?;
     let mut deleted_count = 0;
     let mut error_count = 0;
 
@@ -382,24 +377,29 @@ pub async fn bulk_delete(
 
         // Last-admin protection — query has_role relation directly (multi-role safe)
         // Use safe defaults: on error, assume admin / count=1 to prevent deletion
-        let has_admin = conn.query_row(
+        let has_admin: bool = sqlx::query_scalar(
             "SELECT COUNT(*) > 0 FROM relations r \
              JOIN entities role_e ON r.target_id = role_e.id \
-             WHERE r.source_id = ?1 \
+             WHERE r.source_id = $1 \
                AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
                AND role_e.name = 'admin'",
-            rusqlite::params![id],
-            |row| row.get::<_, bool>(0),
-        ).unwrap_or(true); // On error, assume admin (safe side)
+        )
+        .bind(id)
+        .fetch_one(pool.get_ref())
+        .await
+        .unwrap_or(true); // On error, assume admin (safe side)
+
         if has_admin {
-            let admin_count: i64 = conn.query_row(
+            let admin_count: i64 = sqlx::query_scalar(
                 "SELECT COUNT(DISTINCT r.source_id) FROM relations r \
                  JOIN entities role_e ON r.target_id = role_e.id \
                  WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
                    AND role_e.name = 'admin'",
-                [],
-                |row| row.get(0),
-            ).unwrap_or(1); // On error, assume 1 admin (safe side)
+            )
+            .fetch_one(pool.get_ref())
+            .await
+            .unwrap_or(1); // On error, assume 1 admin (safe side)
+
             if admin_count <= 1 {
                 error_count += 1;
                 continue;
@@ -407,9 +407,9 @@ pub async fn bulk_delete(
         }
 
         // Fetch user details before deletion for audit log
-        let user_details = user::find_display_by_id(&conn, id).ok().flatten();
+        let user_details = user::find_display_by_id(&pool, id).await.ok().flatten();
 
-        if user::delete(&conn, id).is_ok() {
+        if user::delete(&pool, id).await.is_ok() {
             deleted_count += 1;
 
             // Audit log
@@ -418,17 +418,17 @@ pub async fn bulk_delete(
                     "username": deleted_user.username,
                     "summary": format!("Deleted user '{}' (bulk delete)", deleted_user.username)
                 });
-                let _ = crate::audit::log(&conn, current_user_id, "user.deleted",
-                                          "user", id, details);
+                let _ = crate::audit::log(&pool, current_user_id, "user.deleted",
+                                          "user", id, details).await;
 
                 // Generate warning for admins
                 let msg = format!("User '{}' was deleted", deleted_user.username);
                 if let Ok(wid) = crate::warnings::create_warning(
-                    &conn, "medium", "governance", "event.user.deleted", &msg, "", "system"
-                ) {
-                    let admins = crate::warnings::get_users_with_permission(&conn, "admin.settings").unwrap_or_default();
+                    &pool, "medium", "governance", "event.user.deleted", &msg, "", "system"
+                ).await {
+                    let admins = crate::warnings::get_users_with_permission(&pool, "admin.settings").await.unwrap_or_default();
                     if !admins.is_empty() {
-                        let _ = crate::warnings::create_receipts(&conn, wid, &admins);
+                        let _ = crate::warnings::create_receipts(&pool, wid, &admins).await;
                         crate::handlers::warning_handlers::ws::notify_users(
                             &conn_map, &pool, &admins, wid, "medium", &msg,
                         );
@@ -463,13 +463,11 @@ pub struct ExportQuery {
 }
 
 pub async fn export_csv(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<ExportQuery>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.list")?;
-
-    let conn = pool.get()?;
 
     let filter = query.filter.as_deref()
         .and_then(|s| crate::models::table_filter::FilterTree::from_json(s).ok())
@@ -478,15 +476,17 @@ pub async fn export_csv(
         query.sort.as_deref(), query.dir.as_deref()
     );
 
-    let users = crate::models::user::find_all_filtered(&conn, &filter, &sort)?;
+    let users = crate::models::user::find_all_filtered(&pool, &filter, &sort).await?;
 
     // Audit log
     let uid = crate::auth::session::get_user_id(&session).unwrap_or(0);
-    let _ = crate::audit::log(&conn, uid, "users.export", "user", 0,
-        serde_json::json!({ "count": users.len(), "format": "csv" }));
+    let _ = crate::audit::log(&pool, uid, "users.export", "user", 0,
+        serde_json::json!({ "count": users.len(), "format": "csv" })).await;
 
     // Get today's date for filename
-    let today: String = conn.query_row("SELECT DATE('now')", [], |r| r.get(0))
+    let today: String = sqlx::query_scalar("SELECT CURRENT_DATE::text")
+        .fetch_one(pool.get_ref())
+        .await
         .unwrap_or_else(|_| "unknown".to_string());
 
     fn escape_csv(s: &str) -> String {
@@ -526,14 +526,13 @@ pub struct SaveColumnsForm {
 }
 
 pub async fn save_columns(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     form: web::Form<SaveColumnsForm>,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "users.list")?;
     crate::auth::csrf::validate_csrf(&session, &form.csrf_token)?;
 
-    let conn = pool.get()?;
     let user_id = crate::auth::session::get_user_id(&session)
         .ok_or_else(|| AppError::Session("Not logged in".to_string()))?;
 
@@ -553,12 +552,12 @@ pub async fn save_columns(
         format!("{pref},actions")
     } else { pref };
 
-    crate::models::table_filter::columns::save_user_columns(user_id, "users", &pref, &conn)?;
+    crate::models::table_filter::columns::save_user_columns(user_id, "users", &pref, &pool).await?;
 
     // Optionally save global default
     if form.set_global.as_deref() == Some("true") {
         require_permission(&session, "settings.manage")?;
-        crate::models::table_filter::columns::save_global_columns("users", &pref, &conn)?;
+        crate::models::table_filter::columns::save_global_columns("users", &pref, &pool).await?;
     }
 
     let redirect = form.redirect_to.as_deref().unwrap_or("/users");

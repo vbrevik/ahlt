@@ -1,8 +1,8 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::auth::session::get_user_id;
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, WarningListTemplate};
@@ -19,19 +19,18 @@ pub struct WarningQuery {
 }
 
 pub async fn list(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
     query: web::Query<WarningQuery>,
 ) -> Result<HttpResponse, AppError> {
     let user_id = get_user_id(&session).ok_or_else(|| AppError::Session("No user".into()))?;
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/warnings")?;
+    let ctx = PageContext::build(&session, &pool, "/warnings").await?;
 
     let show_read = query.show_read.as_deref() == Some("true");
     let show_deleted = query.show_deleted.as_deref() == Some("true");
 
     let warning_page = queries::find_for_user(
-        &conn,
+        &pool,
         user_id,
         query.page.unwrap_or(1),
         query.per_page.unwrap_or(25),
@@ -39,7 +38,7 @@ pub async fn list(
         query.severity.as_deref(),
         show_read,
         show_deleted,
-    )?;
+    ).await?;
 
     let tmpl = WarningListTemplate {
         ctx,
