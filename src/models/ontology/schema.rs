@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 use serde::Serialize;
 
 /// Summary of an entity type for the concepts view.
@@ -60,25 +60,23 @@ pub struct SchemaGraphData {
 }
 
 /// Get schema-level graph: entity types as nodes, relation patterns as edges.
-pub fn find_schema_graph_data(conn: &Connection) -> rusqlite::Result<SchemaGraphData> {
+pub async fn find_schema_graph_data(pool: &PgPool) -> Result<SchemaGraphData, sqlx::Error> {
     // Nodes: one per entity_type with count
-    let mut type_stmt = conn.prepare(
+    let type_counts: Vec<(String, i64)> = sqlx::query_as(
         "SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type ORDER BY entity_type"
-    )?;
-    let type_counts: Vec<(String, i64)> = type_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     // Property keys per type
-    let mut key_stmt = conn.prepare(
+    let type_keys: Vec<(String, String)> = sqlx::query_as(
         "SELECT DISTINCT e.entity_type, ep.key \
          FROM entity_properties ep \
          JOIN entities e ON ep.entity_id = e.id \
          ORDER BY e.entity_type, ep.key"
-    )?;
-    let type_keys: Vec<(String, String)> = key_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     let mut nodes: Vec<SchemaNode> = type_counts.iter().map(|(t, c)| {
         let keys: Vec<String> = type_keys.iter()
@@ -101,62 +99,56 @@ pub fn find_schema_graph_data(conn: &Connection) -> rusqlite::Result<SchemaGraph
     }
 
     // Edges: relation patterns between entity types
-    let mut edge_stmt = conn.prepare(
+    let edges: Vec<SchemaEdge> = sqlx::query_as(
         "SELECT src.entity_type, tgt.entity_type, rt.name, rt.label, COUNT(*) \
          FROM relations r \
          JOIN entities src ON r.source_id = src.id \
          JOIN entities tgt ON r.target_id = tgt.id \
          JOIN entities rt ON r.relation_type_id = rt.id \
          GROUP BY src.entity_type, tgt.entity_type, rt.name, rt.label"
-    )?;
-    let edges: Vec<SchemaEdge> = edge_stmt.query_map([], |row| {
-        Ok(SchemaEdge {
-            source: row.get(0)?,
-            target: row.get(1)?,
-            relation_type: row.get(2)?,
-            relation_label: row.get(3)?,
-            count: row.get(4)?,
-        })
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     Ok(SchemaGraphData { nodes, edges })
 }
 
 /// Get summaries of all entity types: counts, property keys, and sample entities.
-pub fn find_entity_type_summaries(conn: &Connection) -> rusqlite::Result<Vec<EntityTypeSummary>> {
+pub async fn find_entity_type_summaries(pool: &PgPool) -> Result<Vec<EntityTypeSummary>, sqlx::Error> {
     // Counts per type
-    let mut count_stmt = conn.prepare(
+    let type_counts: Vec<(String, i64)> = sqlx::query_as(
         "SELECT entity_type, COUNT(*) FROM entities GROUP BY entity_type ORDER BY entity_type"
-    )?;
-    let type_counts: Vec<(String, i64)> = count_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     // Property keys per type
-    let mut key_stmt = conn.prepare(
+    let type_keys: Vec<(String, String)> = sqlx::query_as(
         "SELECT DISTINCT e.entity_type, ep.key \
          FROM entity_properties ep \
          JOIN entities e ON ep.entity_id = e.id \
          ORDER BY e.entity_type, ep.key"
-    )?;
-    let type_keys: Vec<(String, String)> = key_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     // Sample entities (up to 5 per type)
-    let mut sample_stmt = conn.prepare(
+    #[derive(sqlx::FromRow)]
+    struct SampleRow {
+        id: i64,
+        entity_type: String,
+        name: String,
+        label: String,
+    }
+    let all_sample_rows: Vec<SampleRow> = sqlx::query_as(
         "SELECT id, entity_type, name, label FROM entities ORDER BY entity_type, sort_order, id"
-    )?;
-    let all_samples: Vec<(String, EntitySample)> = sample_stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(1)?,
-            EntitySample {
-                id: row.get(0)?,
-                name: row.get(2)?,
-                label: row.get(3)?,
-            },
-        ))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let all_samples: Vec<(String, EntitySample)> = all_sample_rows.into_iter().map(|r| {
+        (r.entity_type, EntitySample { id: r.id, name: r.name, label: r.label })
+    }).collect();
 
     let summaries = type_counts.into_iter().map(|(et, count)| {
         let property_keys: Vec<String> = type_keys.iter()
@@ -174,44 +166,60 @@ pub fn find_entity_type_summaries(conn: &Connection) -> rusqlite::Result<Vec<Ent
     Ok(summaries)
 }
 
-/// Get summaries of relation types: usage counts and source→target patterns.
-pub fn find_relation_type_summaries(conn: &Connection) -> rusqlite::Result<Vec<RelationTypeSummary>> {
-    let mut type_stmt = conn.prepare(
-        "SELECT rt.name, rt.label, COUNT(r.id) \
+/// Get summaries of relation types: usage counts and source->target patterns.
+pub async fn find_relation_type_summaries(pool: &PgPool) -> Result<Vec<RelationTypeSummary>, sqlx::Error> {
+    #[derive(sqlx::FromRow)]
+    struct RelTypeSummaryRow {
+        name: String,
+        label: String,
+        usage_count: i64,
+    }
+    let rows: Vec<RelTypeSummaryRow> = sqlx::query_as(
+        "SELECT rt.name, rt.label, COUNT(r.id) AS usage_count \
          FROM entities rt \
          LEFT JOIN relations r ON r.relation_type_id = rt.id \
          WHERE rt.entity_type = 'relation_type' \
          GROUP BY rt.id, rt.name, rt.label \
          ORDER BY rt.name"
-    )?;
-    let mut summaries: Vec<RelationTypeSummary> = type_stmt.query_map([], |row| {
-        Ok(RelationTypeSummary {
-            name: row.get(0)?,
-            label: row.get(1)?,
-            usage_count: row.get(2)?,
-            patterns: vec![],
-        })
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
-    let mut pattern_stmt = conn.prepare(
-        "SELECT rt.name, src.entity_type, tgt.entity_type, COUNT(*) \
+    let mut summaries: Vec<RelationTypeSummary> = rows.into_iter().map(|r| {
+        RelationTypeSummary {
+            name: r.name,
+            label: r.label,
+            usage_count: r.usage_count,
+            patterns: vec![],
+        }
+    }).collect();
+
+    #[derive(sqlx::FromRow)]
+    struct PatternRow {
+        name: String,
+        source_type: String,
+        target_type: String,
+        count: i64,
+    }
+    let pattern_rows: Vec<PatternRow> = sqlx::query_as(
+        "SELECT rt.name, src.entity_type AS source_type, tgt.entity_type AS target_type, COUNT(*) AS count \
          FROM relations r \
          JOIN entities rt ON r.relation_type_id = rt.id \
          JOIN entities src ON r.source_id = src.id \
          JOIN entities tgt ON r.target_id = tgt.id \
          GROUP BY rt.name, src.entity_type, tgt.entity_type \
          ORDER BY rt.name"
-    )?;
-    let patterns: Vec<(String, RelationPattern)> = pattern_stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            RelationPattern {
-                source_type: row.get(1)?,
-                target_type: row.get(2)?,
-                count: row.get(3)?,
-            },
-        ))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let patterns: Vec<(String, RelationPattern)> = pattern_rows.into_iter().map(|r| {
+        (r.name, RelationPattern {
+            source_type: r.source_type,
+            target_type: r.target_type,
+            count: r.count,
+        })
+    }).collect();
 
     for summary in &mut summaries {
         summary.patterns = patterns.iter()

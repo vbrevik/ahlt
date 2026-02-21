@@ -1,12 +1,25 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use super::types::*;
 
-pub fn find_steps_for_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Vec<ProtocolStep>> {
-    let mut stmt = conn.prepare(
+pub async fn find_steps_for_tor(pool: &PgPool, tor_id: i64) -> Result<Vec<ProtocolStep>, sqlx::Error> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        name: String,
+        label: String,
+        step_type: String,
+        sequence_order: i64,
+        duration: Option<i64>,
+        description: String,
+        is_required: String,
+        responsible: String,
+    }
+
+    let rows = sqlx::query_as::<_, Row>(
         "SELECT e.id, e.name, e.label, \
                 COALESCE(p_type.value, 'procedural') AS step_type, \
-                CAST(COALESCE(p_order.value, '0') AS INTEGER) AS sequence_order, \
-                CASE WHEN p_dur.value IS NOT NULL THEN CAST(p_dur.value AS INTEGER) ELSE NULL END AS duration, \
+                CAST(COALESCE(p_order.value, '0') AS BIGINT) AS sequence_order, \
+                CASE WHEN p_dur.value IS NOT NULL THEN CAST(p_dur.value AS BIGINT) ELSE NULL END AS duration, \
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_req.value, 'true') AS is_required, \
                 COALESCE(p_resp.value, '') AS responsible \
@@ -18,34 +31,36 @@ pub fn find_steps_for_tor(conn: &Connection, tor_id: i64) -> rusqlite::Result<Ve
          LEFT JOIN entity_properties p_desc ON e.id = p_desc.entity_id AND p_desc.key = 'description' \
          LEFT JOIN entity_properties p_req ON e.id = p_req.entity_id AND p_req.key = 'is_required' \
          LEFT JOIN entity_properties p_resp ON e.id = p_resp.entity_id AND p_resp.key = 'responsible' \
-         WHERE r.target_id = ?1 \
+         WHERE r.target_id = $1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'protocol_of') \
            AND e.entity_type = 'protocol_step' \
-         ORDER BY CAST(COALESCE(p_order.value, '0') AS INTEGER)",
-    )?;
+         ORDER BY CAST(COALESCE(p_order.value, '0') AS BIGINT)",
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
-    let steps = stmt
-        .query_map(params![tor_id], |row| {
-            Ok(ProtocolStep {
-                id: row.get("id")?,
-                name: row.get("name")?,
-                label: row.get("label")?,
-                step_type: row.get("step_type")?,
-                sequence_order: row.get("sequence_order")?,
-                default_duration_minutes: row.get("duration")?,
-                description: row.get("description")?,
-                is_required: row.get::<_, String>("is_required")? == "true",
-                responsible: row.get("responsible")?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    let steps = rows
+        .into_iter()
+        .map(|row| ProtocolStep {
+            id: row.id,
+            name: row.name,
+            label: row.label,
+            step_type: row.step_type,
+            sequence_order: row.sequence_order,
+            default_duration_minutes: row.duration,
+            description: row.description,
+            is_required: row.is_required == "true",
+            responsible: row.responsible,
+        })
+        .collect();
 
     Ok(steps)
 }
 
-pub fn create_step(
-    conn: &Connection,
+pub async fn create_step(
+    pool: &PgPool,
     tor_id: i64,
     name: &str,
     label: &str,
@@ -55,12 +70,15 @@ pub fn create_step(
     description: &str,
     is_required: bool,
     responsible: &str,
-) -> rusqlite::Result<i64> {
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label) VALUES ('protocol_step', ?1, ?2)",
-        params![name, label],
-    )?;
-    let step_id = conn.last_insert_rowid();
+) -> Result<i64, sqlx::Error> {
+    let step_id: (i64,) = sqlx::query_as(
+        "INSERT INTO entities (entity_type, name, label) VALUES ('protocol_step', $1, $2) RETURNING id",
+    )
+    .bind(name)
+    .bind(label)
+    .fetch_one(pool)
+    .await?;
+    let step_id = step_id.0;
 
     let props: Vec<(&str, String)> = vec![
         ("step_type", step_type.to_string()),
@@ -72,59 +90,81 @@ pub fn create_step(
 
     for (key, value) in &props {
         if !value.is_empty() {
-            conn.execute(
-                "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3)",
-                params![step_id, key, value],
-            )?;
+            sqlx::query(
+                "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3)",
+            )
+            .bind(step_id)
+            .bind(key)
+            .bind(value)
+            .execute(pool)
+            .await?;
         }
     }
 
     if let Some(dur) = default_duration_minutes {
-        conn.execute(
-            "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'default_duration_minutes', ?2)",
-            params![step_id, dur.to_string()],
-        )?;
+        sqlx::query(
+            "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'default_duration_minutes', $2)",
+        )
+        .bind(step_id)
+        .bind(dur.to_string())
+        .execute(pool)
+        .await?;
     }
 
     // Link to ToR via protocol_of relation
-    conn.execute(
+    sqlx::query(
         "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'protocol_of'), ?1, ?2)",
-        params![step_id, tor_id],
-    )?;
+         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'protocol_of'), $1, $2)",
+    )
+    .bind(step_id)
+    .bind(tor_id)
+    .execute(pool)
+    .await?;
 
     Ok(step_id)
 }
 
-pub fn delete_step(conn: &Connection, step_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "DELETE FROM entities WHERE id = ?1 AND entity_type = 'protocol_step'",
-        params![step_id],
-    )?;
+pub async fn delete_step(pool: &PgPool, step_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM entities WHERE id = $1 AND entity_type = 'protocol_step'",
+    )
+    .bind(step_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Swap sequence_order of two steps.
-pub fn reorder_steps(conn: &Connection, step_a_id: i64, step_b_id: i64) -> rusqlite::Result<()> {
-    let order_a: String = conn.query_row(
-        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = 'sequence_order'",
-        params![step_a_id],
-        |row| row.get(0),
-    )?;
-    let order_b: String = conn.query_row(
-        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = 'sequence_order'",
-        params![step_b_id],
-        |row| row.get(0),
-    )?;
+pub async fn reorder_steps(pool: &PgPool, step_a_id: i64, step_b_id: i64) -> Result<(), sqlx::Error> {
+    let order_a: (String,) = sqlx::query_as(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'sequence_order'",
+    )
+    .bind(step_a_id)
+    .fetch_one(pool)
+    .await?;
 
-    conn.execute(
-        "UPDATE entity_properties SET value = ?1 WHERE entity_id = ?2 AND key = 'sequence_order'",
-        params![order_b, step_a_id],
-    )?;
-    conn.execute(
-        "UPDATE entity_properties SET value = ?1 WHERE entity_id = ?2 AND key = 'sequence_order'",
-        params![order_a, step_b_id],
-    )?;
+    let order_b: (String,) = sqlx::query_as(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'sequence_order'",
+    )
+    .bind(step_b_id)
+    .fetch_one(pool)
+    .await?;
+
+    sqlx::query(
+        "UPDATE entity_properties SET value = $1 WHERE entity_id = $2 AND key = 'sequence_order'",
+    )
+    .bind(&order_b.0)
+    .bind(step_a_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "UPDATE entity_properties SET value = $1 WHERE entity_id = $2 AND key = 'sequence_order'",
+    )
+    .bind(&order_a.0)
+    .bind(step_b_id)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Document as shown in the list view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct DocumentListItem {
     pub id: i64,
     pub title: String,
@@ -14,7 +14,7 @@ pub struct DocumentListItem {
 }
 
 /// Full document detail.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct DocumentDetail {
     pub id: i64,
     pub title: String,

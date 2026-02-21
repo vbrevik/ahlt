@@ -1,10 +1,19 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use super::types::{CoaSection, CoaSubsection};
 
+/// Intermediate row struct for section queries.
+#[derive(sqlx::FromRow)]
+struct SectionRow {
+    id: i64,
+    title: String,
+    content: String,
+    order_num: String,
+}
+
 /// Find all sections for a given COA via has_section relation.
-pub fn find_sections(conn: &Connection, coa_id: i64) -> Result<Vec<CoaSection>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_sections(pool: &PgPool, coa_id: i64) -> Result<Vec<CoaSection>, AppError> {
+    let rows = sqlx::query_as::<_, SectionRow>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_content.value, '') AS content, \
@@ -18,31 +27,21 @@ pub fn find_sections(conn: &Connection, coa_id: i64) -> Result<Vec<CoaSection>, 
              ON e.id = p_content.entity_id AND p_content.key = 'content' \
          LEFT JOIN entity_properties p_order \
              ON e.id = p_order.entity_id AND p_order.key = 'order' \
-         WHERE e.entity_type = 'coa_section' AND r.source_id = ?1 \
-         ORDER BY CAST(COALESCE(p_order.value, '0') AS INTEGER) ASC",
-    )?;
-
-    let sections = stmt
-        .query_map(params![coa_id], |row| {
-            let order_str: String = row.get("order_num")?;
-            let order: i32 = order_str.parse().unwrap_or(0);
-
-            Ok((
-                row.get::<_, i64>("id")?,
-                row.get::<_, String>("title")?,
-                row.get::<_, String>("content")?,
-                order,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+         WHERE e.entity_type = 'coa_section' AND r.source_id = $1 \
+         ORDER BY CAST(COALESCE(p_order.value, '0') AS BIGINT) ASC",
+    )
+    .bind(coa_id)
+    .fetch_all(pool)
+    .await?;
 
     let mut result = Vec::new();
-    for (section_id, title, content, order) in sections {
-        let subsections = find_subsections(conn, section_id)?;
+    for row in rows {
+        let order: i32 = row.order_num.parse().unwrap_or(0);
+        let subsections = find_subsections(pool, row.id).await?;
         result.push(CoaSection {
-            id: section_id,
-            title,
-            content,
+            id: row.id,
+            title: row.title,
+            content: row.content,
             order,
             subsections,
         });
@@ -52,8 +51,8 @@ pub fn find_sections(conn: &Connection, coa_id: i64) -> Result<Vec<CoaSection>, 
 }
 
 /// Find all subsections for a given section via has_subsection relation.
-fn find_subsections(conn: &Connection, section_id: i64) -> Result<Vec<CoaSubsection>, AppError> {
-    let mut stmt = conn.prepare(
+async fn find_subsections(pool: &PgPool, section_id: i64) -> Result<Vec<CoaSubsection>, AppError> {
+    let rows = sqlx::query_as::<_, SectionRow>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_content.value, '') AS content, \
@@ -67,24 +66,22 @@ fn find_subsections(conn: &Connection, section_id: i64) -> Result<Vec<CoaSubsect
              ON e.id = p_content.entity_id AND p_content.key = 'content' \
          LEFT JOIN entity_properties p_order \
              ON e.id = p_order.entity_id AND p_order.key = 'order' \
-         WHERE e.entity_type = 'coa_section' AND r.source_id = ?1 \
-         ORDER BY CAST(COALESCE(p_order.value, '0') AS INTEGER) ASC",
-    )?;
+         WHERE e.entity_type = 'coa_section' AND r.source_id = $1 \
+         ORDER BY CAST(COALESCE(p_order.value, '0') AS BIGINT) ASC",
+    )
+    .bind(section_id)
+    .fetch_all(pool)
+    .await?;
 
-    let items = stmt
-        .query_map(params![section_id], |row| {
-            let order_str: String = row.get("order_num")?;
-            let order: i32 = order_str.parse().unwrap_or(0);
-
-            Ok(CoaSubsection {
-                id: row.get("id")?,
-                title: row.get("title")?,
-                content: row.get("content")?,
-                order,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    let items = rows.into_iter().map(|row| {
+        let order: i32 = row.order_num.parse().unwrap_or(0);
+        CoaSubsection {
+            id: row.id,
+            title: row.title,
+            content: row.content,
+            order,
+        }
+    }).collect();
 
     Ok(items)
 }
-

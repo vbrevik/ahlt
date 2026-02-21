@@ -1,7 +1,7 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 
 /// Entity row for the data browser list view.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct EntityListItem {
     pub id: i64,
@@ -11,14 +11,14 @@ pub struct EntityListItem {
 }
 
 /// A single property key-value pair.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct EntityProperty {
     pub key: String,
     pub value: String,
 }
 
 /// A related entity (used for both incoming and outgoing relations).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct RelatedEntity {
     pub id: i64,
@@ -47,118 +47,112 @@ pub struct EntityDetail {
 
 /// List all entities, optionally filtered by entity_type.
 #[allow(dead_code)]
-pub fn find_entity_list(conn: &Connection, type_filter: Option<&str>) -> rusqlite::Result<Vec<EntityListItem>> {
-    let (sql, params): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match type_filter {
-        Some(t) if !t.is_empty() => (
-            "SELECT id, entity_type, name, label FROM entities WHERE entity_type = ?1 ORDER BY entity_type, sort_order, id".to_string(),
-            vec![Box::new(t.to_string()) as Box<dyn rusqlite::types::ToSql>],
-        ),
-        _ => (
-            "SELECT id, entity_type, name, label FROM entities ORDER BY entity_type, sort_order, id".to_string(),
-            vec![],
-        ),
-    };
-    let mut stmt = conn.prepare(&sql)?;
-    let params_ref: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let items = stmt.query_map(params_ref.as_slice(), |row| {
-        Ok(EntityListItem {
-            id: row.get(0)?,
-            entity_type: row.get(1)?,
-            name: row.get(2)?,
-            label: row.get(3)?,
-        })
-    })?.collect::<Result<_, _>>()?;
-    Ok(items)
+pub async fn find_entity_list(pool: &PgPool, type_filter: Option<&str>) -> Result<Vec<EntityListItem>, sqlx::Error> {
+    match type_filter {
+        Some(t) if !t.is_empty() => {
+            sqlx::query_as::<_, EntityListItem>(
+                "SELECT id, entity_type, name, label FROM entities WHERE entity_type = $1 ORDER BY entity_type, sort_order, id"
+            )
+            .bind(t)
+            .fetch_all(pool)
+            .await
+        },
+        _ => {
+            sqlx::query_as::<_, EntityListItem>(
+                "SELECT id, entity_type, name, label FROM entities ORDER BY entity_type, sort_order, id"
+            )
+            .fetch_all(pool)
+            .await
+        },
+    }
 }
 
 /// Get full detail for a single entity by id.
-pub fn find_entity_detail(conn: &Connection, id: i64) -> rusqlite::Result<Option<EntityDetail>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at \
-         FROM entities WHERE id = ?1"
-    )?;
-    let mut rows = stmt.query_map([id], |row| {
-        Ok(EntityDetail {
-            id: row.get(0)?,
-            entity_type: row.get(1)?,
-            name: row.get(2)?,
-            label: row.get(3)?,
-            sort_order: row.get(4)?,
-            is_active: row.get::<_, i64>(5)? != 0,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            properties: vec![],
-            outgoing: vec![],
-            incoming: vec![],
-        })
-    })?;
+pub async fn find_entity_detail(pool: &PgPool, id: i64) -> Result<Option<EntityDetail>, sqlx::Error> {
+    #[derive(sqlx::FromRow)]
+    struct EntityBaseRow {
+        id: i64,
+        entity_type: String,
+        name: String,
+        label: String,
+        sort_order: i64,
+        is_active: bool,
+        created_at: String,
+        updated_at: String,
+    }
 
-    let entity = match rows.next() {
-        Some(Ok(e)) => e,
-        _ => return Ok(None),
+    let base: Option<EntityBaseRow> = sqlx::query_as(
+        "SELECT id, entity_type, name, label, sort_order::BIGINT AS sort_order, is_active, \
+         created_at::TEXT, updated_at::TEXT \
+         FROM entities WHERE id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+
+    let base = match base {
+        Some(b) => b,
+        None => return Ok(None),
     };
-    let mut entity = entity;
+
+    let mut entity = EntityDetail {
+        id: base.id,
+        entity_type: base.entity_type,
+        name: base.name,
+        label: base.label,
+        sort_order: base.sort_order,
+        is_active: base.is_active,
+        created_at: base.created_at,
+        updated_at: base.updated_at,
+        properties: vec![],
+        outgoing: vec![],
+        incoming: vec![],
+    };
 
     // Properties
-    let mut prop_stmt = conn.prepare(
-        "SELECT key, value FROM entity_properties WHERE entity_id = ?1 ORDER BY key"
-    )?;
-    entity.properties = prop_stmt.query_map([id], |row| {
-        Ok(EntityProperty {
-            key: row.get(0)?,
-            value: row.get(1)?,
-        })
-    })?.collect::<Result<_, _>>()?;
+    entity.properties = sqlx::query_as::<_, EntityProperty>(
+        "SELECT key, value FROM entity_properties WHERE entity_id = $1 ORDER BY key"
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await?;
 
     // Outgoing relations (this entity is source)
-    let mut out_stmt = conn.prepare(
-        "SELECT tgt.id, tgt.entity_type, tgt.name, tgt.label, rt.name, rt.label \
+    entity.outgoing = sqlx::query_as::<_, RelatedEntity>(
+        "SELECT tgt.id, tgt.entity_type, tgt.name, tgt.label, rt.name AS relation_type, rt.label AS relation_label \
          FROM relations r \
          JOIN entities tgt ON r.target_id = tgt.id \
          JOIN entities rt ON r.relation_type_id = rt.id \
-         WHERE r.source_id = ?1 \
+         WHERE r.source_id = $1 \
          ORDER BY rt.name, tgt.name"
-    )?;
-    entity.outgoing = out_stmt.query_map([id], |row| {
-        Ok(RelatedEntity {
-            id: row.get(0)?,
-            entity_type: row.get(1)?,
-            name: row.get(2)?,
-            label: row.get(3)?,
-            relation_type: row.get(4)?,
-            relation_label: row.get(5)?,
-        })
-    })?.collect::<Result<_, _>>()?;
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await?;
 
     // Incoming relations (this entity is target)
-    let mut in_stmt = conn.prepare(
-        "SELECT src.id, src.entity_type, src.name, src.label, rt.name, rt.label \
+    entity.incoming = sqlx::query_as::<_, RelatedEntity>(
+        "SELECT src.id, src.entity_type, src.name, src.label, rt.name AS relation_type, rt.label AS relation_label \
          FROM relations r \
          JOIN entities src ON r.source_id = src.id \
          JOIN entities rt ON r.relation_type_id = rt.id \
-         WHERE r.target_id = ?1 \
+         WHERE r.target_id = $1 \
          ORDER BY rt.name, src.name"
-    )?;
-    entity.incoming = in_stmt.query_map([id], |row| {
-        Ok(RelatedEntity {
-            id: row.get(0)?,
-            entity_type: row.get(1)?,
-            name: row.get(2)?,
-            label: row.get(3)?,
-            relation_type: row.get(4)?,
-            relation_label: row.get(5)?,
-        })
-    })?.collect::<Result<_, _>>()?;
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await?;
 
     Ok(Some(entity))
 }
 
 /// Get distinct entity types for filter UI.
 #[allow(dead_code)]
-pub fn find_entity_types(conn: &Connection) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare(
+pub async fn find_entity_types(pool: &PgPool) -> Result<Vec<String>, sqlx::Error> {
+    let rows: Vec<(String,)> = sqlx::query_as(
         "SELECT DISTINCT entity_type FROM entities ORDER BY entity_type"
-    )?;
-    let types = stmt.query_map([], |row| row.get(0))?.collect::<Result<_, _>>()?;
-    Ok(types)
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|(t,)| t).collect())
 }

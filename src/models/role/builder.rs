@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct NavItemPreview {
@@ -8,22 +8,24 @@ pub struct NavItemPreview {
     pub module_name: String,
 }
 
-pub fn find_accessible_nav_items(
-    conn: &Connection,
+pub async fn find_accessible_nav_items(
+    pool: &PgPool,
     permission_ids: &[i64],
-) -> rusqlite::Result<Vec<NavItemPreview>> {
+) -> Result<Vec<NavItemPreview>, sqlx::Error> {
     if permission_ids.is_empty() {
         return Ok(Vec::new());
     }
 
     // Convert permission IDs to permission codes (entity names)
-    let mut stmt = conn.prepare(
-        "SELECT name FROM entities WHERE id IN (SELECT value FROM json_each(?1))"
-    )?;
-    let permission_codes: Vec<String> = stmt.query_map(
-        [serde_json::to_string(&permission_ids).unwrap()],
-        |row| row.get(0),
-    )?.collect::<Result<Vec<_>, _>>()?;
+    let permission_codes: Vec<String> = sqlx::query_as::<_, (String,)>(
+        "SELECT name FROM entities WHERE id = ANY($1)"
+    )
+    .bind(permission_ids)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|(name,)| name)
+    .collect();
 
     if permission_codes.is_empty() {
         return Ok(Vec::new());
@@ -31,7 +33,17 @@ pub fn find_accessible_nav_items(
 
     // Query all active nav items with permission and parent info
     // Same join pattern as nav_item.rs find_navigation
-    let mut stmt = conn.prepare(
+    #[derive(sqlx::FromRow)]
+    struct RawItem {
+        id: i64,
+        name: String,
+        label: String,
+        url: String,
+        permission_code: String,
+        parent: String,
+    }
+
+    let all_items: Vec<RawItem> = sqlx::query_as::<_, RawItem>(
         "SELECT e.id, e.name, e.label,
                 COALESCE(p_url.value, '') AS url,
                 COALESCE(perm.name, '') AS permission_code,
@@ -49,29 +61,11 @@ pub fn find_accessible_nav_items(
              )
          LEFT JOIN entities perm
              ON r_perm.target_id = perm.id AND perm.entity_type = 'permission'
-         WHERE e.entity_type = 'nav_item' AND e.is_active = 1
+         WHERE e.entity_type = 'nav_item' AND e.is_active = true
          ORDER BY e.sort_order, e.id"
-    )?;
-
-    struct RawItem {
-        id: i64,
-        name: String,
-        label: String,
-        url: String,
-        permission_code: String,
-        parent: String,
-    }
-
-    let all_items: Vec<RawItem> = stmt.query_map([], |row| {
-        Ok(RawItem {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            label: row.get(2)?,
-            url: row.get(3)?,
-            permission_code: row.get(4)?,
-            parent: row.get(5)?,
-        })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     let top_level: Vec<&RawItem> = all_items.iter().filter(|i| i.parent.is_empty()).collect();
     let children: Vec<&RawItem> = all_items.iter().filter(|i| !i.parent.is_empty()).collect();

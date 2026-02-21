@@ -1,5 +1,5 @@
 /// For the ToR list page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TorListItem {
     pub id: i64,
     pub name: String,
@@ -13,7 +13,7 @@ pub struct TorListItem {
 }
 
 /// For ToR detail/edit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TorDetail {
     pub id: i64,
     pub name: String,
@@ -79,7 +79,7 @@ impl TorDetail {
 
 /// A position in a ToR with its current holder (if any).
 /// Position-based: authority flows from position, not person.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TorMember {
     pub position_id: i64,
     pub position_name: String,
@@ -91,7 +91,7 @@ pub struct TorMember {
 }
 
 /// A function assigned to a member (lightweight reference).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TorFunctionRef {
     #[allow(dead_code)]
     pub id: i64,

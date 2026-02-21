@@ -1,5 +1,5 @@
 /// For use in templates (dropdowns, display).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct RoleDisplay {
     pub id: i64,
@@ -8,7 +8,7 @@ pub struct RoleDisplay {
 }
 
 /// Extended display for the roles list page — includes counts and description.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RoleListItem {
     pub id: i64,
     pub name: String,
@@ -19,7 +19,7 @@ pub struct RoleListItem {
 }
 
 /// For role edit form — role info + list of all permissions with checked state.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct RoleDetail {
     pub id: i64,
@@ -40,7 +40,7 @@ pub struct PermissionCheckbox {
 }
 
 /// A user assigned to a role — for the assignment page member list.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RoleMember {
     pub user_id: i64,
     pub username: String,

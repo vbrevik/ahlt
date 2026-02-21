@@ -1,15 +1,15 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use super::types::{User, UserDisplay, UserPage, NewUser, UserWithRoles};
 
 /// SQL for user display: entity + email property + roles via has_role relation.
-/// Uses GROUP_CONCAT to collect multiple roles into comma-separated strings.
+/// Uses STRING_AGG to collect multiple roles into comma-separated strings.
 const SELECT_USER_DISPLAY: &str = "\
     SELECT e.id, e.name AS username, e.label AS display_name, \
            COALESCE(p_email.value, '') AS email, \
-           COALESCE(GROUP_CONCAT(DISTINCT role_e.id), '') AS role_ids, \
-           COALESCE(GROUP_CONCAT(DISTINCT role_e.name), '') AS role_names, \
-           COALESCE(GROUP_CONCAT(DISTINCT role_e.label), '') AS role_labels, \
-           e.created_at, e.updated_at \
+           COALESCE(STRING_AGG(DISTINCT role_e.id::TEXT, ','), '') AS role_ids, \
+           COALESCE(STRING_AGG(DISTINCT role_e.name, ','), '') AS role_names, \
+           COALESCE(STRING_AGG(DISTINCT role_e.label, ','), '') AS role_labels, \
+           e.created_at::TEXT AS created_at, e.updated_at::TEXT AS updated_at \
     FROM entities e \
     LEFT JOIN entity_properties p_email \
         ON e.id = p_email.entity_id AND p_email.key = 'email' \
@@ -19,28 +19,14 @@ const SELECT_USER_DISPLAY: &str = "\
     LEFT JOIN entities role_e ON r_role.target_id = role_e.id \
     WHERE e.entity_type = 'user'";
 
-fn row_to_user_display(row: &rusqlite::Row) -> rusqlite::Result<UserDisplay> {
-    Ok(UserDisplay {
-        id: row.get("id")?,
-        username: row.get("username")?,
-        email: row.get("email")?,
-        display_name: row.get("display_name")?,
-        role_ids: row.get("role_ids")?,
-        role_names: row.get("role_names")?,
-        role_labels: row.get("role_labels")?,
-        created_at: row.get("created_at")?,
-        updated_at: row.get("updated_at")?,
-    })
-}
-
 /// Find users with pagination, filter, and sort support.
-pub fn find_paginated(
-    conn: &Connection,
+pub async fn find_paginated(
+    pool: &PgPool,
     page: i64,
     per_page: i64,
     filter: &crate::models::table_filter::FilterTree,
     sort: &crate::models::table_filter::SortSpec,
-) -> rusqlite::Result<UserPage> {
+) -> Result<UserPage, sqlx::Error> {
     use crate::models::table_filter::{builder, SortDir};
     use crate::models::user::filter as uf;
 
@@ -68,10 +54,11 @@ pub fn find_paginated(
          WHERE e.entity_type = 'user' AND ({where_clause})"
     );
 
-    let total_count: i64 = {
-        let mut stmt = conn.prepare(&count_sql)?;
-        stmt.query_row(rusqlite::params_from_iter(filter_params.iter()), |r| r.get(0))?
-    };
+    let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+    for p in &filter_params {
+        count_query = count_query.bind(p);
+    }
+    let total_count: i64 = count_query.fetch_one(pool).await?;
 
     // Data query
     let n = filter_params.len();
@@ -79,19 +66,16 @@ pub fn find_paginated(
         "{SELECT_USER_DISPLAY} AND ({where_clause}) \
          GROUP BY e.id \
          ORDER BY {sort_col} {sort_dir} \
-         LIMIT ?{} OFFSET ?{}",
+         LIMIT ${} OFFSET ${}",
         n + 1, n + 2
     );
 
-    let mut all_params: Vec<rusqlite::types::Value> = filter_params.iter()
-        .map(|s| rusqlite::types::Value::Text(s.clone()))
-        .collect();
-    all_params.push(rusqlite::types::Value::Integer(per_page));
-    all_params.push(rusqlite::types::Value::Integer(offset));
-
-    let mut stmt = conn.prepare(&data_sql)?;
-    let users = stmt.query_map(rusqlite::params_from_iter(all_params.iter()), row_to_user_display)?
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut data_query = sqlx::query_as::<_, UserDisplay>(&data_sql);
+    for p in &filter_params {
+        data_query = data_query.bind(p);
+    }
+    data_query = data_query.bind(per_page).bind(offset);
+    let users: Vec<UserDisplay> = data_query.fetch_all(pool).await?;
 
     let total_pages = ((total_count as f64) / (per_page as f64)).ceil() as i64;
 
@@ -99,11 +83,11 @@ pub fn find_paginated(
 }
 
 /// Return all users matching the filter (no pagination) — used for CSV export.
-pub fn find_all_filtered(
-    conn: &Connection,
+pub async fn find_all_filtered(
+    pool: &PgPool,
     filter: &crate::models::table_filter::FilterTree,
     sort: &crate::models::table_filter::SortSpec,
-) -> rusqlite::Result<Vec<UserDisplay>> {
+) -> Result<Vec<UserDisplay>, sqlx::Error> {
     use crate::models::table_filter::{builder, SortDir};
     use crate::models::user::filter as uf;
 
@@ -118,33 +102,32 @@ pub fn find_all_filtered(
         "{SELECT_USER_DISPLAY} AND ({where_clause}) GROUP BY e.id ORDER BY {sort_col} {sort_dir}"
     );
 
-    let mut stmt = conn.prepare(&sql)?;
-    let users = stmt.query_map(
-        rusqlite::params_from_iter(filter_params.iter()),
-        row_to_user_display,
-    )?.collect::<Result<Vec<_>, _>>()?;
+    let mut query = sqlx::query_as::<_, UserDisplay>(&sql);
+    for p in &filter_params {
+        query = query.bind(p);
+    }
+    let users: Vec<UserDisplay> = query.fetch_all(pool).await?;
 
     Ok(users)
 }
 
-pub fn find_display_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<UserDisplay>> {
-    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = ?1 GROUP BY e.id");
-    let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query_map(params![id], row_to_user_display)?;
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+pub async fn find_display_by_id(pool: &PgPool, id: i64) -> Result<Option<UserDisplay>, sqlx::Error> {
+    let sql = format!("{SELECT_USER_DISPLAY} AND e.id = $1 GROUP BY e.id");
+    let user = sqlx::query_as::<_, UserDisplay>(&sql)
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(user)
 }
 
 /// Find user by username for authentication. Returns internal User with password hash.
-pub fn find_by_username(conn: &Connection, username: &str) -> rusqlite::Result<Option<User>> {
-    let mut stmt = conn.prepare(
+pub async fn find_by_username(pool: &PgPool, username: &str) -> Result<Option<User>, sqlx::Error> {
+    let user = sqlx::query_as::<_, User>(
         "SELECT e.id, e.name AS username, e.label AS display_name, \
                 COALESCE(p_pw.value, '') AS password, \
                 COALESCE(p_email.value, '') AS email, \
                 COALESCE(role_e.id, 0) AS role_id, \
-                e.created_at, e.updated_at \
+                e.created_at::TEXT AS created_at, e.updated_at::TEXT AS updated_at \
          FROM entities e \
          LEFT JOIN entity_properties p_pw ON e.id = p_pw.entity_id AND p_pw.key = 'password' \
          LEFT JOIN entity_properties p_email ON e.id = p_email.entity_id AND p_email.key = 'email' \
@@ -152,162 +135,175 @@ pub fn find_by_username(conn: &Connection, username: &str) -> rusqlite::Result<O
              ON r_role.source_id = e.id \
              AND r_role.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
          LEFT JOIN entities role_e ON r_role.target_id = role_e.id \
-         WHERE e.entity_type = 'user' AND e.name = ?1"
-    )?;
-    let mut rows = stmt.query_map(params![username], |row| {
-        Ok(User {
-            id: row.get("id")?,
-            username: row.get("username")?,
-            password: row.get("password")?,
-            email: row.get("email")?,
-            display_name: row.get("display_name")?,
-            role_id: row.get("role_id")?,
-            created_at: row.get("created_at")?,
-            updated_at: row.get("updated_at")?,
-        })
-    })?;
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+         WHERE e.entity_type = 'user' AND e.name = $1"
+    )
+    .bind(username)
+    .fetch_optional(pool)
+    .await?;
+    Ok(user)
 }
 
 /// Count user entities.
-pub fn count(conn: &Connection) -> rusqlite::Result<i64> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM entities WHERE entity_type = 'user'",
-        [],
-        |row| row.get(0),
+pub async fn count(pool: &PgPool) -> Result<i64, sqlx::Error> {
+    let (count,) = sqlx::query_as::<_, (i64,)>(
+        "SELECT COUNT(*) FROM entities WHERE entity_type = 'user'"
     )
+    .fetch_one(pool)
+    .await?;
+    Ok(count)
 }
 
 /// Create a new user entity with properties (no role assignment).
-pub fn create(conn: &Connection, new: &NewUser) -> rusqlite::Result<i64> {
-    // Insert user entity
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label) VALUES ('user', ?1, ?2)",
-        params![new.username, new.display_name],
-    )?;
-    let user_id = conn.last_insert_rowid();
+pub async fn create(pool: &PgPool, new: &NewUser) -> Result<i64, sqlx::Error> {
+    // Insert user entity with RETURNING id
+    let (user_id,) = sqlx::query_as::<_, (i64,)>(
+        "INSERT INTO entities (entity_type, name, label) VALUES ('user', $1, $2) RETURNING id"
+    )
+    .bind(&new.username)
+    .bind(&new.display_name)
+    .fetch_one(pool)
+    .await?;
 
     // Set properties
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'password', ?2)",
-        params![user_id, new.password],
-    )?;
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'email', ?2)",
-        params![user_id, new.email],
-    )?;
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'password', $2)"
+    )
+    .bind(user_id)
+    .bind(&new.password)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'email', $2)"
+    )
+    .bind(user_id)
+    .bind(&new.email)
+    .execute(pool)
+    .await?;
 
     Ok(user_id)
 }
 
 /// Update a user entity: name, label (display_name), and properties. Does not touch roles.
-pub fn update(
-    conn: &Connection,
+pub async fn update(
+    pool: &PgPool,
     id: i64,
     username: &str,
     password: Option<&str>,
     email: &str,
     display_name: &str,
-) -> rusqlite::Result<()> {
+) -> Result<(), sqlx::Error> {
     // Update entity name and label
-    conn.execute(
-        "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?3",
-        params![username, display_name, id],
-    )?;
+    sqlx::query(
+        "UPDATE entities SET name = $1, label = $2, updated_at = NOW() WHERE id = $3"
+    )
+    .bind(username)
+    .bind(display_name)
+    .bind(id)
+    .execute(pool)
+    .await?;
 
     // Update password if provided
     if let Some(pw) = password {
-        conn.execute(
-            "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'password', ?2) \
-             ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-            params![id, pw],
-        )?;
+        sqlx::query(
+            "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'password', $2) \
+             ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value"
+        )
+        .bind(id)
+        .bind(pw)
+        .execute(pool)
+        .await?;
     }
 
     // Update email
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'email', ?2) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![id, email],
-    )?;
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'email', $2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value"
+    )
+    .bind(id)
+    .bind(email)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }
 
 /// Assign the default "viewer" role to a user. No-op if viewer role doesn't exist.
-pub fn assign_default_role(conn: &Connection, user_id: i64) -> rusqlite::Result<()> {
-    use rusqlite::OptionalExtension;
-    let viewer_id: Option<i64> = conn.query_row(
-        "SELECT id FROM entities WHERE entity_type = 'role' AND name = 'viewer'",
-        [],
-        |row| row.get(0),
-    ).optional()?;
+pub async fn assign_default_role(pool: &PgPool, user_id: i64) -> Result<(), sqlx::Error> {
+    let viewer_id: Option<(i64,)> = sqlx::query_as::<_, (i64,)>(
+        "SELECT id FROM entities WHERE entity_type = 'role' AND name = 'viewer'"
+    )
+    .fetch_optional(pool)
+    .await?;
 
-    if let Some(role_id) = viewer_id {
-        conn.execute(
-            "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
-             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), ?1, ?2)",
-            params![user_id, role_id],
-        )?;
+    if let Some((role_id,)) = viewer_id {
+        sqlx::query(
+            "INSERT INTO relations (relation_type_id, source_id, target_id) \
+             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role'), $1, $2) \
+             ON CONFLICT DO NOTHING"
+        )
+        .bind(user_id)
+        .bind(role_id)
+        .execute(pool)
+        .await?;
     }
     Ok(())
 }
 
 /// Delete a user entity (cascades to properties and relations via FK).
-pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM entities WHERE id = ?1 AND entity_type = 'user'", params![id])?;
+pub async fn delete(pool: &PgPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM entities WHERE id = $1 AND entity_type = 'user'")
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 /// Count users that have a specific role via has_role relation.
-pub fn count_by_role_id(conn: &Connection, role_id: i64) -> rusqlite::Result<i64> {
-    conn.query_row(
+pub async fn count_by_role_id(pool: &PgPool, role_id: i64) -> Result<i64, sqlx::Error> {
+    let (count,) = sqlx::query_as::<_, (i64,)>(
         "SELECT COUNT(*) FROM relations \
          WHERE relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
-         AND target_id = ?1",
-        params![role_id],
-        |row| row.get(0),
+         AND target_id = $1"
     )
+    .bind(role_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(count)
 }
 
 /// Get password hash for a user by id.
-pub fn find_password_hash_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = 'password'"
-    )?;
-    let mut rows = stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
-    match rows.next() {
-        Some(val) => Ok(Some(val?)),
-        None => Ok(None),
-    }
+pub async fn find_password_hash_by_id(pool: &PgPool, id: i64) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<(String,)> = sqlx::query_as::<_, (String,)>(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'password'"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(v,)| v))
 }
 
 /// Find all users with their assigned roles (for assignment page "By User" tab).
-pub fn find_all_with_roles(conn: &Connection) -> rusqlite::Result<Vec<UserWithRoles>> {
+pub async fn find_all_with_roles(pool: &PgPool) -> Result<Vec<UserWithRoles>, sqlx::Error> {
     // First get all users
-    let mut users_stmt = conn.prepare(
+    let users: Vec<(i64, String, String)> = sqlx::query_as::<_, (i64, String, String)>(
         "SELECT id, name AS username, label AS display_name \
          FROM entities WHERE entity_type = 'user' \
          ORDER BY label, name"
-    )?;
-    let users: Vec<(i64, String, String)> = users_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     // Then get all user-role assignments
-    let mut roles_stmt = conn.prepare(
+    let assignments: Vec<(i64, i64, String, String)> = sqlx::query_as::<_, (i64, i64, String, String)>(
         "SELECT r.source_id AS user_id, role_e.id AS role_id, role_e.name, role_e.label \
          FROM relations r \
          JOIN entities role_e ON r.target_id = role_e.id AND role_e.entity_type = 'role' \
          WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
          ORDER BY role_e.label"
-    )?;
-    let assignments: Vec<(i64, i64, String, String)> = roles_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     // Group assignments by user
     let result: Vec<UserWithRoles> = users.into_iter().map(|(id, username, display_name)| {
@@ -322,15 +318,22 @@ pub fn find_all_with_roles(conn: &Connection) -> rusqlite::Result<Vec<UserWithRo
 }
 
 /// Update only the password property for a user.
-pub fn update_password(conn: &Connection, id: i64, password_hash: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'password', ?2) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![id, password_hash],
-    )?;
-    conn.execute(
-        "UPDATE entities SET updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?1",
-        params![id],
-    )?;
+pub async fn update_password(pool: &PgPool, id: i64, password_hash: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'password', $2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value"
+    )
+    .bind(id)
+    .bind(password_hash)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "UPDATE entities SET updated_at = NOW() WHERE id = $1"
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+
     Ok(())
 }

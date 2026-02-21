@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::{entity, relation};
 use super::types::*;
@@ -14,11 +14,23 @@ fn name_from_title(title: &str) -> String {
 }
 
 /// Find all documents, optionally filtered by ToR or search term.
-pub fn find_all(
-    conn: &Connection,
+pub async fn find_all(
+    pool: &PgPool,
     tor_id: Option<i64>,
     search: Option<&str>,
 ) -> Result<Vec<DocumentListItem>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        title: String,
+        doc_type: String,
+        created_by_id: String,
+        created_by_name: String,
+        created_date: String,
+        tor_id: Option<i64>,
+        tor_name: Option<String>,
+    }
+
     let base_sql = "SELECT e.id, \
                            COALESCE(p_title.value, '') AS title, \
                            COALESCE(p_type.value, 'ad_hoc') AS doc_type, \
@@ -35,7 +47,7 @@ pub fn find_all(
                     LEFT JOIN entity_properties p_by \
                         ON e.id = p_by.entity_id AND p_by.key = 'created_by_id' \
                     LEFT JOIN entities u \
-                        ON CAST(p_by.value AS INTEGER) = u.id \
+                        ON CAST(p_by.value AS BIGINT) = u.id \
                     LEFT JOIN entity_properties p_date \
                         ON e.id = p_date.entity_id AND p_date.key = 'created_date' \
                     LEFT JOIN relations r ON e.id = r.source_id \
@@ -45,59 +57,78 @@ pub fn find_all(
                     LEFT JOIN entities t ON r.target_id = t.id \
                     WHERE e.entity_type = 'document'";
 
+    // Build dynamic SQL with numbered parameters
     let mut where_clause = String::new();
-    let mut params_list: Vec<String> = vec![];
+    let mut param_index = 1u32;
 
-    if let Some(tid) = tor_id {
-        where_clause.push_str(" AND r.target_id = ?");
-        params_list.push(tid.to_string());
+    if tor_id.is_some() {
+        where_clause.push_str(&format!(" AND r.target_id = ${}", param_index));
+        param_index += 1;
     }
 
-    if let Some(q) = search {
-        where_clause.push_str(" AND (p_title.value LIKE ? OR p_type.value LIKE ?)");
-        let search_pattern = format!("%{}%", q);
-        params_list.push(search_pattern.clone());
-        params_list.push(search_pattern);
+    if search.is_some() {
+        where_clause.push_str(&format!(
+            " AND (p_title.value LIKE ${} OR p_type.value LIKE ${})",
+            param_index,
+            param_index + 1
+        ));
+        // param_index += 2; // not needed after last use
     }
 
     let sql = format!("{}{} ORDER BY p_date.value DESC", base_sql, where_clause);
 
-    let mut stmt = conn.prepare(&sql)?;
-    let mut params: Vec<&dyn rusqlite::ToSql> = vec![];
-    for p in &params_list {
-        params.push(p);
+    // We need to dynamically bind parameters based on which filters are active
+    let mut query = sqlx::query_as::<_, Row>(&sql);
+
+    if let Some(tid) = tor_id {
+        query = query.bind(tid);
     }
 
-    if tor_id.is_some() {
-        params.insert(0, &tor_id);
+    if let Some(q) = search {
+        let search_pattern = format!("%{}%", q);
+        query = query.bind(search_pattern.clone());
+        query = query.bind(search_pattern);
     }
 
-    let items = stmt
-        .query_map(rusqlite::params_from_iter(params_list.iter()), |row| {
-            let created_by_id_str: String = row.get(3)?;
-            let created_by_id: i64 = created_by_id_str.parse().unwrap_or(0);
-            let tor_id_val: Option<i64> = row.get(6).ok();
-            let tor_name_val: Option<String> = row.get(7).ok();
+    let rows = query.fetch_all(pool).await?;
 
-            Ok(DocumentListItem {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                doc_type: row.get(2)?,
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let created_by_id: i64 = row.created_by_id.parse().unwrap_or(0);
+            DocumentListItem {
+                id: row.id,
+                title: row.title,
+                doc_type: row.doc_type,
                 created_by_id,
-                created_by_name: row.get(4)?,
-                created_date: row.get(5)?,
-                tor_id: tor_id_val,
-                tor_name: tor_name_val,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+                created_by_name: row.created_by_name,
+                created_date: row.created_date,
+                tor_id: row.tor_id,
+                tor_name: row.tor_name,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Find a single document by ID.
-pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<DocumentDetail>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_by_id(pool: &PgPool, id: i64) -> Result<Option<DocumentDetail>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        title: String,
+        doc_type: String,
+        body: String,
+        created_by_id: String,
+        created_by_name: String,
+        created_date: String,
+        updated_date: String,
+        tor_id: i64,
+        tor_name: String,
+    }
+
+    let row = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_type.value, 'ad_hoc') AS doc_type, \
@@ -118,7 +149,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<DocumentDetail>, 
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'created_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_date \
              ON e.id = p_date.entity_id AND p_date.key = 'created_date' \
          LEFT JOIN entity_properties p_updated \
@@ -128,36 +159,32 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<DocumentDetail>, 
                  SELECT id FROM entities \
                  WHERE entity_type = 'relation_type' AND name = 'scoped_to_tor') \
          LEFT JOIN entities t ON r.target_id = t.id \
-         WHERE e.id = ?1 AND e.entity_type = 'document'",
-    )?;
+         WHERE e.id = $1 AND e.entity_type = 'document'",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
 
-    let mut rows = stmt.query_map(params![id], |row| {
-        let created_by_id_str: String = row.get(4)?;
-        let created_by_id: i64 = created_by_id_str.parse().unwrap_or(0);
-
-        Ok(DocumentDetail {
-            id: row.get(0)?,
-            title: row.get(1)?,
-            doc_type: row.get(2)?,
-            body: row.get(3)?,
+    Ok(row.map(|r| {
+        let created_by_id: i64 = r.created_by_id.parse().unwrap_or(0);
+        DocumentDetail {
+            id: r.id,
+            title: r.title,
+            doc_type: r.doc_type,
+            body: r.body,
             created_by_id,
-            created_by_name: row.get(5)?,
-            created_date: row.get(6)?,
-            updated_date: row.get(7)?,
-            tor_id: row.get(8)?,
-            tor_name: row.get(9)?,
-        })
-    })?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+            created_by_name: r.created_by_name,
+            created_date: r.created_date,
+            updated_date: r.updated_date,
+            tor_id: r.tor_id,
+            tor_name: r.tor_name,
+        }
+    }))
 }
 
 /// Create a new document.
-pub fn create(
-    conn: &Connection,
+pub async fn create(
+    pool: &PgPool,
     title: &str,
     doc_type: &str,
     body: &str,
@@ -165,74 +192,82 @@ pub fn create(
     tor_id: Option<i64>,
 ) -> Result<i64, AppError> {
     let name = name_from_title(title);
-    let doc_id = entity::create(conn, "document", &name, title)?;
+    let doc_id = entity::create(pool, "document", &name, title).await?;
 
-    // Get today's date from SQLite
-    let today: String = conn.query_row("SELECT date('now')", [], |row| row.get(0))?;
+    // Get today's date from PostgreSQL
+    let today: (String,) = sqlx::query_as("SELECT CURRENT_DATE::TEXT")
+        .fetch_one(pool)
+        .await?;
 
-    entity::set_property(conn, doc_id, "title", title)?;
-    entity::set_property(conn, doc_id, "doc_type", doc_type)?;
-    entity::set_property(conn, doc_id, "body", body)?;
-    entity::set_property(conn, doc_id, "created_by_id", &created_by_id.to_string())?;
-    entity::set_property(conn, doc_id, "created_date", &today)?;
+    entity::set_property(pool, doc_id, "title", title).await?;
+    entity::set_property(pool, doc_id, "doc_type", doc_type).await?;
+    entity::set_property(pool, doc_id, "body", body).await?;
+    entity::set_property(pool, doc_id, "created_by_id", &created_by_id.to_string()).await?;
+    entity::set_property(pool, doc_id, "created_date", &today.0).await?;
 
     if let Some(tid) = tor_id {
-        relation::create(conn, "scoped_to_tor", doc_id, tid)?;
+        relation::create(pool, "scoped_to_tor", doc_id, tid).await?;
     }
 
     Ok(doc_id)
 }
 
 /// Update an existing document.
-pub fn update(
-    conn: &Connection,
+pub async fn update(
+    pool: &PgPool,
     doc_id: i64,
     title: &str,
     doc_type: &str,
     body: &str,
 ) -> Result<(), AppError> {
-    conn.execute(
-        "UPDATE entities SET label = ?1, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?2",
-        params![title, doc_id],
-    )?;
+    sqlx::query(
+        "UPDATE entities SET label = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(title)
+    .bind(doc_id)
+    .execute(pool)
+    .await?;
 
-    entity::set_property(conn, doc_id, "title", title)?;
-    entity::set_property(conn, doc_id, "doc_type", doc_type)?;
-    entity::set_property(conn, doc_id, "body", body)?;
+    entity::set_property(pool, doc_id, "title", title).await?;
+    entity::set_property(pool, doc_id, "doc_type", doc_type).await?;
+    entity::set_property(pool, doc_id, "body", body).await?;
 
-    // Get today's date from SQLite for updated_date property
-    let today: String = conn.query_row("SELECT date('now')", [], |row| row.get(0))?;
-    entity::set_property(conn, doc_id, "updated_date", &today)?;
+    // Get today's date from PostgreSQL for updated_date property
+    let today: (String,) = sqlx::query_as("SELECT CURRENT_DATE::TEXT")
+        .fetch_one(pool)
+        .await?;
+    entity::set_property(pool, doc_id, "updated_date", &today.0).await?;
 
     Ok(())
 }
 
 /// Delete a document and its relations.
-pub fn delete(conn: &Connection, doc_id: i64) -> Result<(), AppError> {
-    entity::delete(conn, doc_id)?;
+pub async fn delete(pool: &PgPool, doc_id: i64) -> Result<(), AppError> {
+    entity::delete(pool, doc_id).await?;
     Ok(())
 }
 
 /// Count documents, optionally by ToR.
-pub fn count(conn: &Connection, tor_id: Option<i64>) -> Result<i64, AppError> {
+pub async fn count(pool: &PgPool, tor_id: Option<i64>) -> Result<i64, AppError> {
     if let Some(tid) = tor_id {
-        let count: i64 = conn.query_row(
+        let result: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM entities e \
              LEFT JOIN relations r ON e.id = r.source_id \
                  AND r.relation_type_id = ( \
                      SELECT id FROM entities \
                      WHERE entity_type = 'relation_type' AND name = 'scoped_to_tor') \
-             WHERE e.entity_type = 'document' AND r.target_id = ?1",
-            params![tid],
-            |row| row.get(0),
-        )?;
-        Ok(count)
+             WHERE e.entity_type = 'document' AND r.target_id = $1",
+        )
+        .bind(tid)
+        .fetch_one(pool)
+        .await?;
+        Ok(result.0)
     } else {
-        let count: i64 = conn.query_row(
+        let result: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM entities WHERE entity_type = 'document'",
-            [],
-            |row| row.get(0),
-        )?;
-        Ok(count)
+        )
+        .fetch_one(pool)
+        .await?;
+        Ok(result.0)
     }
 }

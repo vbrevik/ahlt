@@ -1,5 +1,5 @@
 /// For the meeting list page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct MeetingListItem {
     pub id: i64,
     pub name: String,
@@ -14,7 +14,7 @@ pub struct MeetingListItem {
 }
 
 /// For meeting detail/edit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct MeetingDetail {
     pub id: i64,
     pub name: String,

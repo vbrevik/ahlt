@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PresentationTemplate {
     pub id: i64,
     pub name: String,
@@ -7,7 +7,7 @@ pub struct PresentationTemplate {
     pub slide_count: i64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TemplateSlide {
     pub id: i64,
     pub name: String,

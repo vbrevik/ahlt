@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 
 use crate::auth::session::Permissions;
 
@@ -14,7 +14,9 @@ pub struct NavSidebarItem {
     pub is_active: bool,
 }
 
-struct RawNavItem {
+#[derive(sqlx::FromRow)]
+struct RawNavRow {
+    nav_name: String,
     label: String,
     url: String,
     permission_code: String,
@@ -22,13 +24,13 @@ struct RawNavItem {
 }
 
 /// Returns (header_modules, sidebar_items) for the current user and path.
-pub fn find_navigation(
-    conn: &Connection,
+pub async fn find_navigation(
+    pool: &PgPool,
     permissions: &Permissions,
     current_path: &str,
 ) -> (Vec<NavModule>, Vec<NavSidebarItem>) {
-    let mut stmt = conn.prepare(
-        "SELECT e.name, e.label, \
+    let raw_rows = sqlx::query_as::<_, RawNavRow>(
+        "SELECT e.name AS nav_name, e.label, \
                 COALESCE(p_url.value, '') AS url, \
                 COALESCE(perm.name, '') AS permission_code, \
                 COALESCE(p_parent.value, '') AS parent \
@@ -45,23 +47,22 @@ pub fn find_navigation(
              ) \
          LEFT JOIN entities perm \
              ON r_perm.target_id = perm.id AND perm.entity_type = 'permission' \
-         WHERE e.entity_type = 'nav_item' AND e.is_active = 1 \
+         WHERE e.entity_type = 'nav_item' AND e.is_active = true \
          ORDER BY e.sort_order, e.id"
-    ).unwrap();
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
 
-    let rows: Vec<(String, RawNavItem)> = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            RawNavItem {
-                label: row.get(1)?,
-                url: row.get(2)?,
-                permission_code: row.get(3)?,
-                parent: row.get(4)?,
-            },
-        ))
-    }).unwrap()
-    .filter_map(|r| r.ok())
-    .collect();
+    let rows: Vec<(String, RawNavItem)> = raw_rows
+        .into_iter()
+        .map(|r| (r.nav_name, RawNavItem {
+            label: r.label,
+            url: r.url,
+            permission_code: r.permission_code,
+            parent: r.parent,
+        }))
+        .collect();
 
     // Partition: top-level (no parent) vs children
     let top_level: Vec<&(String, RawNavItem)> = rows.iter()
@@ -130,6 +131,13 @@ pub fn find_navigation(
     };
 
     (modules, sidebar)
+}
+
+struct RawNavItem {
+    label: String,
+    url: String,
+    permission_code: String,
+    parent: String,
 }
 
 fn find_active_module(

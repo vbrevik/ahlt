@@ -1,13 +1,37 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::{entity, relation};
 use super::types::*;
 
+/// Intermediate row for find_opinions_for_agenda_point query.
+#[derive(sqlx::FromRow)]
+struct OpinionListRow {
+    id: i64,
+    recorded_by_id: String,
+    recorded_by_name: String,
+    preferred_coa_id: String,
+    commentary: String,
+    created_date: String,
+}
+
+/// Intermediate row for find_opinion_by_id query.
+#[derive(sqlx::FromRow)]
+struct OpinionDetailRow {
+    id: i64,
+    agenda_point_id: String,
+    recorded_by_id: String,
+    recorded_by_name: String,
+    preferred_coa_id: String,
+    coa_title: String,
+    commentary: String,
+    created_date: String,
+}
+
 /// Record a new opinion on an agenda point.
 /// Creates an opinion entity with properties and relations to the user and agenda point.
 /// Returns the new opinion entity id.
-pub fn record_opinion(
-    conn: &Connection,
+pub async fn record_opinion(
+    pool: &PgPool,
     agenda_point_id: i64,
     recorded_by_id: i64,
     preferred_coa_id: i64,
@@ -15,28 +39,28 @@ pub fn record_opinion(
 ) -> Result<i64, AppError> {
     let name = format!("opinion_ap{}_by{}", agenda_point_id, recorded_by_id);
 
-    let opinion_id = entity::create(conn, "opinion", &name, &name)
+    let opinion_id = entity::create(pool, "opinion", &name, &name).await
         .map_err(|e| AppError::Db(e))?;
 
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    entity::set_property(conn, opinion_id, "agenda_point_id", &agenda_point_id.to_string())
+    entity::set_property(pool, opinion_id, "agenda_point_id", &agenda_point_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, opinion_id, "recorded_by_id", &recorded_by_id.to_string())
+    entity::set_property(pool, opinion_id, "recorded_by_id", &recorded_by_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, opinion_id, "preferred_coa_id", &preferred_coa_id.to_string())
+    entity::set_property(pool, opinion_id, "preferred_coa_id", &preferred_coa_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, opinion_id, "commentary", commentary)
+    entity::set_property(pool, opinion_id, "commentary", commentary).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, opinion_id, "created_date", &now)
+    entity::set_property(pool, opinion_id, "created_date", &now).await
         .map_err(|e| AppError::Db(e))?;
 
     // Create relations: opinion_by (user -> opinion), opinion_on (opinion -> agenda_point), prefers_coa (opinion -> coa)
-    relation::create(conn, "opinion_by", recorded_by_id, opinion_id)
+    relation::create(pool, "opinion_by", recorded_by_id, opinion_id).await
         .map_err(|e| AppError::Db(e))?;
-    relation::create(conn, "opinion_on", opinion_id, agenda_point_id)
+    relation::create(pool, "opinion_on", opinion_id, agenda_point_id).await
         .map_err(|e| AppError::Db(e))?;
-    relation::create(conn, "prefers_coa", opinion_id, preferred_coa_id)
+    relation::create(pool, "prefers_coa", opinion_id, preferred_coa_id).await
         .map_err(|e| AppError::Db(e))?;
 
     Ok(opinion_id)
@@ -47,16 +71,16 @@ pub fn record_opinion(
 /// Handles two creation paths:
 /// - Programmatic (`record_opinion()`): stored as entity_properties (recorded_by_id, preferred_coa_id,
 ///   commentary) with an `opinion_by` relation where source=user, target=opinion.
-/// - Seeded: only relations exist — `opinion_by` (source=opinion, target=user),
+/// - Seeded: only relations exist -- `opinion_by` (source=opinion, target=user),
 ///   `opinion_on` (source=opinion, target=agenda_point), `prefers_coa` (source=opinion, target=coa).
 ///   Property key is `rationale` not `commentary`.
 ///
 /// COALESCE fallbacks resolve user and COA from whichever path was used.
-pub fn find_opinions_for_agenda_point(
-    conn: &Connection,
+pub async fn find_opinions_for_agenda_point(
+    pool: &PgPool,
     agenda_point_id: i64,
 ) -> Result<Vec<OpinionListItem>, AppError> {
-    let mut stmt = conn.prepare(
+    let rows = sqlx::query_as::<_, OpinionListRow>(
         "SELECT e.id, \
                 COALESCE(p_by.value, \
                     CAST(r_by_seed.target_id AS TEXT), \
@@ -73,7 +97,7 @@ pub fn find_opinions_for_agenda_point(
          JOIN entities rt ON r.relation_type_id = rt.id AND rt.name = 'opinion_on' \
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'recorded_by_id' \
-         LEFT JOIN entities u_prop ON CAST(p_by.value AS INTEGER) = u_prop.id \
+         LEFT JOIN entities u_prop ON CAST(p_by.value AS BIGINT) = u_prop.id \
          LEFT JOIN relations r_by_seed ON r_by_seed.source_id = e.id \
              AND r_by_seed.relation_type_id = ( \
                  SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'opinion_by') \
@@ -93,38 +117,36 @@ pub fn find_opinions_for_agenda_point(
              ON e.id = p_rationale.entity_id AND p_rationale.key = 'rationale' \
          LEFT JOIN entity_properties p_date \
              ON e.id = p_date.entity_id AND p_date.key = 'created_date' \
-         WHERE e.entity_type = 'opinion' AND r.target_id = ?1 \
+         WHERE e.entity_type = 'opinion' AND r.target_id = $1 \
          ORDER BY COALESCE(p_date.value, '') ASC",
-    ).map_err(AppError::Db)?;
+    )
+    .bind(agenda_point_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Db)?;
 
-    let items = stmt
-        .query_map(params![agenda_point_id], |row| {
-            let recorded_by_id_str: String = row.get("recorded_by_id")?;
-            let recorded_by_id: i64 = recorded_by_id_str.parse().unwrap_or(0);
-            let preferred_coa_id_str: String = row.get("preferred_coa_id")?;
-            let preferred_coa_id: i64 = preferred_coa_id_str.parse().unwrap_or(0);
-            Ok(OpinionListItem {
-                id: row.get("id")?,
-                recorded_by: recorded_by_id,
-                recorded_by_name: row.get("recorded_by_name")?,
-                preferred_coa_id,
-                commentary: row.get("commentary")?,
-                created_date: row.get("created_date")?,
-            })
-        })
-        .map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
+    let items = rows.into_iter().map(|row| {
+        let recorded_by: i64 = row.recorded_by_id.parse().unwrap_or(0);
+        let preferred_coa_id: i64 = row.preferred_coa_id.parse().unwrap_or(0);
+        OpinionListItem {
+            id: row.id,
+            recorded_by,
+            recorded_by_name: row.recorded_by_name,
+            preferred_coa_id,
+            commentary: row.commentary,
+            created_date: row.created_date,
+        }
+    }).collect();
 
     Ok(items)
 }
 
 /// Find a single opinion by id with full details including COA title.
-pub fn find_opinion_by_id(
-    conn: &Connection,
+pub async fn find_opinion_by_id(
+    pool: &PgPool,
     id: i64,
 ) -> Result<Option<OpinionDetail>, AppError> {
-    let mut stmt = conn.prepare(
+    let row = sqlx::query_as::<_, OpinionDetailRow>(
         "SELECT e.id, \
                 COALESCE(p_ap.value, '0') AS agenda_point_id, \
                 COALESCE(p_by.value, '0') AS recorded_by_id, \
@@ -139,98 +161,92 @@ pub fn find_opinion_by_id(
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'recorded_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_coa \
              ON e.id = p_coa.entity_id AND p_coa.key = 'preferred_coa_id' \
          LEFT JOIN entities coa \
-             ON CAST(p_coa.value AS INTEGER) = coa.id \
+             ON CAST(p_coa.value AS BIGINT) = coa.id \
          LEFT JOIN entity_properties p_comment \
              ON e.id = p_comment.entity_id AND p_comment.key = 'commentary' \
          LEFT JOIN entity_properties p_date \
              ON e.id = p_date.entity_id AND p_date.key = 'created_date' \
-         WHERE e.id = ?1 AND e.entity_type = 'opinion'",
-    ).map_err(|e| AppError::Db(e))?;
+         WHERE e.id = $1 AND e.entity_type = 'opinion'",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Db(e))?;
 
-    let mut rows = stmt
-        .query_map(params![id], |row| {
-            let recorded_by_id_str: String = row.get("recorded_by_id")?;
-            let recorded_by_id: i64 = recorded_by_id_str.parse().unwrap_or(0);
-            let preferred_coa_id_str: String = row.get("preferred_coa_id")?;
-            let preferred_coa_id: i64 = preferred_coa_id_str.parse().unwrap_or(0);
-            let agenda_point_id_str: String = row.get("agenda_point_id")?;
-            let agenda_point_id: i64 = agenda_point_id_str.parse().unwrap_or(0);
-
-            Ok(OpinionDetail {
-                id: row.get("id")?,
+    match row {
+        Some(r) => {
+            let recorded_by: i64 = r.recorded_by_id.parse().unwrap_or(0);
+            let preferred_coa_id: i64 = r.preferred_coa_id.parse().unwrap_or(0);
+            let agenda_point_id: i64 = r.agenda_point_id.parse().unwrap_or(0);
+            Ok(Some(OpinionDetail {
+                id: r.id,
                 agenda_point_id,
-                recorded_by: recorded_by_id,
-                recorded_by_name: row.get("recorded_by_name")?,
+                recorded_by,
+                recorded_by_name: r.recorded_by_name,
                 preferred_coa_id,
-                coa_title: row.get("coa_title")?,
-                commentary: row.get("commentary")?,
-                created_date: row.get("created_date")?,
-            })
-        })
-        .map_err(|e| AppError::Db(e))?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row.map_err(|e| AppError::Db(e))?)),
+                coa_title: r.coa_title,
+                commentary: r.commentary,
+                created_date: r.created_date,
+            }))
+        }
         None => Ok(None),
     }
 }
 
 /// Update an existing opinion's preferred COA and commentary.
-pub fn update_opinion(
-    conn: &Connection,
+pub async fn update_opinion(
+    pool: &PgPool,
     id: i64,
     preferred_coa_id: i64,
     commentary: &str,
 ) -> Result<(), AppError> {
-    entity::set_property(conn, id, "preferred_coa_id", &preferred_coa_id.to_string())
+    entity::set_property(pool, id, "preferred_coa_id", &preferred_coa_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, id, "commentary", commentary)
+    entity::set_property(pool, id, "commentary", commentary).await
         .map_err(|e| AppError::Db(e))?;
 
     // Update the prefers_coa relation by deleting old and creating new
-    relation::delete_all_from_source(conn, id, "prefers_coa")
+    relation::delete_all_from_source(pool, id, "prefers_coa").await
         .map_err(|e| AppError::Db(e))?;
-    relation::create(conn, "prefers_coa", id, preferred_coa_id)
+    relation::create(pool, "prefers_coa", id, preferred_coa_id).await
         .map_err(|e| AppError::Db(e))?;
 
     Ok(())
 }
 
 /// Check if a user has already recorded an opinion on a specific agenda point.
-pub fn find_opinion_by_user_and_agenda_point(
-    conn: &Connection,
+pub async fn find_opinion_by_user_and_agenda_point(
+    pool: &PgPool,
     user_id: i64,
     agenda_point_id: i64,
 ) -> Result<Option<i64>, AppError> {
-    let mut stmt = conn.prepare(
+    let row: Option<(i64,)> = sqlx::query_as(
         "SELECT e.id \
          FROM entities e \
          JOIN entity_properties p_by ON e.id = p_by.entity_id AND p_by.key = 'recorded_by_id' \
          JOIN entity_properties p_ap ON e.id = p_ap.entity_id AND p_ap.key = 'agenda_point_id' \
          WHERE e.entity_type = 'opinion' \
-           AND CAST(p_by.value AS INTEGER) = ?1 \
-           AND CAST(p_ap.value AS INTEGER) = ?2",
-    ).map_err(|e| AppError::Db(e))?;
+           AND CAST(p_by.value AS BIGINT) = $1 \
+           AND CAST(p_ap.value AS BIGINT) = $2",
+    )
+    .bind(user_id)
+    .bind(agenda_point_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| AppError::Db(e))?;
 
-    let mut rows = stmt.query_map(params![user_id, agenda_point_id], |row| {
-        row.get::<_, i64>(0)
-    }).map_err(|e| AppError::Db(e))?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row.map_err(|e| AppError::Db(e))?)),
-        None => Ok(None),
-    }
+    Ok(row.map(|(id,)| id))
 }
 
 /// Record a final decision on an agenda point.
 /// Creates a decision entity with properties and updates the agenda point status to "voted".
 /// Returns the new decision entity id.
-pub fn record_decision(
-    conn: &Connection,
+pub async fn record_decision(
+    pool: &PgPool,
     agenda_point_id: i64,
     decided_by_id: i64,
     selected_coa_id: i64,
@@ -238,24 +254,24 @@ pub fn record_decision(
 ) -> Result<i64, AppError> {
     let name = format!("decision_ap{}_by{}", agenda_point_id, decided_by_id);
 
-    let decision_id = entity::create(conn, "decision", &name, &name)
+    let decision_id = entity::create(pool, "decision", &name, &name).await
         .map_err(|e| AppError::Db(e))?;
 
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    entity::set_property(conn, decision_id, "agenda_point_id", &agenda_point_id.to_string())
+    entity::set_property(pool, decision_id, "agenda_point_id", &agenda_point_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, decision_id, "decided_by_id", &decided_by_id.to_string())
+    entity::set_property(pool, decision_id, "decided_by_id", &decided_by_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, decision_id, "selected_coa_id", &selected_coa_id.to_string())
+    entity::set_property(pool, decision_id, "selected_coa_id", &selected_coa_id.to_string()).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, decision_id, "decision_rationale", decision_rationale)
+    entity::set_property(pool, decision_id, "decision_rationale", decision_rationale).await
         .map_err(|e| AppError::Db(e))?;
-    entity::set_property(conn, decision_id, "decided_date", &now)
+    entity::set_property(pool, decision_id, "decided_date", &now).await
         .map_err(|e| AppError::Db(e))?;
 
     // Update agenda point status to "voted"
-    entity::set_property(conn, agenda_point_id, "status", "voted")
+    entity::set_property(pool, agenda_point_id, "status", "voted").await
         .map_err(|e| AppError::Db(e))?;
 
     Ok(decision_id)
@@ -263,29 +279,24 @@ pub fn record_decision(
 
 /// Get a summary of opinions grouped by preferred COA for an agenda point.
 /// Returns a list of (coa_id, count) tuples showing how many people prefer each COA.
-pub fn get_opinions_summary(
-    conn: &Connection,
+pub async fn get_opinions_summary(
+    pool: &PgPool,
     agenda_point_id: i64,
 ) -> Result<Vec<(i64, i32)>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT CAST(p_coa.value AS INTEGER) AS coa_id, COUNT(*) AS count \
+    let results: Vec<(i64, i64)> = sqlx::query_as(
+        "SELECT CAST(p_coa.value AS BIGINT) AS coa_id, COUNT(*) AS count \
          FROM entities e \
          JOIN entity_properties p_ap ON e.id = p_ap.entity_id AND p_ap.key = 'agenda_point_id' \
          JOIN entity_properties p_coa ON e.id = p_coa.entity_id AND p_coa.key = 'preferred_coa_id' \
          WHERE e.entity_type = 'opinion' \
-           AND CAST(p_ap.value AS INTEGER) = ?1 \
+           AND CAST(p_ap.value AS BIGINT) = $1 \
          GROUP BY coa_id \
          ORDER BY count DESC",
-    ).map_err(|e| AppError::Db(e))?;
+    )
+    .bind(agenda_point_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::Db(e))?;
 
-    let results = stmt
-        .query_map(params![agenda_point_id], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?))
-        })
-        .map_err(|e| AppError::Db(e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| AppError::Db(e))?;
-
-    Ok(results)
+    Ok(results.into_iter().map(|(coa_id, count)| (coa_id, count as i32)).collect())
 }
-

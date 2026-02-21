@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Summary of a workflow scope (e.g. "suggestion", "proposal") for the builder list page.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WorkflowScope {
     pub scope: String,
     pub status_count: i64,

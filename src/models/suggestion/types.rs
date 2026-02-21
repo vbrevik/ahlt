@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Suggestion as shown in the workflow list view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SuggestionListItem {
     pub id: i64,
     pub description: String,
@@ -15,7 +15,7 @@ pub struct SuggestionListItem {
 }
 
 /// Suggestion as shown in the cross-ToR workflow index view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrossTorSuggestionItem {
     pub tor_id: i64,
     pub tor_name: String,
@@ -31,7 +31,7 @@ pub struct CrossTorSuggestionItem {
 }
 
 /// Full suggestion detail.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SuggestionDetail {
     pub id: i64,
     pub description: String,

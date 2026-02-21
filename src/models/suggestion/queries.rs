@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::{entity, relation};
 use super::types::*;
@@ -13,8 +13,20 @@ fn make_preview(s: &str, max_len: usize) -> String {
 }
 
 /// Find all suggestions related to a given ToR via the `suggested_to` relation.
-pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<SuggestionListItem>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_all_for_tor(pool: &PgPool, tor_id: i64) -> Result<Vec<SuggestionListItem>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        description: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        spawned_proposal_id: Option<i64>,
+    }
+
+    let rows = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_date.value, '') AS submitted_date, \
@@ -35,7 +47,7 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<Suggestion
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_reason \
              ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
          LEFT JOIN relations r_spawn \
@@ -43,40 +55,53 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<Suggestion
             AND r_spawn.relation_type_id = ( \
                 SELECT id FROM entities \
                 WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
-         WHERE e.entity_type = 'suggestion' AND r.target_id = ?1 \
+         WHERE e.entity_type = 'suggestion' AND r.target_id = $1 \
          ORDER BY submitted_date DESC",
-    )?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
-    let items = stmt
-        .query_map(params![tor_id], |row| {
-            let description: String = row.get("description")?;
-            let submitted_by_id_str: String = row.get("submitted_by_id")?;
-            let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-            let rejection_reason: Option<String> = row.get("rejection_reason")?;
-            let spawned_proposal_id: Option<i64> = row.get("spawned_proposal_id")?;
-
-            Ok(SuggestionListItem {
-                id: row.get("id")?,
-                description_preview: make_preview(&description, 100),
-                description,
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let submitted_by_id: i64 = row.submitted_by_id.parse().unwrap_or(0);
+            SuggestionListItem {
+                id: row.id,
+                description_preview: make_preview(&row.description, 100),
+                description: row.description,
                 submitted_by_id,
-                submitted_by_name: row.get("submitted_by_name")?,
-                submitted_date: row.get("submitted_date")?,
-                status: row.get("status")?,
-                rejection_reason,
-                spawned_proposal_id,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+                submitted_by_name: row.submitted_by_name,
+                submitted_date: row.submitted_date,
+                status: row.status,
+                rejection_reason: row.rejection_reason,
+                spawned_proposal_id: row.spawned_proposal_id,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Find all suggestions across all ToRs (or filtered to ToRs a user fills a position in).
 ///
-/// `user_id = None`  → returns every suggestion across all ToRs.
-/// `user_id = Some(id)` → returns only suggestions for ToRs the user fills a position in.
-pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec<CrossTorSuggestionItem>, AppError> {
+/// `user_id = None`  -> returns every suggestion across all ToRs.
+/// `user_id = Some(id)` -> returns only suggestions for ToRs the user fills a position in.
+pub async fn find_all_cross_tor(pool: &PgPool, user_id: Option<i64>) -> Result<Vec<CrossTorSuggestionItem>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        tor_id: i64,
+        tor_name: String,
+        id: i64,
+        description: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        spawned_proposal_id: Option<i64>,
+    }
+
     let base_sql = "SELECT tor.id AS tor_id, tor.label AS tor_name, e.id, \
                            COALESCE(p_desc.value, '') AS description, \
                            COALESCE(p_date.value, '') AS submitted_date, \
@@ -98,7 +123,7 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
                     LEFT JOIN entity_properties p_by \
                         ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
                     LEFT JOIN entities u \
-                        ON CAST(p_by.value AS INTEGER) = u.id \
+                        ON CAST(p_by.value AS BIGINT) = u.id \
                     LEFT JOIN entity_properties p_reason \
                         ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
                     LEFT JOIN relations r_spawn \
@@ -108,34 +133,12 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
                            WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
                     WHERE e.entity_type = 'suggestion'";
 
-    let row_to_item = |row: &rusqlite::Row<'_>| {
-        let description: String = row.get("description")?;
-        let submitted_by_id_str: String = row.get("submitted_by_id")?;
-        let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-        let rejection_reason: Option<String> = row.get("rejection_reason")?;
-        let spawned_proposal_id: Option<i64> = row.get("spawned_proposal_id")?;
-
-        Ok(CrossTorSuggestionItem {
-            tor_id: row.get("tor_id")?,
-            tor_name: row.get("tor_name")?,
-            id: row.get("id")?,
-            description_preview: make_preview(&description, 100),
-            description,
-            submitted_by_id,
-            submitted_by_name: row.get("submitted_by_name")?,
-            submitted_date: row.get("submitted_date")?,
-            status: row.get("status")?,
-            rejection_reason,
-            spawned_proposal_id,
-        })
-    };
-
-    let items = if let Some(uid) = user_id {
+    let rows = if let Some(uid) = user_id {
         let sql = format!(
             "{} AND EXISTS (\
                 SELECT 1 FROM relations r_fills \
                 JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
-                WHERE r_fills.source_id = ?1 \
+                WHERE r_fills.source_id = $1 \
                   AND r_tor.target_id = tor.id \
                   AND r_fills.relation_type_id = (\
                       SELECT id FROM entities \
@@ -146,22 +149,55 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
             ) ORDER BY tor.label ASC, submitted_date DESC",
             base_sql
         );
-        let mut stmt = conn.prepare(&sql)?;
-        stmt.query_map(params![uid], row_to_item)?
-            .collect::<Result<Vec<_>, _>>()?
+        sqlx::query_as::<_, Row>(&sql)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
     } else {
         let sql = format!("{} ORDER BY tor.label ASC, submitted_date DESC", base_sql);
-        let mut stmt = conn.prepare(&sql)?;
-        stmt.query_map([], row_to_item)?
-            .collect::<Result<Vec<_>, _>>()?
+        sqlx::query_as::<_, Row>(&sql)
+            .fetch_all(pool)
+            .await?
     };
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let submitted_by_id: i64 = row.submitted_by_id.parse().unwrap_or(0);
+            CrossTorSuggestionItem {
+                tor_id: row.tor_id,
+                tor_name: row.tor_name,
+                id: row.id,
+                description_preview: make_preview(&row.description, 100),
+                description: row.description,
+                submitted_by_id,
+                submitted_by_name: row.submitted_by_name,
+                submitted_date: row.submitted_date,
+                status: row.status,
+                rejection_reason: row.rejection_reason,
+                spawned_proposal_id: row.spawned_proposal_id,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Find a single suggestion by its entity id.
-pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<SuggestionDetail>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_by_id(pool: &PgPool, id: i64) -> Result<Option<SuggestionDetail>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        description: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        spawned_proposal_id: Option<i64>,
+    }
+
+    let row = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_date.value, '') AS submitted_date, \
@@ -180,7 +216,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<SuggestionDetail>
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_reason \
              ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
          LEFT JOIN relations r_spawn \
@@ -188,38 +224,31 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<SuggestionDetail>
             AND r_spawn.relation_type_id = ( \
                 SELECT id FROM entities \
                 WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
-         WHERE e.id = ?1 AND e.entity_type = 'suggestion'",
-    )?;
+         WHERE e.id = $1 AND e.entity_type = 'suggestion'",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
 
-    let mut rows = stmt.query_map(params![id], |row| {
-        let description: String = row.get("description")?;
-        let submitted_by_id_str: String = row.get("submitted_by_id")?;
-        let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-        let rejection_reason: Option<String> = row.get("rejection_reason")?;
-        let spawned_proposal_id: Option<i64> = row.get("spawned_proposal_id")?;
-
-        Ok(SuggestionDetail {
-            id: row.get("id")?,
-            description,
+    Ok(row.map(|r| {
+        let submitted_by_id: i64 = r.submitted_by_id.parse().unwrap_or(0);
+        SuggestionDetail {
+            id: r.id,
+            description: r.description,
             submitted_by_id,
-            submitted_by_name: row.get("submitted_by_name")?,
-            submitted_date: row.get("submitted_date")?,
-            status: row.get("status")?,
-            rejection_reason,
-            spawned_proposal_id,
-        })
-    })?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+            submitted_by_name: r.submitted_by_name,
+            submitted_date: r.submitted_date,
+            status: r.status,
+            rejection_reason: r.rejection_reason,
+            spawned_proposal_id: r.spawned_proposal_id,
+        }
+    }))
 }
 
 /// Create a new suggestion entity linked to a ToR via `suggested_to`.
 /// Returns the new entity id.
-pub fn create(
-    conn: &Connection,
+pub async fn create(
+    pool: &PgPool,
     tor_id: i64,
     description: &str,
     submitted_by_id: i64,
@@ -228,29 +257,29 @@ pub fn create(
     let name = format!("suggestion_{}_{}", submitted_date.replace('-', "_"), tor_id);
     let label = make_preview(description, 50);
 
-    let suggestion_id = entity::create(conn, "suggestion", &name, &label)?;
+    let suggestion_id = entity::create(pool, "suggestion", &name, &label).await?;
 
-    entity::set_property(conn, suggestion_id, "description", description)?;
-    entity::set_property(conn, suggestion_id, "submitted_date", submitted_date)?;
-    entity::set_property(conn, suggestion_id, "status", "open")?;
-    entity::set_property(conn, suggestion_id, "submitted_by_id", &submitted_by_id.to_string())?;
+    entity::set_property(pool, suggestion_id, "description", description).await?;
+    entity::set_property(pool, suggestion_id, "submitted_date", submitted_date).await?;
+    entity::set_property(pool, suggestion_id, "status", "open").await?;
+    entity::set_property(pool, suggestion_id, "submitted_by_id", &submitted_by_id.to_string()).await?;
 
-    relation::create(conn, "suggested_to", suggestion_id, tor_id)?;
+    relation::create(pool, "suggested_to", suggestion_id, tor_id).await?;
 
     Ok(suggestion_id)
 }
 
 /// Update the status of a suggestion (e.g. open -> accepted or rejected).
-pub fn update_status(
-    conn: &Connection,
+pub async fn update_status(
+    pool: &PgPool,
     suggestion_id: i64,
     new_status: &str,
     rejection_reason: Option<&str>,
 ) -> Result<(), AppError> {
-    entity::set_property(conn, suggestion_id, "status", new_status)?;
+    entity::set_property(pool, suggestion_id, "status", new_status).await?;
 
     if let Some(reason) = rejection_reason {
-        entity::set_property(conn, suggestion_id, "rejection_reason", reason)?;
+        entity::set_property(pool, suggestion_id, "rejection_reason", reason).await?;
     }
 
     Ok(())

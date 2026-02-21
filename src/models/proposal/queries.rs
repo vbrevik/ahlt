@@ -1,17 +1,20 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::{entity, relation};
 use super::types::*;
 
 /// Count proposals with a given status (e.g. "draft", "submitted", "approved").
-pub fn count_by_status(conn: &Connection, status: &str) -> i64 {
-    conn.query_row(
+pub async fn count_by_status(pool: &PgPool, status: &str) -> i64 {
+    let result: Result<(i64,), _> = sqlx::query_as(
         "SELECT COUNT(*) FROM entities e
          JOIN entity_properties p ON e.id = p.entity_id AND p.key = 'status'
-         WHERE e.entity_type = 'proposal' AND p.value = ?1",
-        params![status],
-        |row| row.get(0),
-    ).unwrap_or(0)
+         WHERE e.entity_type = 'proposal' AND p.value = $1",
+    )
+    .bind(status)
+    .fetch_one(pool)
+    .await;
+
+    result.map(|r| r.0).unwrap_or(0)
 }
 
 /// Generate a slug-style name from a title: lowercase, spaces to underscores,
@@ -26,8 +29,20 @@ fn name_from_title(title: &str) -> String {
 }
 
 /// Find all proposals linked to a ToR via the `submitted_to` relation.
-pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<ProposalListItem>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_all_for_tor(pool: &PgPool, tor_id: i64) -> Result<Vec<ProposalListItem>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        title: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        related_suggestion_id: Option<i64>,
+    }
+
+    let rows = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_date.value, '') AS submitted_date, \
@@ -48,7 +63,7 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<ProposalLi
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_reason \
              ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
          LEFT JOIN relations r_spawn \
@@ -56,38 +71,52 @@ pub fn find_all_for_tor(conn: &Connection, tor_id: i64) -> Result<Vec<ProposalLi
             AND r_spawn.relation_type_id = ( \
                 SELECT id FROM entities \
                 WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
-         WHERE e.entity_type = 'proposal' AND r.target_id = ?1 \
+         WHERE e.entity_type = 'proposal' AND r.target_id = $1 \
          ORDER BY submitted_date DESC",
-    )?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
-    let items = stmt
-        .query_map(params![tor_id], |row| {
-            let submitted_by_id_str: String = row.get("submitted_by_id")?;
-            let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-            let rejection_reason: Option<String> = row.get("rejection_reason")?;
-            let related_suggestion_id: Option<i64> = row.get("related_suggestion_id")?;
-
-            Ok(ProposalListItem {
-                id: row.get("id")?,
-                title: row.get("title")?,
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let submitted_by_id: i64 = row.submitted_by_id.parse().unwrap_or(0);
+            ProposalListItem {
+                id: row.id,
+                title: row.title,
                 submitted_by_id,
-                submitted_by_name: row.get("submitted_by_name")?,
-                submitted_date: row.get("submitted_date")?,
-                status: row.get("status")?,
-                rejection_reason,
-                related_suggestion_id,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+                submitted_by_name: row.submitted_by_name,
+                submitted_date: row.submitted_date,
+                status: row.status,
+                rejection_reason: row.rejection_reason,
+                related_suggestion_id: row.related_suggestion_id,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Find all proposals across all ToRs (or filtered to ToRs a user fills a position in).
 ///
-/// `user_id = None`  → returns every proposal across all ToRs.
-/// `user_id = Some(id)` → returns only proposals for ToRs the user fills a position in.
-pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec<CrossTorProposalItem>, AppError> {
+/// `user_id = None`  -> returns every proposal across all ToRs.
+/// `user_id = Some(id)` -> returns only proposals for ToRs the user fills a position in.
+pub async fn find_all_cross_tor(pool: &PgPool, user_id: Option<i64>) -> Result<Vec<CrossTorProposalItem>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        tor_id: i64,
+        tor_name: String,
+        id: i64,
+        title: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        related_suggestion_id: Option<i64>,
+    }
+
     let base_sql = "SELECT tor.id AS tor_id, tor.label AS tor_name, e.id, \
                            COALESCE(p_title.value, '') AS title, \
                            COALESCE(p_date.value, '') AS submitted_date, \
@@ -109,7 +138,7 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
                     LEFT JOIN entity_properties p_by \
                         ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
                     LEFT JOIN entities u \
-                        ON CAST(p_by.value AS INTEGER) = u.id \
+                        ON CAST(p_by.value AS BIGINT) = u.id \
                     LEFT JOIN entity_properties p_reason \
                         ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
                     LEFT JOIN relations r_spawn \
@@ -119,32 +148,12 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
                            WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
                     WHERE e.entity_type = 'proposal'";
 
-    let row_to_item = |row: &rusqlite::Row<'_>| {
-        let submitted_by_id_str: String = row.get("submitted_by_id")?;
-        let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-        let rejection_reason: Option<String> = row.get("rejection_reason")?;
-        let related_suggestion_id: Option<i64> = row.get("related_suggestion_id")?;
-
-        Ok(CrossTorProposalItem {
-            tor_id: row.get("tor_id")?,
-            tor_name: row.get("tor_name")?,
-            id: row.get("id")?,
-            title: row.get("title")?,
-            submitted_by_id,
-            submitted_by_name: row.get("submitted_by_name")?,
-            submitted_date: row.get("submitted_date")?,
-            status: row.get("status")?,
-            rejection_reason,
-            related_suggestion_id,
-        })
-    };
-
-    let items = if let Some(uid) = user_id {
+    let rows = if let Some(uid) = user_id {
         let sql = format!(
             "{} AND EXISTS (\
                 SELECT 1 FROM relations r_fills \
                 JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
-                WHERE r_fills.source_id = ?1 \
+                WHERE r_fills.source_id = $1 \
                   AND r_tor.target_id = tor.id \
                   AND r_fills.relation_type_id = (\
                       SELECT id FROM entities \
@@ -155,22 +164,56 @@ pub fn find_all_cross_tor(conn: &Connection, user_id: Option<i64>) -> Result<Vec
             ) ORDER BY tor.label ASC, submitted_date DESC",
             base_sql
         );
-        let mut stmt = conn.prepare(&sql)?;
-        stmt.query_map(params![uid], row_to_item)?
-            .collect::<Result<Vec<_>, _>>()?
+        sqlx::query_as::<_, Row>(&sql)
+            .bind(uid)
+            .fetch_all(pool)
+            .await?
     } else {
         let sql = format!("{} ORDER BY tor.label ASC, submitted_date DESC", base_sql);
-        let mut stmt = conn.prepare(&sql)?;
-        stmt.query_map([], row_to_item)?
-            .collect::<Result<Vec<_>, _>>()?
+        sqlx::query_as::<_, Row>(&sql)
+            .fetch_all(pool)
+            .await?
     };
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let submitted_by_id: i64 = row.submitted_by_id.parse().unwrap_or(0);
+            CrossTorProposalItem {
+                tor_id: row.tor_id,
+                tor_name: row.tor_name,
+                id: row.id,
+                title: row.title,
+                submitted_by_id,
+                submitted_by_name: row.submitted_by_name,
+                submitted_date: row.submitted_date,
+                status: row.status,
+                rejection_reason: row.rejection_reason,
+                related_suggestion_id: row.related_suggestion_id,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Find a single proposal by its entity id.
-pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<ProposalDetail>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn find_by_id(pool: &PgPool, id: i64) -> Result<Option<ProposalDetail>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        title: String,
+        description: String,
+        rationale: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        related_suggestion_id: Option<i64>,
+    }
+
+    let row = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_desc.value, '') AS description, \
@@ -195,7 +238,7 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<ProposalDetail>, 
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_reason \
              ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
          LEFT JOIN relations r_spawn \
@@ -203,40 +246,34 @@ pub fn find_by_id(conn: &Connection, id: i64) -> Result<Option<ProposalDetail>, 
             AND r_spawn.relation_type_id = ( \
                 SELECT id FROM entities \
                 WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
-         WHERE e.id = ?1 AND e.entity_type = 'proposal'",
-    )?;
+         WHERE e.id = $1 AND e.entity_type = 'proposal'",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
 
-    let mut rows = stmt.query_map(params![id], |row| {
-        let submitted_by_id_str: String = row.get("submitted_by_id")?;
-        let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-        let rejection_reason: Option<String> = row.get("rejection_reason")?;
-        let related_suggestion_id: Option<i64> = row.get("related_suggestion_id")?;
-
-        Ok(ProposalDetail {
-            id: row.get("id")?,
-            title: row.get("title")?,
-            description: row.get("description")?,
-            rationale: row.get("rationale")?,
+    Ok(row.map(|r| {
+        let submitted_by_id: i64 = r.submitted_by_id.parse().unwrap_or(0);
+        ProposalDetail {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            rationale: r.rationale,
             submitted_by_id,
-            submitted_by_name: row.get("submitted_by_name")?,
-            submitted_date: row.get("submitted_date")?,
-            status: row.get("status")?,
-            rejection_reason,
-            related_suggestion_id,
-        })
-    })?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+            submitted_by_name: r.submitted_by_name,
+            submitted_date: r.submitted_date,
+            status: r.status,
+            rejection_reason: r.rejection_reason,
+            related_suggestion_id: r.related_suggestion_id,
+        }
+    }))
 }
 
 /// Create a new proposal entity linked to a ToR via `submitted_to`.
 /// Optionally links to a source suggestion via `spawns_proposal`.
 /// Returns the new entity id.
-pub fn create(
-    conn: &Connection,
+pub async fn create(
+    pool: &PgPool,
     tor_id: i64,
     title: &str,
     description: &str,
@@ -247,40 +284,43 @@ pub fn create(
 ) -> Result<i64, AppError> {
     let name = name_from_title(title);
 
-    let proposal_id = entity::create(conn, "proposal", &name, title)?;
+    let proposal_id = entity::create(pool, "proposal", &name, title).await?;
 
-    entity::set_property(conn, proposal_id, "title", title)?;
-    entity::set_property(conn, proposal_id, "description", description)?;
-    entity::set_property(conn, proposal_id, "rationale", rationale)?;
-    entity::set_property(conn, proposal_id, "submitted_date", submitted_date)?;
-    entity::set_property(conn, proposal_id, "status", "draft")?;
-    entity::set_property(conn, proposal_id, "submitted_by_id", &submitted_by_id.to_string())?;
+    entity::set_property(pool, proposal_id, "title", title).await?;
+    entity::set_property(pool, proposal_id, "description", description).await?;
+    entity::set_property(pool, proposal_id, "rationale", rationale).await?;
+    entity::set_property(pool, proposal_id, "submitted_date", submitted_date).await?;
+    entity::set_property(pool, proposal_id, "status", "draft").await?;
+    entity::set_property(pool, proposal_id, "submitted_by_id", &submitted_by_id.to_string()).await?;
 
-    relation::create(conn, "submitted_to", proposal_id, tor_id)?;
+    relation::create(pool, "submitted_to", proposal_id, tor_id).await?;
 
     if let Some(suggestion_id) = related_suggestion_id {
-        relation::create(conn, "spawns_proposal", suggestion_id, proposal_id)?;
+        relation::create(pool, "spawns_proposal", suggestion_id, proposal_id).await?;
     }
 
     Ok(proposal_id)
 }
 
 /// Update an existing proposal's title, description, and rationale.
-pub fn update(
-    conn: &Connection,
+pub async fn update(
+    pool: &PgPool,
     proposal_id: i64,
     title: &str,
     description: &str,
     rationale: &str,
 ) -> Result<(), AppError> {
-    conn.execute(
-        "UPDATE entities SET label = ?1, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?2",
-        params![title, proposal_id],
-    )?;
+    sqlx::query(
+        "UPDATE entities SET label = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(title)
+    .bind(proposal_id)
+    .execute(pool)
+    .await?;
 
-    entity::set_property(conn, proposal_id, "title", title)?;
-    entity::set_property(conn, proposal_id, "description", description)?;
-    entity::set_property(conn, proposal_id, "rationale", rationale)?;
+    entity::set_property(pool, proposal_id, "title", title).await?;
+    entity::set_property(pool, proposal_id, "description", description).await?;
+    entity::set_property(pool, proposal_id, "rationale", rationale).await?;
 
     Ok(())
 }
@@ -288,21 +328,23 @@ pub fn update(
 /// Update the status of a proposal (e.g. draft -> submitted, under_review -> approved/rejected).
 /// When rejecting, supply a rejection_reason. For any other status, the rejection_reason
 /// property is cleared.
-pub fn update_status(
-    conn: &Connection,
+pub async fn update_status(
+    pool: &PgPool,
     proposal_id: i64,
     new_status: &str,
     rejection_reason: Option<&str>,
 ) -> Result<(), AppError> {
-    entity::set_property(conn, proposal_id, "status", new_status)?;
+    entity::set_property(pool, proposal_id, "status", new_status).await?;
 
     if let Some(reason) = rejection_reason {
-        entity::set_property(conn, proposal_id, "rejection_reason", reason)?;
+        entity::set_property(pool, proposal_id, "rejection_reason", reason).await?;
     } else if new_status != "rejected" {
-        conn.execute(
-            "DELETE FROM entity_properties WHERE entity_id = ?1 AND key = 'rejection_reason'",
-            params![proposal_id],
-        )?;
+        sqlx::query(
+            "DELETE FROM entity_properties WHERE entity_id = $1 AND key = 'rejection_reason'",
+        )
+        .bind(proposal_id)
+        .execute(pool)
+        .await?;
     }
 
     Ok(())
@@ -311,19 +353,19 @@ pub fn update_status(
 /// Auto-create a proposal from an accepted suggestion.
 /// Copies the suggestion's description and metadata, linking the two together.
 /// Returns the new proposal id.
-pub fn auto_create_from_suggestion(
-    conn: &Connection,
+pub async fn auto_create_from_suggestion(
+    pool: &PgPool,
     suggestion_id: i64,
     tor_id: i64,
 ) -> Result<i64, AppError> {
-    let suggestion = crate::models::suggestion::find_by_id(conn, suggestion_id)?
+    let suggestion = crate::models::suggestion::find_by_id(pool, suggestion_id).await?
         .ok_or(AppError::NotFound)?;
 
     // Use first 100 chars of description as title
     let title: String = suggestion.description.chars().take(100).collect();
 
     create(
-        conn,
+        pool,
         tor_id,
         &title,
         &suggestion.description,
@@ -332,27 +374,40 @@ pub fn auto_create_from_suggestion(
         &suggestion.submitted_date,
         Some(suggestion_id),
     )
+    .await
 }
 
 /// Mark a proposal as ready for agenda.
 /// Sets the ready_for_agenda property to "true", indicating it can be queued
 /// and scheduled into agenda points.
-pub fn mark_ready_for_agenda(
-    conn: &Connection,
+pub async fn mark_ready_for_agenda(
+    pool: &PgPool,
     proposal_id: i64,
 ) -> Result<(), AppError> {
-    entity::set_property(conn, proposal_id, "ready_for_agenda", "true")?;
+    entity::set_property(pool, proposal_id, "ready_for_agenda", "true").await?;
     Ok(())
 }
 
 /// Find all queued proposals for a ToR that haven't yet been scheduled into agenda points.
 /// Queued proposals are those with ready_for_agenda="true" that don't have a
 /// spawns_agenda_point relation yet.
-pub fn find_queued_proposals(
-    conn: &Connection,
+pub async fn find_queued_proposals(
+    pool: &PgPool,
     tor_id: i64,
 ) -> Result<Vec<ProposalListItem>, AppError> {
-    let mut stmt = conn.prepare(
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        id: i64,
+        title: String,
+        submitted_date: String,
+        status: String,
+        submitted_by_id: String,
+        submitted_by_name: String,
+        rejection_reason: Option<String>,
+        related_suggestion_id: Option<i64>,
+    }
+
+    let rows = sqlx::query_as::<_, Row>(
         "SELECT e.id, \
                 COALESCE(p_title.value, '') AS title, \
                 COALESCE(p_date.value, '') AS submitted_date, \
@@ -375,7 +430,7 @@ pub fn find_queued_proposals(
          LEFT JOIN entity_properties p_by \
              ON e.id = p_by.entity_id AND p_by.key = 'submitted_by_id' \
          LEFT JOIN entities u \
-             ON CAST(p_by.value AS INTEGER) = u.id \
+             ON CAST(p_by.value AS BIGINT) = u.id \
          LEFT JOIN entity_properties p_reason \
              ON e.id = p_reason.entity_id AND p_reason.key = 'rejection_reason' \
          LEFT JOIN relations r_spawn \
@@ -384,7 +439,7 @@ pub fn find_queued_proposals(
                 SELECT id FROM entities \
                 WHERE entity_type = 'relation_type' AND name = 'spawns_proposal') \
          WHERE e.entity_type = 'proposal' \
-            AND r.target_id = ?1 \
+            AND r.target_id = $1 \
             AND COALESCE(p_status.value, 'draft') = 'approved' \
             AND COALESCE(p_ready.value, 'false') = 'true' \
             AND NOT EXISTS ( \
@@ -395,37 +450,36 @@ pub fn find_queued_proposals(
                       WHERE entity_type = 'relation_type' AND name = 'spawns_agenda_point') \
             ) \
          ORDER BY COALESCE(p_date.value, '') DESC",
-    )?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
-    let items = stmt
-        .query_map(params![tor_id], |row| {
-            let submitted_by_id_str: String = row.get("submitted_by_id")?;
-            let submitted_by_id: i64 = submitted_by_id_str.parse().unwrap_or(0);
-            let rejection_reason: Option<String> = row.get("rejection_reason")?;
-            let related_suggestion_id: Option<i64> = row.get("related_suggestion_id")?;
-
-            Ok(ProposalListItem {
-                id: row.get("id")?,
-                title: row.get("title")?,
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let submitted_by_id: i64 = row.submitted_by_id.parse().unwrap_or(0);
+            ProposalListItem {
+                id: row.id,
+                title: row.title,
                 submitted_by_id,
-                submitted_by_name: row.get("submitted_by_name")?,
-                submitted_date: row.get("submitted_date")?,
-                status: row.get("status")?,
-                rejection_reason,
-                related_suggestion_id,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+                submitted_by_name: row.submitted_by_name,
+                submitted_date: row.submitted_date,
+                status: row.status,
+                rejection_reason: row.rejection_reason,
+                related_suggestion_id: row.related_suggestion_id,
+            }
+        })
+        .collect();
 
     Ok(items)
 }
 
 /// Remove a proposal from the queue by setting ready_for_agenda="false".
-pub fn unqueue_proposal(
-    conn: &Connection,
+pub async fn unqueue_proposal(
+    pool: &PgPool,
     proposal_id: i64,
 ) -> Result<(), AppError> {
-    entity::set_property(conn, proposal_id, "ready_for_agenda", "false")?;
+    entity::set_property(pool, proposal_id, "ready_for_agenda", "false").await?;
     Ok(())
 }
-

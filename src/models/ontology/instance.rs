@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use rusqlite::Connection;
+use sqlx::PgPool;
 use serde::Serialize;
 
 /// Graph node for the force-directed visualization.
@@ -30,34 +30,43 @@ pub struct GraphData {
 }
 
 /// Get all graph data: nodes, edges, and available entity types.
-pub fn find_graph_data(conn: &Connection) -> rusqlite::Result<GraphData> {
-    let mut type_stmt = conn.prepare(
+pub async fn find_graph_data(pool: &PgPool) -> Result<GraphData, sqlx::Error> {
+    let entity_types: Vec<(String,)> = sqlx::query_as(
         "SELECT DISTINCT entity_type FROM entities ORDER BY entity_type"
-    )?;
-    let entity_types: Vec<String> = type_stmt.query_map([], |row| {
-        row.get(0)
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
+    let entity_types: Vec<String> = entity_types.into_iter().map(|(t,)| t).collect();
 
-    let mut node_stmt = conn.prepare(
+    #[derive(sqlx::FromRow)]
+    struct NodeRow {
+        id: i64,
+        entity_type: String,
+        name: String,
+        label: String,
+    }
+    let node_rows: Vec<NodeRow> = sqlx::query_as(
         "SELECT id, entity_type, name, label FROM entities ORDER BY entity_type, id"
-    )?;
-    let mut nodes: Vec<GraphNode> = node_stmt.query_map([], |row| {
-        Ok(GraphNode {
-            id: row.get(0)?,
-            entity_type: row.get(1)?,
-            name: row.get(2)?,
-            label: row.get(3)?,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut nodes: Vec<GraphNode> = node_rows.into_iter().map(|r| {
+        GraphNode {
+            id: r.id,
+            entity_type: r.entity_type,
+            name: r.name,
+            label: r.label,
             properties: HashMap::new(),
-        })
-    })?.collect::<Result<_, _>>()?;
+        }
+    }).collect();
 
     // Fetch all properties and attach to nodes
-    let mut prop_stmt = conn.prepare(
+    let props: Vec<(i64, String, String)> = sqlx::query_as(
         "SELECT entity_id, key, value FROM entity_properties ORDER BY entity_id, key"
-    )?;
-    let props: Vec<(i64, String, String)> = prop_stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
     let mut prop_map: HashMap<i64, HashMap<String, String>> = HashMap::new();
     for (eid, key, val) in props {
         prop_map.entry(eid).or_default().insert(key, val);
@@ -68,19 +77,29 @@ pub fn find_graph_data(conn: &Connection) -> rusqlite::Result<GraphData> {
         }
     }
 
-    let mut edge_stmt = conn.prepare(
+    #[derive(sqlx::FromRow)]
+    struct EdgeRow {
+        source_id: i64,
+        target_id: i64,
+        name: String,
+        label: String,
+    }
+    let edge_rows: Vec<EdgeRow> = sqlx::query_as(
         "SELECT r.source_id, r.target_id, rt.name, rt.label \
          FROM relations r \
          JOIN entities rt ON r.relation_type_id = rt.id"
-    )?;
-    let edges: Vec<GraphEdge> = edge_stmt.query_map([], |row| {
-        Ok(GraphEdge {
-            source: row.get(0)?,
-            target: row.get(1)?,
-            relation_type: row.get(2)?,
-            relation_label: row.get(3)?,
-        })
-    })?.collect::<Result<_, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let edges: Vec<GraphEdge> = edge_rows.into_iter().map(|r| {
+        GraphEdge {
+            source: r.source_id,
+            target: r.target_id,
+            relation_type: r.name,
+            relation_label: r.label,
+        }
+    }).collect();
 
     Ok(GraphData { nodes, edges, entity_types })
 }

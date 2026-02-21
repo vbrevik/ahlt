@@ -1,42 +1,51 @@
 // src/models/table_filter/columns.rs
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use super::ColumnDef;
 
 /// Read the user's per-table column preference from entity_properties.
 /// key: "pref.{table}_table_columns"
-fn read_user_pref(user_id: i64, table: &str, conn: &Connection) -> Option<String> {
+async fn read_user_pref(user_id: i64, table: &str, pool: &PgPool) -> Option<String> {
     let key = format!("pref.{table}_table_columns");
-    conn.query_row(
-        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = ?2",
-        params![user_id, key],
-        |row| row.get(0),
-    ).ok()
+    let result: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = $2",
+    )
+    .bind(user_id)
+    .bind(&key)
+    .fetch_optional(pool)
+    .await
+    .ok()?;
+    result.map(|r| r.0)
 }
 
 /// Read the global default from a setting entity.
 /// setting name: "{table}_table_columns"
-fn read_global_default(table: &str, conn: &Connection) -> Option<String> {
+async fn read_global_default(table: &str, pool: &PgPool) -> Option<String> {
     let name = format!("{table}_table_columns");
-    conn.query_row(
+    let result: Option<(String,)> = sqlx::query_as(
         "SELECT COALESCE(p.value, '') FROM entities e \
          JOIN entity_properties p ON e.id = p.entity_id AND p.key = 'value' \
-         WHERE e.entity_type = 'setting' AND e.name = ?1",
-        params![name],
-        |row| row.get(0),
-    ).ok().filter(|s: &String| !s.is_empty())
+         WHERE e.entity_type = 'setting' AND e.name = $1",
+    )
+    .bind(&name)
+    .fetch_optional(pool)
+    .await
+    .ok()?;
+    result.map(|r| r.0).filter(|s| !s.is_empty())
 }
 
 /// Resolve the ordered column list for a table.
 /// all_columns: the full ordered default list for the table.
 /// Resolution: user pref > global default > all_columns order (visible = always_visible || default).
-pub fn resolve_columns(
+pub async fn resolve_columns(
     table: &str,
     user_id: i64,
-    conn: &Connection,
+    pool: &PgPool,
     all_columns: &[ColumnDef],
 ) -> Vec<ColumnDef> {
-    let source = read_user_pref(user_id, table, conn)
-        .or_else(|| read_global_default(table, conn));
+    let source = match read_user_pref(user_id, table, pool).await {
+        Some(pref) => Some(pref),
+        None => read_global_default(table, pool).await,
+    };
 
     match source {
         Some(pref) => apply_pref(all_columns, &pref),
@@ -90,41 +99,56 @@ pub fn columns_to_pref(columns: &[ColumnDef]) -> String {
 }
 
 /// Save per-user column preference.
-pub fn save_user_columns(user_id: i64, table: &str, pref: &str, conn: &Connection) -> rusqlite::Result<()> {
+pub async fn save_user_columns(user_id: i64, table: &str, pref: &str, pool: &PgPool) -> Result<(), sqlx::Error> {
     let key = format!("pref.{table}_table_columns");
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3) \
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3) \
          ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![user_id, key, pref],
-    )?;
+    )
+    .bind(user_id)
+    .bind(&key)
+    .bind(pref)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Save global column default (updates existing setting entity value property).
-pub fn save_global_columns(table: &str, pref: &str, conn: &Connection) -> rusqlite::Result<()> {
+pub async fn save_global_columns(table: &str, pref: &str, pool: &PgPool) -> Result<(), sqlx::Error> {
     let name = format!("{table}_table_columns");
     // Upsert: update if exists, insert if not
-    let updated = conn.execute(
-        "UPDATE entity_properties SET value = ?1 \
-         WHERE entity_id = (SELECT id FROM entities WHERE entity_type = 'setting' AND name = ?2) \
+    let result = sqlx::query(
+        "UPDATE entity_properties SET value = $1 \
+         WHERE entity_id = (SELECT id FROM entities WHERE entity_type = 'setting' AND name = $2) \
          AND key = 'value'",
-        params![pref, name],
-    )?;
-    if updated == 0 {
+    )
+    .bind(pref)
+    .bind(&name)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
         // Create setting entity + property
-        conn.execute(
-            "INSERT OR IGNORE INTO entities (entity_type, name, label) VALUES ('setting', ?1, ?2)",
-            params![name, format!("{table} table columns")],
-        )?;
-        let setting_id: i64 = conn.query_row(
-            "SELECT id FROM entities WHERE entity_type = 'setting' AND name = ?1",
-            params![name], |r| r.get(0),
-        )?;
-        conn.execute(
-            "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'value', ?2) \
+        sqlx::query(
+            "INSERT INTO entities (entity_type, name, label) VALUES ('setting', $1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(&name)
+        .bind(&format!("{table} table columns"))
+        .execute(pool)
+        .await?;
+        let setting_row: (i64,) = sqlx::query_as(
+            "SELECT id FROM entities WHERE entity_type = 'setting' AND name = $1",
+        )
+        .bind(&name)
+        .fetch_one(pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'value', $2) \
              ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-            params![setting_id, pref],
-        )?;
+        )
+        .bind(setting_row.0)
+        .bind(pref)
+        .execute(pool)
+        .await?;
     }
     Ok(())
 }

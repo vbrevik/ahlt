@@ -13,7 +13,7 @@ pub struct AgendaPointListItem {
 }
 
 /// Agenda point as shown in the cross-ToR workflow index view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrossTorAgendaItem {
     pub tor_id: i64,
     pub tor_name: String,

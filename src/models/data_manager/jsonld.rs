@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 
@@ -8,26 +8,28 @@ use super::types::{ConflictMode, EntityImport, ImportPayload, RelationImport};
 const AHLT_NS: &str = "http://ahlt.local/ontology/";
 
 /// Build the JSON-LD @context dynamically from property keys and relation types in the DB.
-pub fn build_context(conn: &Connection) -> Result<Value, rusqlite::Error> {
+pub async fn build_context(pool: &PgPool) -> Result<Value, sqlx::Error> {
     let mut ctx = Map::new();
     ctx.insert("ahlt".to_string(), json!(AHLT_NS));
     ctx.insert("rdf".to_string(), json!("http://www.w3.org/1999/02/22-rdf-syntax-ns#"));
 
     // Collect all unique property keys
-    let mut prop_stmt = conn.prepare("SELECT DISTINCT key FROM entity_properties ORDER BY key")?;
-    let keys = prop_stmt.query_map([], |row| row.get::<_, String>(0))?;
-    for key in keys {
-        let k = key?;
+    let keys: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT key FROM entity_properties ORDER BY key",
+    )
+    .fetch_all(pool)
+    .await?;
+    for (k,) in keys {
         ctx.insert(k.clone(), json!(format!("ahlt:{}", k)));
     }
 
     // Collect all relation type names
-    let mut rel_stmt = conn.prepare(
+    let rels: Vec<(String,)> = sqlx::query_as(
         "SELECT name FROM entities WHERE entity_type = 'relation_type' ORDER BY name",
-    )?;
-    let rels = rel_stmt.query_map([], |row| row.get::<_, String>(0))?;
-    for rel in rels {
-        let r = rel?;
+    )
+    .fetch_all(pool)
+    .await?;
+    for (r,) in rels {
         ctx.entry(r.clone()).or_insert_with(|| json!(format!("ahlt:{}", r)));
     }
 
@@ -35,12 +37,12 @@ pub fn build_context(conn: &Connection) -> Result<Value, rusqlite::Error> {
 }
 
 /// Export the entity graph as JSON-LD with @context and @graph.
-pub fn export_jsonld(
-    conn: &Connection,
+pub async fn export_jsonld(
+    pool: &PgPool,
     types: Option<&[String]>,
-) -> Result<Value, rusqlite::Error> {
-    let payload = export_entities(conn, types)?;
-    let context = build_context(conn)?;
+) -> Result<Value, sqlx::Error> {
+    let payload = export_entities(pool, types).await?;
+    let context = build_context(pool).await?;
 
     // Build a lookup from "type:name" -> list of relation predicates with targets
     let mut relations_by_source: HashMap<String, Vec<(String, String)>> = HashMap::new();

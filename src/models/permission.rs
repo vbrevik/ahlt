@@ -1,7 +1,8 @@
 use std::collections::HashSet;
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 
 /// Permission info for the matrix display.
+#[derive(sqlx::FromRow)]
 pub struct PermissionInfo {
     pub id: i64,
     pub code: String,
@@ -10,92 +11,92 @@ pub struct PermissionInfo {
 }
 
 /// Get all permissions with their group_name property, ordered by group then name.
-pub fn find_all_with_groups(conn: &Connection) -> rusqlite::Result<Vec<PermissionInfo>> {
-    let mut stmt = conn.prepare(
-        "SELECT e.id, e.name, e.label, COALESCE(ep.value, 'Other') AS group_name \
+pub async fn find_all_with_groups(pool: &PgPool) -> Result<Vec<PermissionInfo>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, PermissionInfo>(
+        "SELECT e.id, e.name AS code, e.label, COALESCE(ep.value, 'Other') AS group_name \
          FROM entities e \
          LEFT JOIN entity_properties ep ON e.id = ep.entity_id AND ep.key = 'group_name' \
-         WHERE e.entity_type = 'permission' AND e.is_active = 1 \
+         WHERE e.entity_type = 'permission' AND e.is_active = true \
          ORDER BY group_name, e.name"
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(PermissionInfo {
-            id: row.get(0)?,
-            code: row.get(1)?,
-            label: row.get(2)?,
-            group_name: row.get(3)?,
-        })
-    })?.collect::<Result<Vec<_>, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
     Ok(rows)
 }
 
 /// Get all (role_id, permission_id) pairs that have has_permission relations.
-pub fn find_all_role_grants(conn: &Connection) -> rusqlite::Result<HashSet<(i64, i64)>> {
-    let mut stmt = conn.prepare(
+pub async fn find_all_role_grants(pool: &PgPool) -> Result<HashSet<(i64, i64)>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, (i64, i64)>(
         "SELECT r.source_id, r.target_id \
          FROM relations r \
          WHERE r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission')"
-    )?;
-    let pairs = stmt.query_map([], |row| {
-        Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
-    })?.collect::<Result<HashSet<_>, _>>()?;
-    Ok(pairs)
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().collect())
 }
 
 /// Add a has_permission relation between a role and permission.
-pub fn grant_permission(conn: &Connection, role_id: i64, permission_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission'), ?1, ?2)",
-        params![role_id, permission_id],
-    )?;
+pub async fn grant_permission(pool: &PgPool, role_id: i64, permission_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) \
+         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission'), $1, $2) \
+         ON CONFLICT DO NOTHING"
+    )
+    .bind(role_id)
+    .bind(permission_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Remove a has_permission relation between a role and permission.
-pub fn revoke_permission(conn: &Connection, role_id: i64, permission_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
+pub async fn revoke_permission(pool: &PgPool, role_id: i64, permission_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
         "DELETE FROM relations WHERE relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission') \
-         AND source_id = ?1 AND target_id = ?2",
-        params![role_id, permission_id],
-    )?;
+         AND source_id = $1 AND target_id = $2"
+    )
+    .bind(role_id)
+    .bind(permission_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Get all permission codes for a user across ALL assigned roles (multi-role union).
 /// Traverses: user --[has_role]--> role --[has_permission]--> permission entities.
 /// Returns sorted, deduplicated permission codes.
-pub fn find_codes_by_user_id(conn: &Connection, user_id: i64) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare(
+pub async fn find_codes_by_user_id(pool: &PgPool, user_id: i64) -> Result<Vec<String>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, (String,)>(
         "SELECT DISTINCT perm.name AS code \
          FROM relations r_role \
          JOIN relations r_perm ON r_perm.source_id = r_role.target_id \
          JOIN entities perm ON r_perm.target_id = perm.id \
-         WHERE r_role.source_id = ?1 \
+         WHERE r_role.source_id = $1 \
            AND r_role.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_role') \
            AND r_perm.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission') \
            AND perm.entity_type = 'permission' \
          ORDER BY perm.name"
-    )?;
-    let codes = stmt
-        .query_map(params![user_id], |row| row.get::<_, String>(0))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(codes)
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
 /// Get all permission codes for a given role entity id.
 /// Traverses: role --[has_permission]--> permission entities, returns their names (codes).
-pub fn find_codes_by_role_id(conn: &Connection, role_id: i64) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare(
+pub async fn find_codes_by_role_id(pool: &PgPool, role_id: i64) -> Result<Vec<String>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, (String,)>(
         "SELECT perm.name AS code \
          FROM relations r \
          JOIN entities perm ON r.target_id = perm.id \
-         WHERE r.source_id = ?1 \
+         WHERE r.source_id = $1 \
            AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission') \
          ORDER BY perm.name"
-    )?;
-    let codes = stmt
-        .query_map(params![role_id], |row| row.get::<_, String>(0))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(codes)
+    )
+    .bind(role_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }

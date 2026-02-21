@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 /// Internal user struct for authentication — includes password hash.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct User {
     pub id: i64,
@@ -15,8 +15,8 @@ pub struct User {
 }
 
 /// Safe version for templates — no password hash, includes role info from relations.
-/// Multi-role: role fields are comma-separated (via GROUP_CONCAT).
-#[derive(Debug, Clone)]
+/// Multi-role: role fields are comma-separated (via STRING_AGG).
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 pub struct UserDisplay {
     pub id: i64,

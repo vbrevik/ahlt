@@ -1,9 +1,9 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use super::types::*;
 
-pub fn find_all_list_items(conn: &Connection) -> rusqlite::Result<Vec<TorListItem>> {
-    let mut stmt = conn.prepare(
+pub async fn find_all_list_items(pool: &PgPool) -> Result<Vec<TorListItem>, sqlx::Error> {
+    let items = sqlx::query_as::<_, TorListItem>(
         "SELECT e.id, e.name, e.label, \
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_status.value, 'active') AS status, \
@@ -34,28 +34,15 @@ pub fn find_all_list_items(conn: &Connection) -> rusqlite::Result<Vec<TorListIte
              ON e.id = p_cadence.entity_id AND p_cadence.key = 'meeting_cadence' \
          WHERE e.entity_type = 'tor' \
          ORDER BY e.sort_order, e.id",
-    )?;
-
-    let items = stmt
-        .query_map([], |row| {
-            Ok(TorListItem {
-                id: row.get("id")?,
-                name: row.get("name")?,
-                label: row.get("label")?,
-                description: row.get("description")?,
-                status: row.get("status")?,
-                meeting_cadence: row.get("meeting_cadence")?,
-                member_count: row.get("member_count")?,
-                function_count: row.get("function_count")?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    )
+    .fetch_all(pool)
+    .await?;
 
     Ok(items)
 }
 
-pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<TorDetail>> {
-    let mut stmt = conn.prepare(
+pub async fn find_detail_by_id(pool: &PgPool, id: i64) -> Result<Option<TorDetail>, sqlx::Error> {
+    let detail = sqlx::query_as::<_, TorDetail>(
         "SELECT e.id, e.name, e.label, \
                 COALESCE(p_desc.value, '') AS description, \
                 COALESCE(p_status.value, 'active') AS status, \
@@ -121,104 +108,92 @@ pub fn find_detail_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<
              ON e.id = p_infop.entity_id AND p_infop.key = 'info_platform' \
          LEFT JOIN entity_properties p_invite \
              ON e.id = p_invite.entity_id AND p_invite.key = 'invite_policy' \
-         WHERE e.id = ?1 AND e.entity_type = 'tor'",
-    )?;
+         WHERE e.id = $1 AND e.entity_type = 'tor'",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
 
-    let mut rows = stmt.query_map(params![id], |row| {
-        Ok(TorDetail {
-            id: row.get("id")?,
-            name: row.get("name")?,
-            label: row.get("label")?,
-            description: row.get("description")?,
-            status: row.get("status")?,
-            meeting_cadence: row.get("meeting_cadence")?,
-            cadence_day: row.get("cadence_day")?,
-            cadence_time: row.get("cadence_time")?,
-            cadence_duration_minutes: row.get("cadence_duration_minutes")?,
-            default_location: row.get("default_location")?,
-            remote_url: row.get("remote_url")?,
-            background_repo_url: row.get("background_repo_url")?,
-            tor_number: row.get("tor_number")?,
-            classification: row.get("classification")?,
-            version: row.get("version")?,
-            organization: row.get("organization")?,
-            focus_scope: row.get("focus_scope")?,
-            objectives: row.get("objectives")?,
-            inputs_required: row.get("inputs_required")?,
-            outputs_expected: row.get("outputs_expected")?,
-            poc_contact: row.get("poc_contact")?,
-            phase_scheduling: row.get("phase_scheduling")?,
-            info_platform: row.get("info_platform")?,
-            invite_policy: row.get("invite_policy")?,
-        })
-    })?;
-
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+    Ok(detail)
 }
 
-pub fn create(
-    conn: &Connection,
+pub async fn create(
+    pool: &PgPool,
     name: &str,
     label: &str,
     props: &[(&str, &str)],
-) -> rusqlite::Result<i64> {
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label) VALUES ('tor', ?1, ?2)",
-        params![name, label],
-    )?;
-    let tor_id = conn.last_insert_rowid();
+) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "INSERT INTO entities (entity_type, name, label) VALUES ('tor', $1, $2) RETURNING id",
+    )
+    .bind(name)
+    .bind(label)
+    .fetch_one(pool)
+    .await?;
+    let tor_id = row.0;
 
     for &(key, value) in props {
         if !value.is_empty() {
-            conn.execute(
-                "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3)",
-                params![tor_id, key, value],
-            )?;
+            sqlx::query(
+                "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3)",
+            )
+            .bind(tor_id)
+            .bind(key)
+            .bind(value)
+            .execute(pool)
+            .await?;
         }
     }
 
     Ok(tor_id)
 }
 
-pub fn update(
-    conn: &Connection,
+pub async fn update(
+    pool: &PgPool,
     id: i64,
     name: &str,
     label: &str,
     props: &[(&str, &str)],
-) -> rusqlite::Result<()> {
-    conn.execute(
-        "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') \
-         WHERE id = ?3",
-        params![name, label, id],
-    )?;
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE entities SET name = $1, label = $2, updated_at = NOW() \
+         WHERE id = $3",
+    )
+    .bind(name)
+    .bind(label)
+    .bind(id)
+    .execute(pool)
+    .await?;
 
     for &(key, value) in props {
-        conn.execute(
-            "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3) \
+        sqlx::query(
+            "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3) \
              ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-            params![id, key, value],
-        )?;
+        )
+        .bind(id)
+        .bind(key)
+        .bind(value)
+        .execute(pool)
+        .await?;
     }
 
     Ok(())
 }
 
-pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "DELETE FROM entities WHERE id = ?1 AND entity_type = 'tor'",
-        params![id],
-    )?;
+pub async fn delete(pool: &PgPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM entities WHERE id = $1 AND entity_type = 'tor'",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Find all positions in a ToR with their current holders.
 /// Returns positions even when vacant (holder fields will be None).
-pub fn find_members(conn: &Connection, tor_id: i64) -> rusqlite::Result<Vec<TorMember>> {
-    let mut stmt = conn.prepare(
+pub async fn find_members(pool: &PgPool, tor_id: i64) -> Result<Vec<TorMember>, sqlx::Error> {
+    let members = sqlx::query_as::<_, TorMember>(
         "SELECT f.id AS position_id, f.name AS position_name, f.label AS position_label, \
                 COALESCE(p_mt.value, 'optional') AS membership_type, \
                 u.id AS holder_id, u.name AS holder_name, u.label AS holder_label \
@@ -229,109 +204,104 @@ pub fn find_members(conn: &Connection, tor_id: i64) -> rusqlite::Result<Vec<TorM
                  SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
          LEFT JOIN entities u ON r_fills.source_id = u.id AND u.entity_type = 'user' \
          LEFT JOIN entity_properties p_mt ON f.id = p_mt.entity_id AND p_mt.key = 'membership_type' \
-         WHERE r_tor.target_id = ?1 \
+         WHERE r_tor.target_id = $1 \
            AND r_tor.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
            AND f.entity_type = 'tor_function' \
          ORDER BY CASE WHEN COALESCE(p_mt.value, 'optional') = 'mandatory' THEN 0 ELSE 1 END, f.label",
-    )?;
-
-    let members = stmt
-        .query_map(params![tor_id], |row| {
-            let holder_id: Option<i64> = row.get("holder_id")?;
-            Ok(TorMember {
-                position_id: row.get("position_id")?,
-                position_name: row.get("position_name")?,
-                position_label: row.get("position_label")?,
-                membership_type: row.get("membership_type")?,
-                holder_id,
-                holder_name: if holder_id.is_some() { row.get("holder_name")? } else { None },
-                holder_label: if holder_id.is_some() { row.get("holder_label")? } else { None },
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
     Ok(members)
 }
 
 /// Assign a user to a position (creates fills_position relation).
-pub fn assign_to_position(
-    conn: &Connection,
+pub async fn assign_to_position(
+    pool: &PgPool,
     user_id: i64,
     position_id: i64,
     membership_type: &str,
-) -> rusqlite::Result<()> {
+) -> Result<(), sqlx::Error> {
     // Set the membership_type property on the position
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'membership_type', ?2) \
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'membership_type', $2) \
          ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![position_id, membership_type],
-    )?;
+    )
+    .bind(position_id)
+    .bind(membership_type)
+    .execute(pool)
+    .await?;
 
     // Create fills_position relation
-    conn.execute(
-        "INSERT OR IGNORE INTO relations (relation_type_id, source_id, target_id) \
+    sqlx::query(
+        "INSERT INTO relations (relation_type_id, source_id, target_id) \
          VALUES ( \
              (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position'), \
-             ?1, ?2)",
-        params![user_id, position_id],
-    )?;
+             $1, $2) \
+         ON CONFLICT DO NOTHING",
+    )
+    .bind(user_id)
+    .bind(position_id)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }
 
 /// Remove the current holder from a position.
-pub fn vacate_position(conn: &Connection, position_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "DELETE FROM relations WHERE target_id = ?1 \
+pub async fn vacate_position(pool: &PgPool, position_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM relations WHERE target_id = $1 \
          AND relation_type_id = ( \
              SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')",
-        params![position_id],
-    )?;
+    )
+    .bind(position_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
-pub fn find_functions(
-    conn: &Connection,
+pub async fn find_functions(
+    pool: &PgPool,
     tor_id: i64,
-) -> rusqlite::Result<Vec<TorFunctionListItem>> {
-    let mut stmt = conn.prepare(
+) -> Result<Vec<TorFunctionListItem>, sqlx::Error> {
+    let functions: Vec<(i64, String, String, String)> = sqlx::query_as(
         "SELECT f.id, f.name, f.label, \
                 COALESCE(p_cat.value, '') AS category \
          FROM relations r \
          JOIN entities f ON r.source_id = f.id \
          LEFT JOIN entity_properties p_cat \
              ON f.id = p_cat.entity_id AND p_cat.key = 'category' \
-         WHERE r.target_id = ?1 \
+         WHERE r.target_id = $1 \
            AND r.relation_type_id = (\
                SELECT id FROM entities \
                WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
            AND f.entity_type = 'tor_function' \
          ORDER BY f.sort_order, f.id",
-    )?;
-
-    let functions: Vec<(i64, String, String, String)> = stmt
-        .query_map(params![tor_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let mut user_stmt = conn.prepare(
-        "SELECT u.label \
-         FROM relations r \
-         JOIN entities u ON r.source_id = u.id \
-         WHERE r.target_id = ?1 \
-           AND r.relation_type_id = ( \
-               SELECT id FROM entities \
-               WHERE entity_type = 'relation_type' AND name = 'fills_position') \
-         ORDER BY u.label",
-    )?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
     let mut result = Vec::new();
     for (id, name, label, category) in functions {
-        let assigned_to: Vec<String> = user_stmt
-            .query_map(params![id], |row| row.get(0))?
-            .collect::<Result<Vec<_>, _>>()?;
+        let assigned_rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT u.label \
+             FROM relations r \
+             JOIN entities u ON r.source_id = u.id \
+             WHERE r.target_id = $1 \
+               AND r.relation_type_id = ( \
+                   SELECT id FROM entities \
+                   WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+             ORDER BY u.label",
+        )
+        .bind(id)
+        .fetch_all(pool)
+        .await?;
+
+        let assigned_to: Vec<String> = assigned_rows.into_iter().map(|r| r.0).collect();
 
         result.push(TorFunctionListItem {
             id,
@@ -346,86 +316,88 @@ pub fn find_functions(
 }
 
 /// Count positions with holders in a ToR (not vacant positions).
-pub fn count_members(conn: &Connection, tor_id: i64) -> rusqlite::Result<i64> {
-    conn.query_row(
+pub async fn count_members(pool: &PgPool, tor_id: i64) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(DISTINCT r_fills.source_id) \
          FROM entities f \
          JOIN relations r_tor ON f.id = r_tor.source_id \
          JOIN relations r_fills ON f.id = r_fills.target_id \
-         WHERE r_tor.target_id = ?1 \
+         WHERE r_tor.target_id = $1 \
            AND r_tor.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
            AND r_fills.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
            AND f.entity_type = 'tor_function'",
-        params![tor_id],
-        |row| row.get(0),
     )
+    .bind(tor_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }
 
 /// Find users not currently filling any position in this ToR.
-pub fn find_non_members(
-    conn: &Connection,
+pub async fn find_non_members(
+    pool: &PgPool,
     tor_id: i64,
-) -> rusqlite::Result<Vec<(i64, String, String)>> {
-    let mut stmt = conn.prepare(
+) -> Result<Vec<(i64, String, String)>, sqlx::Error> {
+    let users: Vec<(i64, String, String)> = sqlx::query_as(
         "SELECT e.id, e.name, e.label \
          FROM entities e \
          WHERE e.entity_type = 'user' \
-           AND e.is_active = 1 \
+           AND e.is_active = true \
            AND e.id NOT IN ( \
                SELECT r_fills.source_id \
                FROM relations r_fills \
                JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
-               WHERE r_tor.target_id = ?1 \
+               WHERE r_tor.target_id = $1 \
                  AND r_tor.relation_type_id = ( \
                      SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
                  AND r_fills.relation_type_id = ( \
                      SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')) \
          ORDER BY e.label",
-    )?;
-
-    let users = stmt
-        .query_map(params![tor_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    )
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
 
     Ok(users)
 }
 
 /// Verify user fills a position in the given ToR. Returns AppError::PermissionDenied if not.
-pub fn require_tor_membership(
-    conn: &Connection,
+pub async fn require_tor_membership(
+    pool: &PgPool,
     user_id: i64,
     tor_id: i64,
 ) -> Result<(), AppError> {
-    let count: i64 = conn.query_row(
+    let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) \
          FROM relations r_fills \
          JOIN relations r_tor ON r_fills.target_id = r_tor.source_id \
-         WHERE r_fills.source_id = ?1 \
-           AND r_tor.target_id = ?2 \
+         WHERE r_fills.source_id = $1 \
+           AND r_tor.target_id = $2 \
            AND r_fills.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
            AND r_tor.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor')",
-        params![user_id, tor_id],
-        |row| row.get(0),
-    )?;
+    )
+    .bind(user_id)
+    .bind(tor_id)
+    .fetch_one(pool)
+    .await?;
 
-    if count == 0 {
+    if row.0 == 0 {
         return Err(AppError::PermissionDenied("Not a member of this ToR".into()));
     }
     Ok(())
 }
 
 /// Get a ToR's display name (label) by ID.
-pub fn get_tor_name(conn: &Connection, tor_id: i64) -> Result<String, AppError> {
-    let name: String = conn.query_row(
-        "SELECT label FROM entities WHERE id = ?1 AND entity_type = 'tor'",
-        params![tor_id],
-        |row| row.get(0),
-    )?;
-    Ok(name)
+pub async fn get_tor_name(pool: &PgPool, tor_id: i64) -> Result<String, AppError> {
+    let row: (String,) = sqlx::query_as(
+        "SELECT label FROM entities WHERE id = $1 AND entity_type = 'tor'",
+    )
+    .bind(tor_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }

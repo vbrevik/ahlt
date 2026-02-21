@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Proposal as shown in the workflow list view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct ProposalListItem {
     pub id: i64,
     pub title: String,
@@ -14,7 +14,7 @@ pub struct ProposalListItem {
 }
 
 /// Proposal as shown in the cross-ToR workflow index view.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CrossTorProposalItem {
     pub tor_id: i64,
     pub tor_name: String,
@@ -29,7 +29,7 @@ pub struct CrossTorProposalItem {
 }
 
 /// Full proposal detail.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct ProposalDetail {
     pub id: i64,
     pub title: String,

@@ -1,62 +1,21 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use super::types::*;
 
-/// Find minutes for a specific meeting.
-pub fn find_by_meeting(conn: &Connection, meeting_id: i64) -> rusqlite::Result<Option<Minutes>> {
-    let mut stmt = conn.prepare(
-        "SELECT m.id, m.name, m.label, \
-                COALESCE(p_status.value, 'draft') AS status, \
-                COALESCE(p_date.value, '') AS generated_date, \
-                r.source_id AS meeting_id_check, \
-                COALESCE(mtg.name, '') AS meeting_name, \
-                COALESCE(p_appr_by.value, '') AS approved_by, \
-                COALESCE(p_appr_date.value, '') AS approved_date, \
-                COALESCE(p_dist.value, '[]') AS distribution_list, \
-                COALESCE(p_att.value, '[]') AS structured_attendance, \
-                COALESCE(p_ai.value, '[]') AS structured_action_items \
-         FROM entities m \
-         JOIN relations r ON m.id = r.target_id \
-         JOIN entities mtg ON r.source_id = mtg.id \
-         LEFT JOIN entity_properties p_status ON m.id = p_status.entity_id AND p_status.key = 'status' \
-         LEFT JOIN entity_properties p_date ON m.id = p_date.entity_id AND p_date.key = 'generated_date' \
-         LEFT JOIN entity_properties p_appr_by ON m.id = p_appr_by.entity_id AND p_appr_by.key = 'approved_by' \
-         LEFT JOIN entity_properties p_appr_date ON m.id = p_appr_date.entity_id AND p_appr_date.key = 'approved_date' \
-         LEFT JOIN entity_properties p_dist ON m.id = p_dist.entity_id AND p_dist.key = 'distribution_list' \
-         LEFT JOIN entity_properties p_att ON m.id = p_att.entity_id AND p_att.key = 'structured_attendance' \
-         LEFT JOIN entity_properties p_ai ON m.id = p_ai.entity_id AND p_ai.key = 'structured_action_items' \
-         WHERE r.source_id = ?1 \
-           AND r.relation_type_id = ( \
-               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
-           AND m.entity_type = 'minutes'",
-    )?;
-
-    let mut rows = stmt.query_map(params![meeting_id], |row| {
-        Ok(Minutes {
-            id: row.get("id")?,
-            name: row.get("name")?,
-            label: row.get("label")?,
-            status: row.get("status")?,
-            generated_date: row.get("generated_date")?,
-            meeting_id: row.get("meeting_id_check")?,
-            meeting_name: row.get("meeting_name")?,
-            approved_by: row.get("approved_by")?,
-            approved_date: row.get("approved_date")?,
-            distribution_list: row.get("distribution_list")?,
-            structured_attendance: row.get("structured_attendance")?,
-            structured_action_items: row.get("structured_action_items")?,
-        })
-    })?;
-
-    match rows.next() {
-        Some(Ok(m)) => Ok(Some(m)),
-        Some(Err(e)) => Err(e),
-        None => Ok(None),
-    }
+/// Intermediate row struct for MinutesSection with is_auto_generated as String from DB.
+#[derive(sqlx::FromRow)]
+struct MinutesSectionRow {
+    id: i64,
+    name: String,
+    label: String,
+    section_type: String,
+    sequence_order: i64,
+    content: String,
+    is_auto_generated: String,
 }
 
-/// Find minutes by ID.
-pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option<Minutes>> {
-    let mut stmt = conn.prepare(
+/// Find minutes for a specific meeting.
+pub async fn find_by_meeting(pool: &PgPool, meeting_id: i64) -> Result<Option<Minutes>, sqlx::Error> {
+    let row = sqlx::query_as::<_, Minutes>(
         "SELECT m.id, m.name, m.label, \
                 COALESCE(p_status.value, 'draft') AS status, \
                 COALESCE(p_date.value, '') AS generated_date, \
@@ -77,42 +36,59 @@ pub fn find_by_id(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Option
          LEFT JOIN entity_properties p_dist ON m.id = p_dist.entity_id AND p_dist.key = 'distribution_list' \
          LEFT JOIN entity_properties p_att ON m.id = p_att.entity_id AND p_att.key = 'structured_attendance' \
          LEFT JOIN entity_properties p_ai ON m.id = p_ai.entity_id AND p_ai.key = 'structured_action_items' \
-         WHERE m.id = ?1 \
+         WHERE r.source_id = $1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
            AND m.entity_type = 'minutes'",
-    )?;
+    )
+    .bind(meeting_id)
+    .fetch_optional(pool)
+    .await?;
 
-    let mut rows = stmt.query_map(params![minutes_id], |row| {
-        Ok(Minutes {
-            id: row.get("id")?,
-            name: row.get("name")?,
-            label: row.get("label")?,
-            status: row.get("status")?,
-            generated_date: row.get("generated_date")?,
-            meeting_id: row.get("meeting_id")?,
-            meeting_name: row.get("meeting_name")?,
-            approved_by: row.get("approved_by")?,
-            approved_date: row.get("approved_date")?,
-            distribution_list: row.get("distribution_list")?,
-            structured_attendance: row.get("structured_attendance")?,
-            structured_action_items: row.get("structured_action_items")?,
-        })
-    })?;
+    Ok(row)
+}
 
-    match rows.next() {
-        Some(Ok(m)) => Ok(Some(m)),
-        Some(Err(e)) => Err(e),
-        None => Ok(None),
-    }
+/// Find minutes by ID.
+pub async fn find_by_id(pool: &PgPool, minutes_id: i64) -> Result<Option<Minutes>, sqlx::Error> {
+    let row = sqlx::query_as::<_, Minutes>(
+        "SELECT m.id, m.name, m.label, \
+                COALESCE(p_status.value, 'draft') AS status, \
+                COALESCE(p_date.value, '') AS generated_date, \
+                r.source_id AS meeting_id, \
+                COALESCE(mtg.name, '') AS meeting_name, \
+                COALESCE(p_appr_by.value, '') AS approved_by, \
+                COALESCE(p_appr_date.value, '') AS approved_date, \
+                COALESCE(p_dist.value, '[]') AS distribution_list, \
+                COALESCE(p_att.value, '[]') AS structured_attendance, \
+                COALESCE(p_ai.value, '[]') AS structured_action_items \
+         FROM entities m \
+         JOIN relations r ON m.id = r.target_id \
+         JOIN entities mtg ON r.source_id = mtg.id \
+         LEFT JOIN entity_properties p_status ON m.id = p_status.entity_id AND p_status.key = 'status' \
+         LEFT JOIN entity_properties p_date ON m.id = p_date.entity_id AND p_date.key = 'generated_date' \
+         LEFT JOIN entity_properties p_appr_by ON m.id = p_appr_by.entity_id AND p_appr_by.key = 'approved_by' \
+         LEFT JOIN entity_properties p_appr_date ON m.id = p_appr_date.entity_id AND p_appr_date.key = 'approved_date' \
+         LEFT JOIN entity_properties p_dist ON m.id = p_dist.entity_id AND p_dist.key = 'distribution_list' \
+         LEFT JOIN entity_properties p_att ON m.id = p_att.entity_id AND p_att.key = 'structured_attendance' \
+         LEFT JOIN entity_properties p_ai ON m.id = p_ai.entity_id AND p_ai.key = 'structured_action_items' \
+         WHERE m.id = $1 \
+           AND r.relation_type_id = ( \
+               SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of') \
+           AND m.entity_type = 'minutes'",
+    )
+    .bind(minutes_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row)
 }
 
 /// Find all sections of a minutes document, ordered by sequence.
-pub fn find_sections(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Vec<MinutesSection>> {
-    let mut stmt = conn.prepare(
+pub async fn find_sections(pool: &PgPool, minutes_id: i64) -> Result<Vec<MinutesSection>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, MinutesSectionRow>(
         "SELECT s.id, s.name, s.label, \
                 COALESCE(p_type.value, '') AS section_type, \
-                CAST(COALESCE(p_order.value, '0') AS INTEGER) AS sequence_order, \
+                CAST(COALESCE(p_order.value, '0') AS BIGINT) AS sequence_order, \
                 COALESCE(p_content.value, '') AS content, \
                 COALESCE(p_auto.value, 'false') AS is_auto_generated \
          FROM entities s \
@@ -121,48 +97,51 @@ pub fn find_sections(conn: &Connection, minutes_id: i64) -> rusqlite::Result<Vec
          LEFT JOIN entity_properties p_order ON s.id = p_order.entity_id AND p_order.key = 'sequence_order' \
          LEFT JOIN entity_properties p_content ON s.id = p_content.entity_id AND p_content.key = 'content' \
          LEFT JOIN entity_properties p_auto ON s.id = p_auto.entity_id AND p_auto.key = 'is_auto_generated' \
-         WHERE r.target_id = ?1 \
+         WHERE r.target_id = $1 \
            AND r.relation_type_id = ( \
                SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'section_of') \
            AND s.entity_type = 'minutes_section' \
-         ORDER BY CAST(COALESCE(p_order.value, '0') AS INTEGER)",
-    )?;
+         ORDER BY CAST(COALESCE(p_order.value, '0') AS BIGINT)",
+    )
+    .bind(minutes_id)
+    .fetch_all(pool)
+    .await?;
 
-    let sections = stmt
-        .query_map(params![minutes_id], |row| {
-            Ok(MinutesSection {
-                id: row.get("id")?,
-                name: row.get("name")?,
-                label: row.get("label")?,
-                section_type: row.get("section_type")?,
-                sequence_order: row.get("sequence_order")?,
-                content: row.get("content")?,
-                is_auto_generated: row.get::<_, String>("is_auto_generated")? == "true",
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    let sections = rows.into_iter().map(|r| {
+        MinutesSection {
+            id: r.id,
+            name: r.name,
+            label: r.label,
+            section_type: r.section_type,
+            sequence_order: r.sequence_order,
+            content: r.content,
+            is_auto_generated: r.is_auto_generated == "true",
+        }
+    }).collect();
 
     Ok(sections)
 }
 
 /// Generate a minutes scaffold for a meeting.
 /// Creates the minutes entity and auto-generated sections.
-pub fn generate_scaffold(
-    conn: &Connection,
+pub async fn generate_scaffold(
+    pool: &PgPool,
     meeting_id: i64,
     tor_id: i64,
     meeting_name: &str,
-) -> rusqlite::Result<i64> {
+) -> Result<i64, sqlx::Error> {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let minutes_name = format!("minutes_{}", meeting_name.to_lowercase().replace(' ', "_"));
     let minutes_label = format!("Minutes \u{2014} {}", meeting_name);
 
     // Create minutes entity
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label) VALUES ('minutes', ?1, ?2)",
-        params![minutes_name, minutes_label],
-    )?;
-    let minutes_id = conn.last_insert_rowid();
+    let (minutes_id,): (i64,) = sqlx::query_as(
+        "INSERT INTO entities (entity_type, name, label) VALUES ('minutes', $1, $2) RETURNING id",
+    )
+    .bind(&minutes_name)
+    .bind(&minutes_label)
+    .fetch_one(pool)
+    .await?;
 
     // Set properties
     let props = vec![
@@ -170,23 +149,30 @@ pub fn generate_scaffold(
         ("generated_date", &today),
     ];
     for (key, value) in props {
-        conn.execute(
-            "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3)",
-            params![minutes_id, key, value],
-        )?;
+        sqlx::query(
+            "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3)",
+        )
+        .bind(minutes_id)
+        .bind(key)
+        .bind(value)
+        .execute(pool)
+        .await?;
     }
 
     // Link to meeting via minutes_of relation (meeting -> minutes)
-    conn.execute(
+    sqlx::query(
         "INSERT INTO relations (relation_type_id, source_id, target_id) \
-         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of'), ?1, ?2)",
-        params![meeting_id, minutes_id],
-    )?;
+         VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'minutes_of'), $1, $2)",
+    )
+    .bind(meeting_id)
+    .bind(minutes_id)
+    .execute(pool)
+    .await?;
 
     // Generate sections
     let sections = [
-        ("attendance", "Attendance", generate_attendance_content(conn, tor_id)?),
-        ("protocol", "Meeting Protocol", generate_protocol_content(conn, tor_id)?),
+        ("attendance", "Attendance", generate_attendance_content(pool, tor_id).await?),
+        ("protocol", "Meeting Protocol", generate_protocol_content(pool, tor_id).await?),
         ("agenda_items", "Agenda Items", "No agenda items recorded.".to_string()),
         ("decisions", "Decisions", "No decisions recorded.".to_string()),
         ("action_items", "Action Items", "No action items recorded.".to_string()),
@@ -194,11 +180,13 @@ pub fn generate_scaffold(
 
     for (i, (section_type, label, content)) in sections.iter().enumerate() {
         let section_name = format!("{}_{}", section_type, minutes_id);
-        conn.execute(
-            "INSERT INTO entities (entity_type, name, label) VALUES ('minutes_section', ?1, ?2)",
-            params![section_name, label],
-        )?;
-        let section_id = conn.last_insert_rowid();
+        let (section_id,): (i64,) = sqlx::query_as(
+            "INSERT INTO entities (entity_type, name, label) VALUES ('minutes_section', $1, $2) RETURNING id",
+        )
+        .bind(&section_name)
+        .bind(label)
+        .fetch_one(pool)
+        .await?;
 
         let section_props = [
             ("section_type", section_type.to_string()),
@@ -207,27 +195,34 @@ pub fn generate_scaffold(
             ("is_auto_generated", "true".to_string()),
         ];
         for (key, value) in &section_props {
-            conn.execute(
-                "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3)",
-                params![section_id, key, value],
-            )?;
+            sqlx::query(
+                "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3)",
+            )
+            .bind(section_id)
+            .bind(key)
+            .bind(value)
+            .execute(pool)
+            .await?;
         }
 
         // Link section to minutes via section_of (section -> minutes)
-        conn.execute(
+        sqlx::query(
             "INSERT INTO relations (relation_type_id, source_id, target_id) \
-             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'section_of'), ?1, ?2)",
-            params![section_id, minutes_id],
-        )?;
+             VALUES ((SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'section_of'), $1, $2)",
+        )
+        .bind(section_id)
+        .bind(minutes_id)
+        .execute(pool)
+        .await?;
     }
 
     Ok(minutes_id)
 }
 
 /// Generate attendance content showing positions and their holders.
-fn generate_attendance_content(conn: &Connection, tor_id: i64) -> rusqlite::Result<String> {
+async fn generate_attendance_content(pool: &PgPool, tor_id: i64) -> Result<String, sqlx::Error> {
     use crate::models::tor;
-    let members = tor::find_members(conn, tor_id)?;
+    let members = tor::find_members(pool, tor_id).await?;
     let mut lines = Vec::new();
     lines.push("## Attendance\n".to_string());
 
@@ -250,9 +245,9 @@ fn generate_attendance_content(conn: &Connection, tor_id: i64) -> rusqlite::Resu
 }
 
 /// Generate protocol content from ToR protocol steps.
-fn generate_protocol_content(conn: &Connection, tor_id: i64) -> rusqlite::Result<String> {
+async fn generate_protocol_content(pool: &PgPool, tor_id: i64) -> Result<String, sqlx::Error> {
     use crate::models::protocol;
-    let steps = protocol::find_steps_for_tor(conn, tor_id)?;
+    let steps = protocol::find_steps_for_tor(pool, tor_id).await?;
     let mut lines = Vec::new();
     lines.push("## Meeting Protocol\n".to_string());
 
@@ -269,49 +264,64 @@ fn generate_protocol_content(conn: &Connection, tor_id: i64) -> rusqlite::Result
 }
 
 /// Update a section's content.
-pub fn update_section_content(conn: &Connection, section_id: i64, content: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "UPDATE entity_properties SET value = ?1 WHERE entity_id = ?2 AND key = 'content'",
-        params![content, section_id],
-    )?;
+pub async fn update_section_content(pool: &PgPool, section_id: i64, content: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE entity_properties SET value = $1 WHERE entity_id = $2 AND key = 'content'",
+    )
+    .bind(content)
+    .bind(section_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Update minutes status.
-pub fn update_status(conn: &Connection, minutes_id: i64, new_status: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "UPDATE entity_properties SET value = ?1 WHERE entity_id = ?2 AND key = 'status'",
-        params![new_status, minutes_id],
-    )?;
+pub async fn update_status(pool: &PgPool, minutes_id: i64, new_status: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE entity_properties SET value = $1 WHERE entity_id = $2 AND key = 'status'",
+    )
+    .bind(new_status)
+    .bind(minutes_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Upsert the distribution list (JSON string) for a minutes entity.
-pub fn update_distribution_list(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'distribution_list', ?2) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![minutes_id, json],
-    )?;
+pub async fn update_distribution_list(pool: &PgPool, minutes_id: i64, json: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'distribution_list', $2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = EXCLUDED.value",
+    )
+    .bind(minutes_id)
+    .bind(json)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Upsert the structured attendance (JSON string) for a minutes entity.
-pub fn update_structured_attendance(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'structured_attendance', ?2) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![minutes_id, json],
-    )?;
+pub async fn update_structured_attendance(pool: &PgPool, minutes_id: i64, json: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'structured_attendance', $2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = EXCLUDED.value",
+    )
+    .bind(minutes_id)
+    .bind(json)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Upsert the structured action items (JSON string) for a minutes entity.
-pub fn update_structured_action_items(conn: &Connection, minutes_id: i64, json: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, 'structured_action_items', ?2) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![minutes_id, json],
-    )?;
+pub async fn update_structured_action_items(pool: &PgPool, minutes_id: i64, json: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'structured_action_items', $2) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = EXCLUDED.value",
+    )
+    .bind(minutes_id)
+    .bind(json)
+    .execute(pool)
+    .await?;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::auth::session::Permissions;
 use crate::models::{entity, relation};
@@ -10,20 +10,29 @@ use super::types::*;
 
 /// Find all available transitions from the current status,
 /// filtered by user permissions and entity properties (conditions).
-pub fn find_available_transitions(
-    conn: &Connection,
+pub async fn find_available_transitions(
+    pool: &PgPool,
     entity_type_scope: &str,
     current_status: &str,
     user_permissions: &Permissions,
     entity_properties: &std::collections::HashMap<String, String>,
 ) -> Result<Vec<AvailableTransition>, AppError> {
     // Find all transitions where transition_from matches current_status and entity_type_scope
-    let mut stmt = conn.prepare(
-        "SELECT t.id, t.label AS transition_label, \
-                COALESCE(p_perm.value, '') AS required_permission, \
+    #[derive(sqlx::FromRow)]
+    struct TransitionRow {
+        required_permission: String,
+        condition: Option<String>,
+        requires_outcome: String,
+        to_status_code: String,
+        transition_label: String,
+    }
+
+    let all_rows: Vec<TransitionRow> = sqlx::query_as(
+        "SELECT COALESCE(p_perm.value, '') AS required_permission, \
                 p_cond.value AS condition, \
                 COALESCE(p_outcome.value, 'false') AS requires_outcome, \
-                COALESCE(p_to_code.value, '') AS to_status_code \
+                COALESCE(p_to_code.value, '') AS to_status_code, \
+                t.label AS transition_label \
          FROM entities t \
          JOIN relations r_from ON t.id = r_from.source_id \
          JOIN entities rt_from ON r_from.relation_type_id = rt_from.id AND rt_from.name = 'transition_from' \
@@ -38,24 +47,26 @@ pub fn find_available_transitions(
          LEFT JOIN entity_properties p_cond ON t.id = p_cond.entity_id AND p_cond.key = 'condition' \
          LEFT JOIN entity_properties p_outcome ON t.id = p_outcome.entity_id AND p_outcome.key = 'requires_outcome' \
          WHERE t.entity_type = 'workflow_transition' \
-           AND sp_from_code.value = ?1 \
-           AND sp_from_scope.value = ?2"
-    ).map_err(AppError::Db)?;
+           AND sp_from_code.value = $1 \
+           AND sp_from_scope.value = $2"
+    )
+    .bind(current_status)
+    .bind(entity_type_scope)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Db)?;
 
-    let all_transitions = stmt.query_map(params![current_status, entity_type_scope], |row| {
-        let requires_outcome_str: String = row.get("requires_outcome")?;
-        Ok((
-            row.get::<_, String>("required_permission")?,
-            row.get::<_, Option<String>>("condition")?,
+    let all_transitions: Vec<(String, Option<String>, AvailableTransition)> = all_rows.into_iter().map(|r| {
+        (
+            r.required_permission,
+            r.condition,
             AvailableTransition {
-                to_status_code: row.get("to_status_code")?,
-                transition_label: row.get("transition_label")?,
-                requires_outcome: requires_outcome_str == "true",
+                to_status_code: r.to_status_code,
+                transition_label: r.transition_label,
+                requires_outcome: r.requires_outcome == "true",
             },
-        ))
-    }).map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
+        )
+    }).collect();
 
     // Filter by permission and condition
     let mut available = Vec::new();
@@ -83,8 +94,8 @@ pub fn find_available_transitions(
 
 /// Validate a specific transition and return its info.
 /// Returns error if transition is not valid or user lacks permission.
-pub fn validate_transition(
-    conn: &Connection,
+pub async fn validate_transition(
+    pool: &PgPool,
     entity_type_scope: &str,
     current_status: &str,
     new_status: &str,
@@ -92,8 +103,8 @@ pub fn validate_transition(
     entity_properties: &std::collections::HashMap<String, String>,
 ) -> Result<AvailableTransition, AppError> {
     let available = find_available_transitions(
-        conn, entity_type_scope, current_status, user_permissions, entity_properties,
-    )?;
+        pool, entity_type_scope, current_status, user_permissions, entity_properties,
+    ).await?;
 
     available.into_iter()
         .find(|t| t.to_status_code == new_status)
@@ -107,8 +118,8 @@ pub fn validate_transition(
 // =====================================================================
 
 /// List all distinct workflow scopes with their status and transition counts.
-pub fn list_workflow_scopes(conn: &Connection) -> Result<Vec<WorkflowScope>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn list_workflow_scopes(pool: &PgPool) -> Result<Vec<WorkflowScope>, AppError> {
+    let scopes: Vec<WorkflowScope> = sqlx::query_as(
         "SELECT p.value AS scope, \
                 COUNT(DISTINCT e.id) AS status_count, \
                 COALESCE(tc.transition_count, 0) AS transition_count \
@@ -122,26 +133,30 @@ pub fn list_workflow_scopes(conn: &Connection) -> Result<Vec<WorkflowScope>, App
              GROUP BY pt.value \
          ) tc ON tc.scope = p.value \
          WHERE e.entity_type = 'workflow_status' \
-         GROUP BY p.value \
+         GROUP BY p.value, tc.transition_count \
          ORDER BY p.value"
-    ).map_err(AppError::Db)?;
-
-    let scopes = stmt.query_map([], |row| {
-        Ok(WorkflowScope {
-            scope: row.get("scope")?,
-            status_count: row.get("status_count")?,
-            transition_count: row.get("transition_count")?,
-        })
-    }).map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Db)?;
 
     Ok(scopes)
 }
 
 /// List all statuses for a given workflow scope, ordered by `order` property.
-pub fn list_statuses_for_scope(conn: &Connection, scope: &str) -> Result<Vec<WorkflowStatus>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn list_statuses_for_scope(pool: &PgPool, scope: &str) -> Result<Vec<WorkflowStatus>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct StatusRow {
+        id: i64,
+        name: String,
+        status_code: String,
+        status_label: String,
+        status_order: String,
+        is_initial: String,
+        is_terminal: String,
+    }
+
+    let rows: Vec<StatusRow> = sqlx::query_as(
         "SELECT e.id, e.name, \
                 COALESCE(p_code.value, '') AS status_code, \
                 COALESCE(p_label.value, e.label) AS status_label, \
@@ -156,34 +171,47 @@ pub fn list_statuses_for_scope(conn: &Connection, scope: &str) -> Result<Vec<Wor
          LEFT JOIN entity_properties p_initial ON e.id = p_initial.entity_id AND p_initial.key = 'is_initial' \
          LEFT JOIN entity_properties p_terminal ON e.id = p_terminal.entity_id AND p_terminal.key = 'is_terminal' \
          WHERE e.entity_type = 'workflow_status' \
-           AND p_scope.value = ?1 \
-         ORDER BY CAST(COALESCE(p_order.value, '0') AS INTEGER), e.id"
-    ).map_err(AppError::Db)?;
+           AND p_scope.value = $1 \
+         ORDER BY CAST(COALESCE(p_order.value, '0') AS BIGINT), e.id"
+    )
+    .bind(scope)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Db)?;
 
-    let statuses = stmt.query_map(params![scope], |row| {
-        let is_initial_str: String = row.get("is_initial")?;
-        let is_terminal_str: String = row.get("is_terminal")?;
-        let order_str: String = row.get("status_order")?;
-        Ok(WorkflowStatus {
-            id: row.get("id")?,
-            name: row.get("name")?,
+    let statuses = rows.into_iter().map(|r| {
+        WorkflowStatus {
+            id: r.id,
+            name: r.name,
             entity_type_scope: scope.to_string(),
-            status_code: row.get("status_code")?,
-            label: row.get("status_label")?,
-            order: order_str.parse::<i64>().unwrap_or(0),
-            is_initial: is_initial_str == "true",
-            is_terminal: is_terminal_str == "true",
-        })
-    }).map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
+            status_code: r.status_code,
+            label: r.status_label,
+            order: r.status_order.parse::<i64>().unwrap_or(0),
+            is_initial: r.is_initial == "true",
+            is_terminal: r.is_terminal == "true",
+        }
+    }).collect();
 
     Ok(statuses)
 }
 
 /// List all transitions for a given workflow scope, with from/to status info.
-pub fn list_transitions_for_scope(conn: &Connection, scope: &str) -> Result<Vec<WorkflowTransition>, AppError> {
-    let mut stmt = conn.prepare(
+pub async fn list_transitions_for_scope(pool: &PgPool, scope: &str) -> Result<Vec<WorkflowTransition>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct TransitionRow {
+        id: i64,
+        name: String,
+        transition_label: String,
+        from_status_id: i64,
+        from_status_code: String,
+        to_status_id: i64,
+        to_status_code: String,
+        required_permission: String,
+        condition: Option<String>,
+        requires_outcome: String,
+    }
+
+    let rows: Vec<TransitionRow> = sqlx::query_as(
         "SELECT t.id, t.name, t.label AS transition_label, \
                 s_from.id AS from_status_id, \
                 COALESCE(p_from_code.value, '') AS from_status_code, \
@@ -206,35 +234,36 @@ pub fn list_transitions_for_scope(conn: &Connection, scope: &str) -> Result<Vec<
          LEFT JOIN entity_properties p_cond ON t.id = p_cond.entity_id AND p_cond.key = 'condition' \
          LEFT JOIN entity_properties p_outcome ON t.id = p_outcome.entity_id AND p_outcome.key = 'requires_outcome' \
          WHERE t.entity_type = 'workflow_transition' \
-           AND p_scope.value = ?1 \
+           AND p_scope.value = $1 \
          ORDER BY from_status_code, to_status_code"
-    ).map_err(AppError::Db)?;
+    )
+    .bind(scope)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Db)?;
 
-    let transitions = stmt.query_map(params![scope], |row| {
-        let requires_outcome_str: String = row.get("requires_outcome")?;
-        Ok(WorkflowTransition {
-            id: row.get("id")?,
-            name: row.get("name")?,
+    let transitions = rows.into_iter().map(|r| {
+        WorkflowTransition {
+            id: r.id,
+            name: r.name,
             entity_type_scope: scope.to_string(),
-            from_status_code: row.get("from_status_code")?,
-            to_status_code: row.get("to_status_code")?,
-            from_status_id: row.get("from_status_id")?,
-            to_status_id: row.get("to_status_id")?,
-            required_permission: row.get("required_permission")?,
-            condition: row.get("condition")?,
-            requires_outcome: requires_outcome_str == "true",
-            transition_label: row.get("transition_label")?,
-        })
-    }).map_err(AppError::Db)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(AppError::Db)?;
+            from_status_code: r.from_status_code,
+            to_status_code: r.to_status_code,
+            from_status_id: r.from_status_id,
+            to_status_id: r.to_status_id,
+            required_permission: r.required_permission,
+            condition: r.condition,
+            requires_outcome: r.requires_outcome == "true",
+            transition_label: r.transition_label,
+        }
+    }).collect();
 
     Ok(transitions)
 }
 
 /// Create a new workflow status entity with all required properties and relations.
-pub fn create_status(
-    conn: &Connection,
+pub async fn create_status(
+    pool: &PgPool,
     scope: &str,
     status_code: &str,
     label: &str,
@@ -243,7 +272,8 @@ pub fn create_status(
     is_terminal: bool,
 ) -> Result<i64, AppError> {
     let name = format!("{}.{}", scope, status_code);
-    let id = entity::create(conn, "workflow_status", &name, label)
+    let id = entity::create(pool, "workflow_status", &name, label)
+        .await
         .map_err(AppError::Db)?;
 
     let mut props: Vec<(&str, &str)> = vec![
@@ -259,14 +289,14 @@ pub fn create_status(
     if is_terminal {
         props.push(("is_terminal", "true"));
     }
-    entity::set_properties(conn, id, &props).map_err(AppError::Db)?;
+    entity::set_properties(pool, id, &props).await.map_err(AppError::Db)?;
 
     Ok(id)
 }
 
 /// Update an existing workflow status entity's properties.
-pub fn update_status(
-    conn: &Connection,
+pub async fn update_status(
+    pool: &PgPool,
     id: i64,
     label: &str,
     order: i64,
@@ -274,40 +304,43 @@ pub fn update_status(
     is_terminal: bool,
 ) -> Result<(), AppError> {
     // Update entity label
-    let ent = entity::find_by_id(conn, id).map_err(AppError::Db)?
+    let ent = entity::find_by_id(pool, id).await.map_err(AppError::Db)?
         .ok_or(AppError::NotFound)?;
-    entity::update(conn, id, &ent.name, label).map_err(AppError::Db)?;
+    entity::update(pool, id, &ent.name, label).await.map_err(AppError::Db)?;
 
     // Update properties
-    entity::set_property(conn, id, "label", label).map_err(AppError::Db)?;
+    entity::set_property(pool, id, "label", label).await.map_err(AppError::Db)?;
     let order_str = order.to_string();
-    entity::set_property(conn, id, "order", &order_str).map_err(AppError::Db)?;
+    entity::set_property(pool, id, "order", &order_str).await.map_err(AppError::Db)?;
 
     if is_initial {
-        entity::set_property(conn, id, "is_initial", "true").map_err(AppError::Db)?;
+        entity::set_property(pool, id, "is_initial", "true").await.map_err(AppError::Db)?;
     } else {
-        entity::delete_property(conn, id, "is_initial").map_err(AppError::Db)?;
+        entity::delete_property(pool, id, "is_initial").await.map_err(AppError::Db)?;
     }
     if is_terminal {
-        entity::set_property(conn, id, "is_terminal", "true").map_err(AppError::Db)?;
+        entity::set_property(pool, id, "is_terminal", "true").await.map_err(AppError::Db)?;
     } else {
-        entity::delete_property(conn, id, "is_terminal").map_err(AppError::Db)?;
+        entity::delete_property(pool, id, "is_terminal").await.map_err(AppError::Db)?;
     }
 
     Ok(())
 }
 
 /// Delete a workflow status. Fails if any transitions reference it.
-pub fn delete_status(conn: &Connection, id: i64) -> Result<(), AppError> {
+pub async fn delete_status(pool: &PgPool, id: i64) -> Result<(), AppError> {
     // Check if any transitions point to/from this status via relations
-    let ref_count: i64 = conn.query_row(
+    let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM relations r \
          JOIN entities rt ON r.relation_type_id = rt.id \
          WHERE (rt.name = 'transition_from' OR rt.name = 'transition_to') \
-           AND r.target_id = ?1",
-        params![id],
-        |row| row.get(0),
-    ).map_err(AppError::Db)?;
+           AND r.target_id = $1"
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Db)?;
+    let ref_count = row.0;
 
     if ref_count > 0 {
         return Err(AppError::PermissionDenied(
@@ -315,13 +348,13 @@ pub fn delete_status(conn: &Connection, id: i64) -> Result<(), AppError> {
         ));
     }
 
-    entity::delete(conn, id).map_err(AppError::Db)?;
+    entity::delete(pool, id).await.map_err(AppError::Db)?;
     Ok(())
 }
 
 /// Create a new workflow transition entity with properties and relations.
-pub fn create_transition(
-    conn: &Connection,
+pub async fn create_transition(
+    pool: &PgPool,
     scope: &str,
     from_status_id: i64,
     to_status_id: i64,
@@ -331,15 +364,18 @@ pub fn create_transition(
     condition: &str,
 ) -> Result<i64, AppError> {
     // Read from/to status codes for the entity name and denormalized properties
-    let from_code = entity::get_property(conn, from_status_id, "status_code")
+    let from_code = entity::get_property(pool, from_status_id, "status_code")
+        .await
         .map_err(AppError::Db)?
         .unwrap_or_default();
-    let to_code = entity::get_property(conn, to_status_id, "status_code")
+    let to_code = entity::get_property(pool, to_status_id, "status_code")
+        .await
         .map_err(AppError::Db)?
         .unwrap_or_default();
 
     let name = format!("{}.{}_to_{}", scope, from_code, to_code);
-    let id = entity::create(conn, "workflow_transition", &name, label)
+    let id = entity::create(pool, "workflow_transition", &name, label)
+        .await
         .map_err(AppError::Db)?;
 
     // Set properties (both canonical and denormalized)
@@ -355,19 +391,19 @@ pub fn create_transition(
     if !condition.is_empty() {
         props.push(("condition", condition));
     }
-    entity::set_properties(conn, id, &props).map_err(AppError::Db)?;
+    entity::set_properties(pool, id, &props).await.map_err(AppError::Db)?;
 
     // Create transition_from and transition_to relations
-    relation::create(conn, "transition_from", id, from_status_id).map_err(AppError::Db)?;
-    relation::create(conn, "transition_to", id, to_status_id).map_err(AppError::Db)?;
+    relation::create(pool, "transition_from", id, from_status_id).await.map_err(AppError::Db)?;
+    relation::create(pool, "transition_to", id, to_status_id).await.map_err(AppError::Db)?;
 
     Ok(id)
 }
 
 /// Update an existing workflow transition's properties.
-/// Does NOT change from/to status — delete and recreate for that.
-pub fn update_transition(
-    conn: &Connection,
+/// Does NOT change from/to status -- delete and recreate for that.
+pub async fn update_transition(
+    pool: &PgPool,
     id: i64,
     label: &str,
     required_permission: &str,
@@ -375,28 +411,28 @@ pub fn update_transition(
     condition: &str,
 ) -> Result<(), AppError> {
     // Update entity label
-    let ent = entity::find_by_id(conn, id).map_err(AppError::Db)?
+    let ent = entity::find_by_id(pool, id).await.map_err(AppError::Db)?
         .ok_or(AppError::NotFound)?;
-    entity::update(conn, id, &ent.name, label).map_err(AppError::Db)?;
+    entity::update(pool, id, &ent.name, label).await.map_err(AppError::Db)?;
 
     // Update properties
-    entity::set_property(conn, id, "transition_label", label).map_err(AppError::Db)?;
-    entity::set_property(conn, id, "required_permission", required_permission).map_err(AppError::Db)?;
+    entity::set_property(pool, id, "transition_label", label).await.map_err(AppError::Db)?;
+    entity::set_property(pool, id, "required_permission", required_permission).await.map_err(AppError::Db)?;
     let requires_outcome_str = if requires_outcome { "true" } else { "false" };
-    entity::set_property(conn, id, "requires_outcome", requires_outcome_str).map_err(AppError::Db)?;
+    entity::set_property(pool, id, "requires_outcome", requires_outcome_str).await.map_err(AppError::Db)?;
 
     if condition.is_empty() {
-        entity::delete_property(conn, id, "condition").map_err(AppError::Db)?;
+        entity::delete_property(pool, id, "condition").await.map_err(AppError::Db)?;
     } else {
-        entity::set_property(conn, id, "condition", condition).map_err(AppError::Db)?;
+        entity::set_property(pool, id, "condition", condition).await.map_err(AppError::Db)?;
     }
 
     Ok(())
 }
 
 /// Delete a workflow transition and its relations.
-pub fn delete_transition(conn: &Connection, id: i64) -> Result<(), AppError> {
+pub async fn delete_transition(pool: &PgPool, id: i64) -> Result<(), AppError> {
     // Relations are CASCADE-deleted when the entity is deleted
-    entity::delete(conn, id).map_err(AppError::Db)?;
+    entity::delete(pool, id).await.map_err(AppError::Db)?;
     Ok(())
 }

@@ -11,7 +11,7 @@ pub enum BuildError {
 
 /// Build a parameterized WHERE fragment from a FilterTree.
 /// Returns (sql_fragment, params_vec).
-/// param_offset: the ?N index to start from (so callers can combine with other params).
+/// param_offset: the $N index to start from (so callers can combine with other params).
 /// field_map: "field_key" -> "sql_col_expression" (must be pre-validated SQL, not user input)
 /// op_whitelist: set of allowed operator strings for this table
 pub fn build_where_clause(
@@ -79,16 +79,16 @@ fn build_condition(
     if !op_whitelist.contains(&cond.op.as_str()) {
         return Err(BuildError::UnknownOp(cond.op.clone()));
     }
-    let n = param_offset + 1;  // rusqlite uses 1-based ?N
+    let n = param_offset + 1;  // PostgreSQL uses 1-based $N
     let (sql, value) = match cond.op.as_str() {
-        "contains"     => (format!("{col} LIKE '%' || ?{n} || '%'"), cond.value.clone()),
-        "not_contains" => (format!("{col} NOT LIKE '%' || ?{n} || '%'"), cond.value.clone()),
-        "equals" | "is"         => (format!("{col} = ?{n}"), cond.value.clone()),
-        "not_equals" | "is_not" => (format!("{col} != ?{n}"), cond.value.clone()),
-        "starts_with"  => (format!("{col} LIKE ?{n} || '%'"), cond.value.clone()),
-        "before"       => (format!("{col} < ?{n}"), cond.value.clone()),
-        "after"        => (format!("{col} > ?{n}"), cond.value.clone()),
-        "on"           => (format!("DATE({col}) = DATE(?{n})"), cond.value.clone()),
+        "contains"     => (format!("{col} LIKE '%' || ${n} || '%'"), cond.value.clone()),
+        "not_contains" => (format!("{col} NOT LIKE '%' || ${n} || '%'"), cond.value.clone()),
+        "equals" | "is"         => (format!("{col} = ${n}"), cond.value.clone()),
+        "not_equals" | "is_not" => (format!("{col} != ${n}"), cond.value.clone()),
+        "starts_with"  => (format!("{col} LIKE ${n} || '%'"), cond.value.clone()),
+        "before"       => (format!("{col} < ${n}"), cond.value.clone()),
+        "after"        => (format!("{col} > ${n}"), cond.value.clone()),
+        "on"           => (format!("{col}::DATE = (${n})::DATE"), cond.value.clone()),
         _ => return Err(BuildError::UnknownOp(cond.op.clone())),
     };
     Ok((sql, vec![value]))
@@ -128,7 +128,7 @@ mod tests {
             ..Default::default()
         };
         let (sql, params) = build_where_clause(&tree, &user_field_map(), USER_OPS, 0).unwrap();
-        assert_eq!(sql, "e.name LIKE '%' || ?1 || '%'");
+        assert_eq!(sql, "e.name LIKE '%' || $1 || '%'");
         assert_eq!(params, vec!["alice"]);
     }
 
@@ -143,7 +143,7 @@ mod tests {
             ..Default::default()
         };
         let (sql, params) = build_where_clause(&tree, &user_field_map(), USER_OPS, 0).unwrap();
-        assert_eq!(sql, "e.name LIKE '%' || ?1 || '%' AND COALESCE(role_e.name, '') = ?2");
+        assert_eq!(sql, "e.name LIKE '%' || $1 || '%' AND COALESCE(role_e.name, '') = $2");
         assert_eq!(params, vec!["alice", "admin"]);
     }
 
@@ -165,7 +165,7 @@ mod tests {
         let (sql, params) = build_where_clause(&tree, &user_field_map(), USER_OPS, 0).unwrap();
         assert_eq!(
             sql,
-            "COALESCE(role_e.name, '') = ?1 AND (e.name LIKE '%' || ?2 || '%' OR COALESCE(p_email.value, '') LIKE '%' || ?3 || '%')"
+            "COALESCE(role_e.name, '') = $1 AND (e.name LIKE '%' || $2 || '%' OR COALESCE(p_email.value, '') LIKE '%' || $3 || '%')"
         );
         assert_eq!(params, vec!["admin", "alice", "@acme"]);
     }
@@ -186,7 +186,7 @@ mod tests {
             ..Default::default()
         };
         let (sql, params) = build_where_clause(&tree, &user_field_map(), USER_OPS, 5).unwrap();
-        assert_eq!(sql, "e.name LIKE '%' || ?6 || '%'");
+        assert_eq!(sql, "e.name LIKE '%' || $6 || '%'");
         assert_eq!(params, vec!["alice"]);
     }
 }
