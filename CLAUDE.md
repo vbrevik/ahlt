@@ -1,6 +1,6 @@
 # im-ctrl — Rust Web Application
 
-Ontology-based entity management system built with Actix-web, Askama templates, and SQLite.
+Ontology-based entity management system built with Actix-web, Askama templates, and PostgreSQL.
 
 **Crate name**: `ahlt` — used in `use ahlt::models::user` imports and test output
 **Documentation**: All project documentation must be stored in the `docs/` folder.
@@ -8,21 +8,34 @@ Ontology-based entity management system built with Actix-web, Askama templates, 
 ## Quick Start
 
 ```bash
-cargo run                  # Build and run
-cargo watch -x run         # Dev with auto-reload
-APP_ENV=staging cargo run  # Run with staging data (ToR, governance, meetings)
+# Start infrastructure (PostgreSQL + Neo4j)
+make infra                 # or: docker compose up -d postgres neo4j
+
+# Run the application
+DATABASE_URL=postgresql://ahlt@localhost/ahlt_dev cargo run
+APP_ENV=staging DATABASE_URL=postgresql://ahlt@localhost/ahlt_staging cargo run
 cargo clippy               # Linter
 ```
 
 **Access**: http://localhost:8080
 **Default login**: admin / (password set during initial setup)
 
+### Docker Compose (full stack)
+
+```bash
+make dev                   # App + Postgres + Neo4j on port 8080
+make staging               # Staging environment on port 8081
+make prod                  # Production environment on port 8082
+make down                  # Stop all environments
+```
+
 ## Architecture
 
 ### Stack
 - **Web framework**: Actix-web 4
 - **Templates**: Askama 0.14
-- **Database**: SQLite (rusqlite 0.32 + r2d2_sqlite 0.25)
+- **Database**: PostgreSQL 17 (sqlx 0.8, async)
+- **Graph DB**: Neo4j 5 Community (neo4rs 0.8, optional)
 - **Auth**: argon2 0.5, actix-session 0.10
 - **Serialization**: serde + serde_json
 
@@ -34,7 +47,6 @@ src/
 ├── lib.rs               # Library crate root (pub mod declarations)
 ├── db.rs                # Database pool initialization + seed data
 ├── errors.rs            # AppError enum, render() helper
-├── schema.sql           # Embedded SQLite schema
 ├── templates_structs.rs # Template context types
 ├── auth/                # Authentication (login, session helpers, CSRF)
 ├── audit/               # Audit logging subsystem
@@ -52,6 +64,7 @@ src/
 │   ├── tor/             # Terms of Reference
 │   ├── agenda_point/    # Meeting agenda points
 │   ├── minutes/         # Meeting minutes
+│   ├── graph_sync/      # Neo4j graph projection (optional)
 │   └── data_manager/    # JSON import/export
 └── handlers/            # HTTP request handlers
     ├── mod.rs           # Handler module declarations
@@ -61,11 +74,15 @@ src/
     ├── workflow_handlers.rs, suggestion_handlers.rs, proposal_handlers.rs, ...
     └── ...              # auth, account, settings, audit, dashboard, etc.
 
+migrations/              # PostgreSQL schema migrations (sqlx)
 templates/               # Askama HTML templates
 static/                  # CSS (BEM naming), fonts, client-side JS
-data/                    # SQLite databases (per APP_ENV)
 data/seed/               # JSON seed fixtures (ontology.json, staging.json)
 docs/plans/              # Design & implementation documentation
+docker-compose.yml       # Base services (Postgres + Neo4j)
+docker-compose.{dev,staging,prod}.yml  # Per-environment overrides
+helm/                    # Kubernetes Helm charts
+infra/                   # GitLab CE + Runner configs
 ```
 
 ### Key Patterns
@@ -74,18 +91,17 @@ docs/plans/              # Design & implementation documentation
 
 ```rust
 pub async fn handler(
-    pool: web::Data<DbPool>,
+    pool: web::Data<PgPool>,
     session: Session,
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "permission.code")?;
-    let conn = pool.get()?;
-    let ctx = PageContext::build(&session, &conn, "/path")?;
-    // ... business logic ...
+    let ctx = PageContext::build(&session, &pool, "/path").await?;
+    // ... business logic using &pool with .await ...
     render(tmpl)
 }
 ```
 
-**AppError variants**: `Db`, `Pool`, `Template`, `Hash`, `NotFound`, `PermissionDenied`, `Session`, `Csrf`
+**AppError variants**: `Db`, `Template`, `Hash`, `NotFound`, `PermissionDenied`, `Session`, `Csrf`
 
 **Session Helpers** (`src/auth/session.rs`):
 `require_permission()`, `get_user_id()`, `get_username()`, `get_permissions()`
@@ -95,35 +111,51 @@ pub async fn handler(
 **EAV Ontology Pattern** — Everything is an entity with properties and relations:
 
 ```sql
-entities (id, entity_type, name, created_at)
+entities (id, entity_type, name, label, created_at, updated_at)
 entity_properties (entity_id, key, value)  -- Flexible schema
-relations (id, relation_type_id, from_entity_id, to_entity_id)
+relations (id, relation_type_id, source_id, target_id, created_at)
 ```
 
 ### Database
 
-**Location**: `data/{APP_ENV}/app.db` (default: `data/dev/app.db`, staging: `data/staging/app.db`)
+**PostgreSQL** via `DATABASE_URL` env var (e.g., `postgresql://ahlt@localhost/ahlt_dev`).
 
-**Pragmas** (set per-connection via r2d2 init):
-```sql
-PRAGMA foreign_keys = ON;  -- Required for CASCADE deletes
-PRAGMA journal_mode = WAL; -- Write-Ahead Logging for concurrency
-```
+**Migrations**: `migrations/` directory, run automatically by sqlx on startup.
 
-**Constraints**: Foreign keys CASCADE on entity delete. UNIQUE on usernames, role names. Autoincrement IDs shared across all entity types.
+**Multi-environment databases**: `ahlt_dev`, `ahlt_staging`, `ahlt_prod`, `ahlt_test` — created by `docker/postgres/init-databases.sh`.
+
+**Constraints**: Foreign keys CASCADE on entity delete. UNIQUE on `(entity_type, name)`. BIGINT GENERATED ALWAYS AS IDENTITY for IDs.
+
+**SQL dialect notes** (vs SQLite):
+- Parameters: `$1`, `$2` (not `?1`, `?2`)
+- Aggregation: `STRING_AGG(col, ',')` (not `GROUP_CONCAT`)
+- Timestamps: `NOW()` (not `strftime`), cast with `::TEXT` when selecting into String fields
+- Upsert: `ON CONFLICT(cols) DO UPDATE SET ...` (not `INSERT OR REPLACE`)
+- GROUP BY strictness: All non-aggregated columns must be in GROUP BY or wrapped in `MAX()`/aggregate
+
+### Neo4j (optional)
+
+Read-only graph projection of EAV data. Set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` env vars to enable.
+
+- `graph_sync` module: fire-and-forget sync via `tokio::spawn`, ABAC Cypher queries, governance map visualization
+- Falls back to PostgreSQL queries when Neo4j is unavailable
+- `GraphPool = Option<Arc<Graph>>` — `None` means disabled
 
 **Graph Panel CSS** — Wrap in `.graph-panel` > `.graph-panel-header` + `.graph-container`. Lives in `style.css` — do not re-define in template `<style>` blocks.
 
 ## Testing
 
-Tests use TempDir isolation — safe to run in parallel. Crate name in test imports: `ahlt`.
+Tests use PostgreSQL schema isolation (unique schema per test via `search_path`) — safe to run in parallel. Requires `ahlt_test` database. Crate name in test imports: `ahlt`.
 
 ```bash
-cargo test                          # All tests (~141 across 18 files)
+cargo test                          # All tests (~171 across 23 files)
 cargo test user_test                # Single test file
 cargo test -- --nocapture           # With stdout
 cargo test --test meeting_test      # Integration test by file
+cargo test --test graph_sync_test -- --ignored --test-threads=1  # Neo4j tests (requires running Neo4j)
 ```
+
+**Test database**: `TEST_DATABASE_URL` env var (default: `postgresql://ahlt@localhost/ahlt_test`). Each test creates a unique schema, runs migrations, seeds base entities, and drops the schema on cleanup.
 
 ### Playwright E2E Tests
 
@@ -164,17 +196,21 @@ node /Users/vidarbrevik/projects/im-ctrl/scripts/users-table.test.mjs
 
 - **No `&&` in Askama**: `{% if a %}{% if b %}...{% endif %}{% endif %}` — nested, not `{% if a && b %}`
 - **Route order**: `/users/new` BEFORE `/users/{id}` or path param swallows "new"
-- **`relation::create()` takes name, not ID**: `relation::create(&conn, "relation_name", src, dst)`
+- **`relation::create()` takes name, not ID**: `relation::create(&pool, "relation_name", src, dst).await`
 - **No `innerHTML`**: Security hook rejects it — use `createElement`/`textContent`/`appendChild`
-- **Seed changes need DB delete**: Seed skips non-empty DB — delete `data/{env}/app.db` to pick up fixture changes
+- **All model calls are async**: Every `model::function(&pool, ...)` must have `.await`
+- **Cast timestamps in SELECT**: Use `created_at::TEXT` when selecting into `String` fields
+- **Seed changes need DB drop**: Seed skips non-empty DB — drop and recreate the database to pick up fixture changes
 - **Full gotchas**: `.claude/rules/gotchas.md`
 
 ## Troubleshooting
 
 - **Build errors after git pull**: `cargo clean && cargo build`
-- **Database locked**: Check for zombie connections. WAL mode helps but doesn't eliminate all locking.
+- **Connection refused**: Ensure PostgreSQL is running (`make infra` or `docker compose up -d postgres`)
+- **Migration errors**: Check `migrations/` directory. sqlx runs migrations automatically on startup.
 - **Template not found**: Askama compiles templates. Run `cargo clean` after adding new templates.
 - **Session cookie issues**: Clear cookies in browser dev tools → Application → Cookies.
+- **Neo4j optional**: App runs fine without Neo4j. Graph features fall back to PostgreSQL queries.
 
 ## Verification Commands
 
