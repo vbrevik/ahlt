@@ -191,6 +191,7 @@
                 lockBtn.click();
                 break;
             case 'escape':
+                dismissContextMenu();
                 detail.style.display = 'none';
                 break;
         }
@@ -257,7 +258,8 @@
                 .on('end', dragEnd))
             .on('mouseover', function(event, d) { highlightNode(d); })
             .on('mouseout', function() { unhighlight(); })
-            .on('click', function(event, d) { showDetail(d); });
+            .on('click', function(event, d) { showDetail(d); })
+            .on('contextmenu', function(event, d) { showContextMenu(event, d); });
 
         // Node circles — radius based on instance count
         nodeGroup.append('circle')
@@ -410,6 +412,83 @@
         if (!outgoing.length && !incoming.length) {
             connEl.appendChild(createEl('span', { 'class': 'conn-empty' }, 'No relations'));
         }
+    }
+
+    // Context menu
+    var contextMenuEl = null;
+    var containerEl = document.querySelector('.graph-container');
+
+    function dismissContextMenu() {
+        if (contextMenuEl) { contextMenuEl.remove(); contextMenuEl = null; }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (contextMenuEl && !contextMenuEl.contains(e.target)) dismissContextMenu();
+    });
+
+    function showContextMenu(event, d) {
+        event.preventDefault();
+        dismissContextMenu();
+        var menu = createEl('div', { 'class': 'context-menu' });
+
+        // Header: type label + instance count badge
+        var header = createEl('div', { 'class': 'context-menu__header' });
+        var headerLabel = createEl('span', { 'class': 'context-menu__header-label' }, d.label);
+        var headerBadge = createEl('span', { 'class': 'context-menu__header-badge' }, d.count + ' instance' + (d.count !== 1 ? 's' : ''));
+        headerBadge.style.color = typeColor(d.id);
+        header.appendChild(headerLabel);
+        header.appendChild(headerBadge);
+        menu.appendChild(header);
+        menu.appendChild(createEl('div', { 'class': 'context-menu__divider' }));
+
+        // "View instances" action
+        var viewAction = createEl('div', { 'class': 'context-menu__action' });
+        viewAction.appendChild(createEl('span', { 'class': 'context-menu__action-icon' }, '\u2192'));
+        viewAction.appendChild(document.createTextNode('View instances'));
+        viewAction.addEventListener('click', function() {
+            window.location.href = '/ontology/data?type=' + encodeURIComponent(d.id);
+        });
+        menu.appendChild(viewAction);
+
+        // Relation types this entity type participates in
+        var relatedLinks = allLinks.filter(function(l) {
+            return l.source.id === d.id || l.target.id === d.id;
+        });
+        if (relatedLinks.length) {
+            menu.appendChild(createEl('div', { 'class': 'context-menu__divider' }));
+            var group = createEl('div', { 'class': 'context-menu__group' });
+            var groupHeader = createEl('div', { 'class': 'context-menu__group-header' });
+            groupHeader.appendChild(createEl('span', { 'class': 'context-menu__group-toggle' }, '\u25BE'));
+            groupHeader.appendChild(document.createTextNode(' Relation types'));
+            groupHeader.addEventListener('click', function() {
+                group.classList.toggle('collapsed');
+            });
+            group.appendChild(groupHeader);
+            var itemsContainer = createEl('div', { 'class': 'context-menu__group-items' });
+            relatedLinks.forEach(function(l) {
+                var item = createEl('div', { 'class': 'context-menu__item' });
+                item.appendChild(createEl('span', null, l.relation_type + ' (' + l.count + ')'));
+                itemsContainer.appendChild(item);
+            });
+            group.appendChild(itemsContainer);
+            menu.appendChild(group);
+        }
+
+        // Position relative to container
+        var rect = containerEl.getBoundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        containerEl.appendChild(menu);
+        contextMenuEl = menu;
+
+        // Flip if near edges
+        requestAnimationFrame(function() {
+            var menuRect = menu.getBoundingClientRect();
+            if (menuRect.right > rect.right - 10) menu.style.left = (x - menuRect.width) + 'px';
+            if (menuRect.bottom > rect.bottom - 10) menu.style.top = (y - menuRect.height) + 'px';
+        });
     }
 
     document.getElementById('btn-close-detail').addEventListener('click', function() {
