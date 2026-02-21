@@ -5142,3 +5142,17 @@ details[open] .opinion-chevron {
         position: static;
     }
 }
+
+/* Point paper — missing utility classes */
+.point-paper-body {
+    min-width: 0; /* prevent grid blowout */
+}
+
+.opinion-commentary--empty {
+    opacity: 0.4;
+}
+
+.point-paper-actions .empty-hint {
+    font-size: 0.8125rem;
+    margin: 0;
+}

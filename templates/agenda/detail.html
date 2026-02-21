@@ -106,7 +106,7 @@
                     {% if !opinion.commentary.is_empty() %}
                     <span class="opinion-commentary">{{ opinion.commentary }}</span>
                     {% else %}
-                    <span class="opinion-commentary" style="opacity:0.4">&#x2014;</span>
+                    <span class="opinion-commentary opinion-commentary--empty">&#x2014;</span>
                     {% endif %}
                     <span class="opinion-date">{{ opinion.created_date }}</span>
                 </div>
@@ -204,7 +204,7 @@
         <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/transition">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <input type="hidden" name="to_status" value="{{ transition.to_status_code }}">
-            <button type="submit" class="btn btn-sm btn-secondary" style="width:100%">
+            <button type="submit" class="btn btn-sm btn-secondary btn-full">
                 {{ transition.transition_label }}
             </button>
         </form>
@@ -214,23 +214,23 @@
 
         {% if agenda_point.item_type.as_str() == "decision" %}
         {% if ctx.permissions.has("agenda.manage") %}
-        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/new" class="btn btn-sm" style="width:100%;text-align:center">Manage COAs</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/new" class="btn btn-sm btn-full">Manage COAs</a>
         {% endif %}
         {% if ctx.permissions.has("agenda.participate") %}
-        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/input" class="btn btn-sm btn-primary" style="width:100%;text-align:center">Record Opinion</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/input" class="btn btn-sm btn-primary btn-full">Record Opinion</a>
         {% endif %}
         {% if ctx.permissions.has("agenda.decide") %}
         {% if agenda_point.status.as_str() != "decided" %}
-        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="btn btn-sm btn-primary" style="width:100%;text-align:center">Finalize Decision</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="btn btn-sm btn-primary btn-full">Finalize Decision</a>
         {% endif %}
         {% endif %}
         {% endif %}
 
         {% if available_transitions.is_empty() %}
         {% if agenda_point.status.as_str() == "decided" %}
-        <p class="empty-hint" style="font-size:0.8125rem;margin:0">Decision recorded.</p>
+        <p class="empty-hint">Decision recorded.</p>
         {% else %}
-        <p class="empty-hint" style="font-size:0.8125rem;margin:0">No actions available.</p>
+        <p class="empty-hint">No actions available.</p>
         {% endif %}
         {% endif %}
     </div>
