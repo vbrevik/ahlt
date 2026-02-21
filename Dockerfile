@@ -11,6 +11,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && r
 COPY src/ src/
 COPY templates/ templates/
 COPY static/ static/
+COPY migrations/ migrations/
 RUN touch src/main.rs && cargo build --release
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────
@@ -24,12 +25,10 @@ WORKDIR /app
 COPY --from=builder /app/target/release/ahlt /app/ahlt
 COPY templates/ templates/
 COPY static/ static/
-COPY src/schema.sql src/schema.sql
+COPY migrations/ migrations/
+COPY data/seed/ data/seed/
 
-# Create data directory
-RUN mkdir -p data/dev data/staging
-
-# Default environment
+# Default environment — DATABASE_URL must be provided at runtime
 ENV APP_ENV=dev \
     HOST=0.0.0.0 \
     PORT=8080 \
