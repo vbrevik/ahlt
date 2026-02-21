@@ -31,7 +31,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | entity_type | Purpose | Key Properties |
 |---|---|---|
-| `relation_type` | Named relationship kinds (26 defined) | — |
+| `relation_type` | Named relationship kinds (35 defined) | — |
 | `role` | Named collection of permissions | `description`, `is_default` |
 | `permission` | Atomic capability (30+ defined) | `group_name` |
 | `user` | Account with role relation | `password`, `email` |
@@ -416,6 +416,14 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Split 3 (03-template-ui)**: Added `tor_capabilities: Permissions` to `MeetingDetailTemplate`, populated via `load_tor_capabilities` in `detail` handler, updated roll call section guards in `meetings/detail.html`. Commit `330110d`.
 - **Build**: PASS | **Tests**: 169 passing
 
+### Enterprise Infrastructure Migration (Phase 1)
+- **Phase 1a: PostgreSQL migration** — Full migration from SQLite/rusqlite to PostgreSQL 17/sqlx 0.8 (async). All 44 model files, 30+ handler files, 23 test files converted. Schema migrated to `migrations/` directory (sqlx auto-run). Test isolation via unique PostgreSQL schemas (`search_path`). 171 tests passing.
+- **Phase 1b: Neo4j integration** — Optional read-only graph projection via neo4rs 0.8. Graph sync module with fire-and-forget `tokio::spawn`, ABAC Cypher queries, governance map visualization. Falls back to PostgreSQL when Neo4j unavailable. 4 integration tests (#[ignore] without Neo4j).
+- **Phase 2: Docker Compose** — Multi-environment setup: `docker-compose.yml` (base) + `docker-compose.{dev,staging,prod}.yml` (overrides). Makefile orchestration (`make dev/staging/prod/down`). PostgreSQL init script creates per-env databases.
+- **Phase 3: GitLab CI/CD** — Self-hosted GitLab CE + Runner configs in `infra/gitlab/`. CI pipeline (`.gitlab-ci.yml`) with test, lint, build, and Helm deployment stages.
+- **Phase 4: Kubernetes Helm** — Shared infra charts (`helm/infra/`) for PostgreSQL + Neo4j. Application chart (`helm/ahlt/`) with deployment, service, configmap, secret, ingress templates. Per-environment values files (dev/staging/prod).
+- **Build**: PASS | **Tests**: 171 passing (8 ignored: 4 Neo4j + 4 E2E)
+
 ### Minutes Export (T.4)
 - **Export Format**: Print-friendly HTML (users print to PDF via browser Ctrl+P / Cmd+P)
 - **Approved-Only**: Only approved minutes exportable; draft/pending return 403 Forbidden
@@ -515,6 +523,13 @@ E.3  Minutes metadata (approved_by, approved_date, distribution_list,
 
 Users/Roles/Role Builder Separation (17 tasks, multi-role support)                   ✓ done
 ABAC — 3-split implementation (abac-core, handler-migration, template-ui)             ✓ done
+
+Enterprise Infrastructure Migration (5 phases)                                        ✓ done
+  Phase 1a: SQLite → PostgreSQL 17 + sqlx 0.8 (async)
+  Phase 1b: Neo4j 5 Community integration (optional graph projection)
+  Phase 2: Docker Compose multi-environment
+  Phase 3: GitLab CE + CI/CD pipeline
+  Phase 4: Kubernetes Helm charts
 
 CANDIDATES (pick next)
 ══════════════════════
