@@ -4897,7 +4897,7 @@ fieldset legend {
 /* Sidebar — unified metadata + actions card */
 .point-paper-sidebar {
     position: sticky;
-    top: 80px;
+    top: calc(60px + 1.25rem); /* nav height + breathing room */
     align-self: start;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -5130,4 +5130,15 @@ details[open] .opinion-chevron {
     color: var(--text-muted);
     font-size: 0.8125rem;
     white-space: nowrap;
+}
+
+/* Point paper — responsive collapse */
+@media (max-width: 768px) {
+    .point-paper-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .point-paper-sidebar {
+        position: static;
+    }
 }
