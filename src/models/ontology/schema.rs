@@ -100,7 +100,8 @@ pub async fn find_schema_graph_data(pool: &PgPool) -> Result<SchemaGraphData, sq
 
     // Edges: relation patterns between entity types
     let edges: Vec<SchemaEdge> = sqlx::query_as(
-        "SELECT src.entity_type, tgt.entity_type, rt.name, rt.label, COUNT(*) \
+        "SELECT src.entity_type AS source, tgt.entity_type AS target, \
+                rt.name AS relation_type, rt.label AS relation_label, COUNT(*) AS count \
          FROM relations r \
          JOIN entities src ON r.source_id = src.id \
          JOIN entities tgt ON r.target_id = tgt.id \
