@@ -2,12 +2,19 @@ use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use sqlx::PgPool;
 
+use std::collections::HashMap;
 use crate::auth::csrf;
-use crate::auth::session::{require_permission, get_user_id};
+use crate::auth::session::{require_permission, get_user_id, get_permissions};
 use crate::errors::{AppError, render};
-use crate::models::{tor, agenda_point, coa, opinion, workflow};
+use crate::models::{entity, tor, agenda_point, coa, opinion, workflow};
 use crate::models::agenda_point::AgendaPointForm;
 use crate::templates_structs::{PageContext, AgendaPointFormTemplate, AgendaPointDetailTemplate};
+
+#[derive(serde::Deserialize)]
+pub struct AgendaTransitionForm {
+    pub csrf_token: String,
+    pub to_status: String,
+}
 
 // ---------------------------------------------------------------------------
 // CRUD handlers (Task 13)
@@ -307,23 +314,55 @@ pub async fn update(
 }
 
 /// POST /tor/{id}/workflow/agenda/{agenda_id}/transition
-/// Generic workflow transition handler using the workflow engine.
+/// Advance an agenda point through its workflow states via the workflow engine.
 pub async fn transition(
     pool: web::Data<PgPool>,
     session: Session,
     path: web::Path<(i64, i64)>,
-    form: web::Form<crate::handlers::auth_handlers::CsrfOnly>,
+    form: web::Form<AgendaTransitionForm>,
 ) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "agenda.manage")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
     let (tor_id, agenda_point_id) = path.into_inner();
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    // For now, this is a stub. Workflow transitions will be fully implemented
-    // as part of a future task when the workflow engine is more mature.
+    let ap = agenda_point::find_by_id(&pool, agenda_point_id).await?
+        .ok_or(AppError::NotFound)?;
 
-    let _ = session.insert("flash", "Transition handler not yet implemented");
+    let permissions = get_permissions(&session)
+        .map_err(|e| AppError::Session(format!("Failed to get permissions: {}", e)))?;
+
+    let mut entity_properties = HashMap::new();
+    entity_properties.insert("item_type".to_string(), ap.item_type.clone());
+
+    // Validate the transition via the workflow engine
+    workflow::validate_transition(
+        &pool,
+        "agenda_point",
+        &ap.status,
+        &form.to_status,
+        &permissions,
+        &entity_properties,
+    ).await?;
+
+    // Update status
+    entity::set_property(&pool, agenda_point_id, "status", &form.to_status)
+        .await
+        .map_err(AppError::Db)?;
+
+    // Audit log
+    let details = serde_json::json!({
+        "agenda_point_id": agenda_point_id,
+        "tor_id": tor_id,
+        "from_status": &ap.status,
+        "to_status": &form.to_status,
+        "summary": format!("Agenda point '{}' transitioned from {} to {}", ap.title, ap.status, form.to_status),
+    });
+    let _ = crate::audit::log(&pool, user_id, "agenda_point.transition", "agenda_point", agenda_point_id, details).await;
+
+    let _ = session.insert("flash", format!("Status changed to {}", &form.to_status));
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}")))
         .finish())

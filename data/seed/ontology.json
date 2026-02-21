@@ -648,6 +648,51 @@
       }
     },
     {
+      "entity_type": "permission",
+      "name": "entities.list",
+      "label": "List Entities (API)",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "API"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "entities.create",
+      "label": "Create Entities (API)",
+      "sort_order": 1,
+      "properties": {
+        "group_name": "API"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "entities.edit",
+      "label": "Edit Entities (API)",
+      "sort_order": 2,
+      "properties": {
+        "group_name": "API"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "entities.delete",
+      "label": "Delete Entities (API)",
+      "sort_order": 3,
+      "properties": {
+        "group_name": "API"
+      }
+    },
+    {
+      "entity_type": "permission",
+      "name": "minutes.view",
+      "label": "View Meeting Minutes",
+      "sort_order": 0,
+      "properties": {
+        "group_name": "Governance"
+      }
+    },
+    {
       "entity_type": "user",
       "name": "admin",
       "label": "Administrator",
@@ -1449,6 +1494,56 @@
       "relation_type": "has_permission",
       "source": "role:admin",
       "target": "permission:meetings.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:minutes.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:entities.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:entities.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:entities.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:entities.delete"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:document.list"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:document.create"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:document.view"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:document.edit"
+    },
+    {
+      "relation_type": "has_permission",
+      "source": "role:admin",
+      "target": "permission:document.delete"
     },
     {
       "relation_type": "has_permission",

@@ -69,7 +69,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | `originates_from` | agenda_point → proposal | Agenda from proposal |
 | `has_section` / `has_subsection` | coa → coa | Nested COA structure |
 | `spawns_agenda_point` | proposal → agenda_point | Scheduling link |
-| `opinion_by` / `opinion_on` / `prefers_coa` | opinion → user/agenda/coa | Opinion tracking |
+| `opinion_by` / `opinion_on` / `prefers_coa` | user → opinion / opinion → agenda/coa | Opinion tracking |
 | `targets_user` | warning → user | Warning target |
 | `for_warning` / `for_user` / `on_receipt` | warning_receipt → entities | Receipt links |
 | `forwarded_to_user` | warning_event → user | Forward tracking |
@@ -434,6 +434,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Phase 4: Kubernetes Helm** — Shared infra charts (`helm/infra/`) for PostgreSQL + Neo4j. Application chart (`helm/ahlt/`) with deployment, service, configmap, secret, ingress templates. Per-environment values files (dev/staging/prod).
 - **Build**: PASS | **Tests**: 171 passing (8 ignored: 4 Neo4j + 4 E2E)
 
+### Codebase Audit Fixes (CA.1)
+- **Queue template**: Replaced stub `templates/workflow/queue.html` with full implementation (table, checkboxes, bulk schedule form, unqueue per-row)
+- **Agenda transition handler**: Replaced "not yet implemented" stub in `agenda_handlers.rs` with working workflow transition (validate → set_property → audit log)
+- **Seed missing permissions**: Added 5 permission entities (`entities.list/create/edit/delete`, `minutes.view`) + 11 `has_permission` relations for admin role to `ontology.json`
+- **Opinion seed direction**: Standardized 2 `opinion_by` relations in `staging.json` to match programmatic direction (`user → opinion`)
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
 ### Ontology Graph Redesign (OG.1)
 - **Search**: Real-time entity search with pulsing highlight rings on matching nodes, dimming non-matches
 - **Entity type filters**: Chip-based toggles with colored dots, instance counts, position-preserving visibility (no simulation restart)
@@ -555,6 +562,7 @@ Enterprise Infrastructure Migration (5 phases)                                  
 
 OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down)      ✓ done
 F.6b Dashboard Personalization (user ToRs, meetings, attention items)                 ✓ done
+CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)            ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════

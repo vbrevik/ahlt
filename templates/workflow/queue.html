@@ -1,1 +1,101 @@
-{# Queue view template - Phase 2b #}
+{% extends "base.html" %}
+
+{% block title %}Proposal Queue — {{ tor_name }} — {{ ctx.app_name }}{% endblock %}
+
+{% block nav %}
+{% include "partials/nav.html" %}
+{% endblock %}
+
+{% block sidebar %}
+{% include "partials/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Proposal Queue — {{ tor_name }}</h1>
+    <a href="/tor/{{ tor_id }}/workflow?tab=proposals" class="btn btn-secondary">Back to Workflow</a>
+</div>
+
+{% if queued_proposals.is_empty() %}
+<div class="empty-state">
+    <p class="empty-state-title">No proposals in the queue</p>
+    <p>Approved proposals marked as "ready for agenda" will appear here for scheduling.</p>
+</div>
+{% else %}
+
+<form method="post" action="/tor/{{ tor_id }}/workflow/queue/schedule">
+    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:2rem">
+                    <input type="checkbox" id="select-all" title="Select all">
+                </th>
+                <th class="col-id">ID</th>
+                <th>Title</th>
+                <th>Submitted By</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in queued_proposals %}
+            <tr>
+                <td>
+                    <input type="checkbox" name="proposal_ids" value="{{ p.id }}">
+                </td>
+                <td class="col-id">{{ p.id }}</td>
+                <td><strong>{{ p.title }}</strong></td>
+                <td>{{ p.submitted_by_name }}</td>
+                <td>{{ p.submitted_date }}</td>
+                <td><span class="badge badge-success">Approved</span></td>
+                <td>
+                    <form method="post" action="/tor/{{ tor_id }}/workflow/queue/unqueue" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                        <input type="hidden" name="proposal_id" value="{{ p.id }}">
+                        <button type="submit" class="btn btn-sm btn-danger" title="Remove from queue">Unqueue</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="card" style="margin-top:var(--space-4);padding:var(--space-4)">
+        <h3 style="margin-bottom:var(--space-3)">Schedule Selected Proposals</h3>
+        <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin-bottom:0">
+                <label for="scheduled_date">Meeting Date</label>
+                <input type="date" id="scheduled_date" name="scheduled_date" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label for="time_allocation_minutes">Time per Item (min)</label>
+                <input type="number" id="time_allocation_minutes" name="time_allocation_minutes"
+                       class="form-control" value="15" min="1" max="180" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Schedule Selected</button>
+        </div>
+    </div>
+</form>
+
+<script>
+(function() {
+    var selectAll = document.getElementById('select-all');
+    if (!selectAll) return;
+    selectAll.addEventListener('change', function() {
+        var boxes = document.querySelectorAll('input[name="proposal_ids"]');
+        for (var i = 0; i < boxes.length; i++) {
+            boxes[i].checked = selectAll.checked;
+        }
+    });
+})();
+</script>
+
+{% endif %}
+{% endblock %}
