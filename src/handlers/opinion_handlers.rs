@@ -202,6 +202,7 @@ pub async fn decision_form(
             coa_id: coa.id,
             coa_title: coa.title.clone(),
             preference_count: count,
+            preference_pct: 0,
             opinions: items,
         });
     }
@@ -277,6 +278,7 @@ pub async fn record_decision(
                 coa_id: coa.id,
                 coa_title: coa.title.clone(),
                 preference_count: count,
+                preference_pct: 0,
                 opinions: items,
             });
         }

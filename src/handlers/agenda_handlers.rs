@@ -155,8 +155,19 @@ pub async fn detail(
                     coa_id: coa_detail.id,
                     coa_title: coa_detail.title.clone(),
                     preference_count: coa_opinions.len() as i32,
+                    preference_pct: 0,
                     opinions: coa_opinions,
                 });
+            }
+
+            // Compute preference percentages for the COA preference bar
+            let total_prefs: i32 = opinions.iter().map(|s| s.preference_count).sum();
+            for summary in &mut opinions {
+                summary.preference_pct = if total_prefs > 0 {
+                    (summary.preference_count * 100 / total_prefs) as u32
+                } else {
+                    0
+                };
             }
 
             // Get user permissions for workflow transitions

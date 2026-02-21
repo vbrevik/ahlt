@@ -46,6 +46,7 @@ pub struct OpinionSummary {
     pub coa_id: i64,
     pub coa_title: String,
     pub preference_count: i32,
+    pub preference_pct: u32,
     pub opinions: Vec<OpinionListItem>,
 }
 
