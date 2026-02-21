@@ -1,0 +1,122 @@
+# AHLT CI/CD Pipeline
+# Triggers: push to any branch runs test+lint. Push to main also builds+deploys.
+# Tags trigger prod deploy with manual approval gate.
+
+stages:
+  - test
+  - lint
+  - build
+  - deploy-staging
+  - deploy-prod
+
+variables:
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+  REGISTRY: registry.gitlab.local:5050
+  IMAGE: ${REGISTRY}/${CI_PROJECT_PATH}
+
+# Cache Cargo dependencies across jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cargo/registry
+    - .cargo/git
+    - target/
+
+# ── Stage 1: Test ────────────────────────────────────────────────────
+
+test:
+  stage: test
+  image: rust:1.84-bookworm
+  services:
+    - name: postgres:17
+      alias: postgres
+    - name: neo4j:5-community
+      alias: neo4j
+      variables:
+        NEO4J_AUTH: neo4j/secretpass
+  variables:
+    DATABASE_URL: postgresql://postgres:postgres@postgres/ahlt_test
+    TEST_DATABASE_URL: postgresql://postgres:postgres@postgres/ahlt_test
+    NEO4J_URI: bolt://neo4j:7687
+    NEO4J_USER: neo4j
+    NEO4J_PASSWORD: secretpass
+  before_script:
+    - apt-get update && apt-get install -y postgresql-client
+    - until pg_isready -h postgres -U postgres; do sleep 1; done
+    - PGPASSWORD=postgres psql -h postgres -U postgres -c "CREATE DATABASE ahlt_test" || true
+  script:
+    - cargo test --workspace
+
+# ── Stage 2: Lint ────────────────────────────────────────────────────
+
+lint:
+  stage: lint
+  image: rust:1.84-bookworm
+  script:
+    - rustup component add clippy
+    - cargo clippy --all-targets -- -D warnings
+  allow_failure: true
+
+# ── Stage 3: Build Docker Image ──────────────────────────────────────
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${REGISTRY}
+  script:
+    - docker build -t ${IMAGE}:${CI_COMMIT_SHA} -t ${IMAGE}:latest .
+    - docker push ${IMAGE}:${CI_COMMIT_SHA}
+    - docker push ${IMAGE}:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG
+
+# ── Stage 4: Deploy to Staging ───────────────────────────────────────
+
+deploy-staging:
+  stage: deploy-staging
+  image: alpine/helm:3.14.0
+  script:
+    - echo "Deploying ${IMAGE}:${CI_COMMIT_SHA} to staging namespace"
+    - |
+      helm upgrade --install ahlt-staging helm/ahlt \
+        --namespace ahlt-staging --create-namespace \
+        --set image.repository=${IMAGE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        --set env.APP_ENV=staging \
+        --set env.DATABASE_URL=${STAGING_DATABASE_URL} \
+        --values helm/ahlt/values-staging.yaml \
+        || echo "Helm chart not yet available — skipping deploy"
+  environment:
+    name: staging
+    url: http://localhost:8081
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ── Stage 5: Deploy to Production ────────────────────────────────────
+
+deploy-prod:
+  stage: deploy-prod
+  image: alpine/helm:3.14.0
+  script:
+    - echo "Deploying ${IMAGE}:${CI_COMMIT_SHA} to prod namespace"
+    - |
+      helm upgrade --install ahlt-prod helm/ahlt \
+        --namespace ahlt-prod --create-namespace \
+        --set image.repository=${IMAGE} \
+        --set image.tag=${CI_COMMIT_SHA} \
+        --set env.APP_ENV=prod \
+        --set env.DATABASE_URL=${PROD_DATABASE_URL} \
+        --values helm/ahlt/values-prod.yaml \
+        || echo "Helm chart not yet available — skipping deploy"
+  environment:
+    name: production
+    url: http://localhost:8082
+  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG

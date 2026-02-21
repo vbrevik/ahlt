@@ -1,0 +1,42 @@
+# GitLab CE — Self-hosted Git + CI/CD + Container Registry
+#
+# Prerequisites:
+#   Add to /etc/hosts: 127.0.0.1 gitlab.local registry.gitlab.local
+#
+# Usage:
+#   docker compose -f infra/gitlab/docker-compose.gitlab.yml up -d
+#   Wait ~3 min for GitLab to initialize, then access http://gitlab.local:8929
+#
+# First-time setup:
+#   docker exec -it gitlab gitlab-rake "gitlab:password:reset[root]"
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    hostname: gitlab.local
+    restart: unless-stopped
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.local:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        registry_external_url 'http://registry.gitlab.local:5050'
+        registry['enable'] = true
+        prometheus_monitoring['enable'] = false
+        sidekiq['concurrency'] = 5
+        puma['worker_processes'] = 2
+    ports:
+      - "8929:8929"
+      - "2222:22"
+      - "5050:5050"
+    volumes:
+      - ~/gitlab-data/config:/etc/gitlab
+      - ~/gitlab-data/logs:/var/log/gitlab
+      - ~/gitlab-data/data:/var/opt/gitlab
+    shm_size: '256m'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8929/-/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s

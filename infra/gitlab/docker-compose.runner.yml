@@ -1,0 +1,30 @@
+# GitLab Runner — CI/CD executor
+#
+# Prerequisites:
+#   1. GitLab must be running (docker-compose.gitlab.yml)
+#   2. Create a runner in GitLab UI: Settings > CI/CD > Runners > New project runner
+#   3. Copy the registration token
+#
+# First-time registration:
+#   docker compose -f infra/gitlab/docker-compose.runner.yml run --rm runner register \
+#     --non-interactive \
+#     --url "http://gitlab.local:8929" \
+#     --token "YOUR_RUNNER_TOKEN" \
+#     --executor "docker" \
+#     --docker-image "rust:1.84-bookworm" \
+#     --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+#     --description "local-docker-runner"
+#
+# Then start: docker compose -f infra/gitlab/docker-compose.runner.yml up -d
+
+services:
+  runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: unless-stopped
+    volumes:
+      - ~/gitlab-data/runner:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "gitlab.local:host-gateway"
+      - "registry.gitlab.local:host-gateway"
