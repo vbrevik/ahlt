@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Entity {
     pub id: i64,
     pub entity_type: String,
@@ -14,151 +14,158 @@ pub struct Entity {
     pub updated_at: String,
 }
 
-fn row_to_entity(row: &rusqlite::Row) -> rusqlite::Result<Entity> {
-    Ok(Entity {
-        id: row.get("id")?,
-        entity_type: row.get("entity_type")?,
-        name: row.get("name")?,
-        label: row.get("label")?,
-        sort_order: row.get("sort_order")?,
-        is_active: row.get::<_, i64>("is_active")? != 0,
-        created_at: row.get("created_at")?,
-        updated_at: row.get("updated_at")?,
-    })
-}
-
 /// Find all entities of a given type.
-pub fn find_by_type(conn: &Connection, entity_type: &str) -> rusqlite::Result<Vec<Entity>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at \
-         FROM entities WHERE entity_type = ?1 ORDER BY sort_order, id"
-    )?;
-    let rows = stmt.query_map(params![entity_type], row_to_entity)?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+pub async fn find_by_type(pool: &PgPool, entity_type: &str) -> Result<Vec<Entity>, sqlx::Error> {
+    sqlx::query_as::<_, Entity>(
+        "SELECT id, entity_type, name, label, sort_order::BIGINT as sort_order, is_active, \
+         created_at::TEXT, updated_at::TEXT \
+         FROM entities WHERE entity_type = $1 ORDER BY sort_order, id",
+    )
+    .bind(entity_type)
+    .fetch_all(pool)
+    .await
 }
 
 /// Find a single entity by type and name.
-pub fn find_by_type_and_name(conn: &Connection, entity_type: &str, name: &str) -> rusqlite::Result<Option<Entity>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at \
-         FROM entities WHERE entity_type = ?1 AND name = ?2"
-    )?;
-    let mut rows = stmt.query_map(params![entity_type, name], row_to_entity)?;
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+pub async fn find_by_type_and_name(pool: &PgPool, entity_type: &str, name: &str) -> Result<Option<Entity>, sqlx::Error> {
+    sqlx::query_as::<_, Entity>(
+        "SELECT id, entity_type, name, label, sort_order::BIGINT as sort_order, is_active, \
+         created_at::TEXT, updated_at::TEXT \
+         FROM entities WHERE entity_type = $1 AND name = $2",
+    )
+    .bind(entity_type)
+    .bind(name)
+    .fetch_optional(pool)
+    .await
 }
 
 /// Find a single entity by id.
-pub fn find_by_id(conn: &Connection, id: i64) -> rusqlite::Result<Option<Entity>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, entity_type, name, label, sort_order, is_active, created_at, updated_at \
-         FROM entities WHERE id = ?1"
-    )?;
-    let mut rows = stmt.query_map(params![id], row_to_entity)?;
-    match rows.next() {
-        Some(row) => Ok(Some(row?)),
-        None => Ok(None),
-    }
+pub async fn find_by_id(pool: &PgPool, id: i64) -> Result<Option<Entity>, sqlx::Error> {
+    sqlx::query_as::<_, Entity>(
+        "SELECT id, entity_type, name, label, sort_order::BIGINT as sort_order, is_active, \
+         created_at::TEXT, updated_at::TEXT \
+         FROM entities WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
 }
 
 /// Create a new entity, returning its id.
-pub fn create(conn: &Connection, entity_type: &str, name: &str, label: &str) -> rusqlite::Result<i64> {
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label) VALUES (?1, ?2, ?3)",
-        params![entity_type, name, label],
-    )?;
-    Ok(conn.last_insert_rowid())
+pub async fn create(pool: &PgPool, entity_type: &str, name: &str, label: &str) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "INSERT INTO entities (entity_type, name, label) VALUES ($1, $2, $3) RETURNING id",
+    )
+    .bind(entity_type)
+    .bind(name)
+    .bind(label)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }
 
 /// Create a new entity with sort_order, returning its id.
-pub fn create_with_sort(conn: &Connection, entity_type: &str, name: &str, label: &str, sort_order: i64) -> rusqlite::Result<i64> {
-    conn.execute(
-        "INSERT INTO entities (entity_type, name, label, sort_order) VALUES (?1, ?2, ?3, ?4)",
-        params![entity_type, name, label, sort_order],
-    )?;
-    Ok(conn.last_insert_rowid())
+pub async fn create_with_sort(pool: &PgPool, entity_type: &str, name: &str, label: &str, sort_order: i64) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "INSERT INTO entities (entity_type, name, label, sort_order) VALUES ($1, $2, $3, $4) RETURNING id",
+    )
+    .bind(entity_type)
+    .bind(name)
+    .bind(label)
+    .bind(sort_order as i32)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }
 
 /// Update an entity's name and label.
-pub fn update(conn: &Connection, id: i64, name: &str, label: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "UPDATE entities SET name = ?1, label = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%S','now') WHERE id = ?3",
-        params![name, label, id],
-    )?;
+pub async fn update(pool: &PgPool, id: i64, name: &str, label: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE entities SET name = $1, label = $2, updated_at = NOW() WHERE id = $3",
+    )
+    .bind(name)
+    .bind(label)
+    .bind(id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Delete an entity (cascades to properties and relations).
-pub fn delete(conn: &Connection, id: i64) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM entities WHERE id = ?1", params![id])?;
+pub async fn delete(pool: &PgPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM entities WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 /// Count entities of a given type.
-pub fn count_by_type(conn: &Connection, entity_type: &str) -> rusqlite::Result<i64> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM entities WHERE entity_type = ?1",
-        params![entity_type],
-        |row| row.get(0),
+pub async fn count_by_type(pool: &PgPool, entity_type: &str) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM entities WHERE entity_type = $1",
     )
+    .bind(entity_type)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }
 
 // --- Property helpers ---
 
 /// Get a single property value for an entity.
-pub fn get_property(conn: &Connection, entity_id: i64, key: &str) -> rusqlite::Result<Option<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT value FROM entity_properties WHERE entity_id = ?1 AND key = ?2"
-    )?;
-    let mut rows = stmt.query_map(params![entity_id, key], |row| row.get::<_, String>(0))?;
-    match rows.next() {
-        Some(val) => Ok(Some(val?)),
-        None => Ok(None),
-    }
+pub async fn get_property(pool: &PgPool, entity_id: i64, key: &str) -> Result<Option<String>, sqlx::Error> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = $2",
+    )
+    .bind(entity_id)
+    .bind(key)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.0))
 }
 
 /// Get all properties for an entity as a HashMap.
-pub fn get_properties(conn: &Connection, entity_id: i64) -> rusqlite::Result<HashMap<String, String>> {
-    let mut stmt = conn.prepare(
-        "SELECT key, value FROM entity_properties WHERE entity_id = ?1"
-    )?;
-    let rows = stmt.query_map(params![entity_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    })?;
-    let mut map = HashMap::new();
-    for row in rows {
-        let (k, v) = row?;
-        map.insert(k, v);
-    }
-    Ok(map)
+pub async fn get_properties(pool: &PgPool, entity_id: i64) -> Result<HashMap<String, String>, sqlx::Error> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT key, value FROM entity_properties WHERE entity_id = $1",
+    )
+    .bind(entity_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().collect())
 }
 
 /// Set a property (upsert).
-pub fn set_property(conn: &Connection, entity_id: i64, key: &str, value: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT INTO entity_properties (entity_id, key, value) VALUES (?1, ?2, ?3) \
-         ON CONFLICT(entity_id, key) DO UPDATE SET value = excluded.value",
-        params![entity_id, key, value],
-    )?;
+pub async fn set_property(pool: &PgPool, entity_id: i64, key: &str, value: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3) \
+         ON CONFLICT(entity_id, key) DO UPDATE SET value = EXCLUDED.value",
+    )
+    .bind(entity_id)
+    .bind(key)
+    .bind(value)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Delete a property.
-pub fn delete_property(conn: &Connection, entity_id: i64, key: &str) -> rusqlite::Result<()> {
-    conn.execute(
-        "DELETE FROM entity_properties WHERE entity_id = ?1 AND key = ?2",
-        params![entity_id, key],
-    )?;
+pub async fn delete_property(pool: &PgPool, entity_id: i64, key: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "DELETE FROM entity_properties WHERE entity_id = $1 AND key = $2",
+    )
+    .bind(entity_id)
+    .bind(key)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Set multiple properties at once.
-pub fn set_properties(conn: &Connection, entity_id: i64, props: &[(&str, &str)]) -> rusqlite::Result<()> {
+pub async fn set_properties(pool: &PgPool, entity_id: i64, props: &[(&str, &str)]) -> Result<(), sqlx::Error> {
     for (key, value) in props {
-        set_property(conn, entity_id, key, value)?;
+        set_property(pool, entity_id, key, value).await?;
     }
     Ok(())
 }
