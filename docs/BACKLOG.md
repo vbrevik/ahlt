@@ -307,6 +307,16 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Full visual redesign: time-aware greeting (morning/afternoon/evening), stats cards (proposals, suggestions, ToRs, active warnings), recent activity feed from audit log
 - Replaced placeholder dashboard with real data from model queries
 
+### Dashboard Personalization (F.6b)
+- **Actionable content-first layout**: Replaced passive stats-first dashboard with personalized, actionable panels
+- **New model layer**: `src/models/dashboard.rs` with 6 types and 5 queries aggregating data from warnings, calendar, proposals, suggestions, and ToR membership
+- **Needs Attention panel**: Unread warnings (severity-coded), pending proposals, open suggestions — all scoped to user's ToRs
+- **My Terms of Reference**: User's ToR memberships with position labels, linked to ToR detail pages
+- **Upcoming Meetings**: Next 7 days of meetings from user's ToRs via calendar computation engine
+- **System Overview**: Clickable stat cards (users, roles, pending, positions, warnings) linking to relevant pages
+- **Responsive**: Two-column primary layout (3fr/2fr) stacking at 768px, dark mode via CSS variables
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
 ### Workflow Builder UI (F.1)
 - List page at `/workflow/builder`: scope cards with status/transition counts
 - Detail page at `/workflow/builder/{scope}`: D3/dagre state machine graph + statuses table (add/edit/delete) + transitions table (add/edit/delete)
@@ -544,6 +554,7 @@ Enterprise Infrastructure Migration (5 phases)                                  
   Phase 4: Kubernetes Helm charts
 
 OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down)      ✓ done
+F.6b Dashboard Personalization (user ToRs, meetings, attention items)                 ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════

@@ -11,141 +11,177 @@
 <div class="alert alert-success">{{ msg }}</div>
 {% endif %}
 
-{# ── Greeting ── #}
-<section class="dashboard-hero">
-    <div class="dashboard-hero__text">
-        <h1 class="dashboard-hero__title">{{ greeting }}</h1>
-        <p class="dashboard-hero__subtitle">
-            <span class="dashboard-hero__role">{{ role_label }}</span>
-        </p>
+{# ── Compact greeting ── #}
+<div class="dash-header">
+    <h1 class="dash-header__greeting">{{ greeting }}</h1>
+    <span class="dash-header__role">{{ role_label }}</span>
+</div>
+
+{# ── Primary: Needs Attention + My ToRs ── #}
+<div class="dash-primary">
+
+    {# Left: Needs Attention #}
+    <section class="dash-attention">
+        <h2 class="dash-section-title">Needs Attention</h2>
+
+        {% if pending_items.unread_warnings.is_empty() %}
+            {% if pending_items.pending_proposals.is_empty() %}
+                {% if pending_items.open_suggestions.is_empty() %}
+        <p class="dash-empty">Nothing requires your attention right now.</p>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+
+        {# Warnings #}
+        {% if !pending_items.unread_warnings.is_empty() %}
+        <div class="dash-attention__group">
+            <div class="dash-attention__group-header">
+                <span class="dash-attention__badge dash-attention__badge--warning">{{ pending_items.unread_warnings.len() }}</span>
+                <a href="/warnings" class="dash-attention__group-link">Unread warnings</a>
+            </div>
+            {% for w in pending_items.unread_warnings %}
+            <a href="/warnings/{{ w.warning_id }}" class="dash-attention__item">
+                <span class="dash-attention__severity dash-attention__severity--{{ w.severity }}"></span>
+                <span class="dash-attention__text">{{ w.message }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Pending proposals #}
+        {% if !pending_items.pending_proposals.is_empty() %}
+        <div class="dash-attention__group">
+            <div class="dash-attention__group-header">
+                <span class="dash-attention__badge dash-attention__badge--proposal">{{ pending_items.pending_proposals.len() }}</span>
+                <span class="dash-attention__group-link">Pending proposals</span>
+            </div>
+            {% for p in pending_items.pending_proposals %}
+            <a href="/workflow" class="dash-attention__item">
+                <span class="dash-attention__tag">{{ p.status }}</span>
+                <span class="dash-attention__text">{{ p.title }}</span>
+                <span class="dash-attention__meta">{{ p.tor_label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Open suggestions #}
+        {% if !pending_items.open_suggestions.is_empty() %}
+        <div class="dash-attention__group">
+            <div class="dash-attention__group-header">
+                <span class="dash-attention__badge dash-attention__badge--suggestion">{{ pending_items.open_suggestions.len() }}</span>
+                <span class="dash-attention__group-link">Open suggestions</span>
+            </div>
+            {% for s in pending_items.open_suggestions %}
+            <a href="/workflow" class="dash-attention__item">
+                <span class="dash-attention__text">{{ s.description_preview }}</span>
+                <span class="dash-attention__meta">{{ s.tor_label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+
+    {# Right: My ToRs #}
+    <section class="dash-mytors">
+        <h2 class="dash-section-title">My Terms of Reference</h2>
+        {% if user_tors.is_empty() %}
+        <p class="dash-empty">You are not assigned to any Terms of Reference.</p>
+        {% else %}
+        <div class="dash-mytors__list">
+            {% for t in user_tors %}
+            <a href="/tor/{{ t.tor_id }}" class="dash-mytors__card">
+                <span class="dash-mytors__name">{{ t.tor_label }}</span>
+                <span class="dash-mytors__position">{{ t.position_label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+
+</div>
+
+{# ── Upcoming Meetings ── #}
+{% if !upcoming_meetings.is_empty() %}
+<section class="dash-meetings">
+    <div class="dash-meetings__header">
+        <h2 class="dash-section-title">Upcoming Meetings</h2>
+        <a href="/tor/outlook" class="dash-link">View calendar &rarr;</a>
+    </div>
+    <div class="dash-meetings__grid">
+        {% for m in upcoming_meetings %}
+        <a href="/tor/{{ m.tor_id }}" class="dash-meetings__card">
+            <span class="dash-meetings__date">{{ m.date }}</span>
+            <span class="dash-meetings__tor">{{ m.tor_label }}</span>
+            <span class="dash-meetings__time">{{ m.start_time }} &middot; {{ m.duration_minutes }}min</span>
+            {% if !m.location.is_empty() %}
+            <span class="dash-meetings__location">{{ m.location }}</span>
+            {% endif %}
+        </a>
+        {% endfor %}
     </div>
 </section>
+{% endif %}
 
-{# ── Stats ribbon ── #}
-<section class="dashboard-ribbon">
-    <div class="dashboard-ribbon__item">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span class="dashboard-ribbon__value">{{ user_count }}</span>
-        <span class="dashboard-ribbon__label">Users</span>
-    </div>
-    <div class="dashboard-ribbon__item">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-        <span class="dashboard-ribbon__value">{{ role_count }}</span>
-        <span class="dashboard-ribbon__label">Roles</span>
-    </div>
-    <div class="dashboard-ribbon__item">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <span class="dashboard-ribbon__value">{{ proposal_count }}</span>
-        <span class="dashboard-ribbon__label">Pending proposals</span>
-    </div>
-    <div class="dashboard-ribbon__item">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        <span class="dashboard-ribbon__value">{{ tor_position_count }}</span>
-        <span class="dashboard-ribbon__label">ToR positions</span>
-    </div>
-    {% if ctx.warning_count > 0 %}
-    <div class="dashboard-ribbon__item dashboard-ribbon__item--alert">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span class="dashboard-ribbon__value">{{ ctx.warning_count }}</span>
-        <span class="dashboard-ribbon__label">Warnings</span>
-    </div>
-    {% endif %}
-    <div class="dashboard-ribbon__item">
-        <svg class="dashboard-ribbon__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <span class="dashboard-ribbon__value">{{ audit_entry_count }}</span>
-        <span class="dashboard-ribbon__label">Audit entries</span>
-    </div>
-</section>
+{# ── Secondary: System stats + Recent Activity ── #}
+<div class="dash-secondary">
 
-{# ── Two-column: Activity + Actions ── #}
-<div class="dashboard-columns">
+    {# Left: Compact stats #}
+    <section class="dash-stats">
+        <h2 class="dash-section-title">System Overview</h2>
+        <div class="dash-stats__grid">
+            <a href="/users" class="dash-stats__item">
+                <span class="dash-stats__value">{{ user_count }}</span>
+                <span class="dash-stats__label">Users</span>
+            </a>
+            <a href="/roles" class="dash-stats__item">
+                <span class="dash-stats__value">{{ role_count }}</span>
+                <span class="dash-stats__label">Roles</span>
+            </a>
+            {% if proposal_count > 0 %}
+            <a href="/workflow" class="dash-stats__item dash-stats__item--active">
+                <span class="dash-stats__value">{{ proposal_count }}</span>
+                <span class="dash-stats__label">Pending</span>
+            </a>
+            {% endif %}
+            <a href="/tor" class="dash-stats__item">
+                <span class="dash-stats__value">{{ tor_position_count }}</span>
+                <span class="dash-stats__label">Positions</span>
+            </a>
+            {% if ctx.warning_count > 0 %}
+            <a href="/warnings" class="dash-stats__item dash-stats__item--warning">
+                <span class="dash-stats__value">{{ ctx.warning_count }}</span>
+                <span class="dash-stats__label">Warnings</span>
+            </a>
+            {% endif %}
+        </div>
+    </section>
 
-    {# Left: Recent Activity #}
+    {# Right: Recent Activity #}
     {% if ctx.permissions.has("audit.view") %}
-    <section class="dashboard-activity">
-        <div class="dashboard-activity__header">
-            <h2 class="dashboard-activity__title">Recent Activity</h2>
-            <a href="/audit" class="dashboard-activity__link">View full log &rarr;</a>
+    <section class="dash-activity">
+        <div class="dash-activity__header">
+            <h2 class="dash-section-title">Recent Activity</h2>
+            <a href="/audit" class="dash-link">View full log &rarr;</a>
         </div>
         {% if recent_activity.is_empty() %}
-        <p class="dashboard-activity__empty">No activity recorded yet.</p>
+        <p class="dash-empty">No activity recorded yet.</p>
         {% else %}
-        <ul class="dashboard-activity__list">
+        <ul class="dash-activity__list">
             {% for entry in recent_activity %}
-            <li class="dashboard-activity__item">
-                <div class="dashboard-activity__avatar">{{ entry.username.chars().next().unwrap_or('?').to_uppercase().to_string() }}</div>
-                <div class="dashboard-activity__body">
-                    <span class="dashboard-activity__user">{{ entry.username }}</span>
-                    <span class="dashboard-activity__action">{{ entry.summary }}</span>
+            <li class="dash-activity__item">
+                <span class="dash-activity__avatar">{{ entry.username.chars().next().unwrap_or('?').to_uppercase().to_string() }}</span>
+                <div class="dash-activity__body">
+                    <span class="dash-activity__user">{{ entry.username }}</span>
+                    <span class="dash-activity__action">{{ entry.summary }}</span>
                 </div>
-                <time class="dashboard-activity__time">{{ entry.created_at }}</time>
+                <time class="dash-activity__time">{{ entry.created_at }}</time>
             </li>
             {% endfor %}
         </ul>
         {% endif %}
     </section>
     {% endif %}
-
-    {# Right: Quick Actions #}
-    <section class="dashboard-shortcuts">
-        <h2 class="dashboard-shortcuts__title">Quick Actions</h2>
-        <div class="dashboard-shortcuts__list">
-            {% if ctx.permissions.has("users.list") %}
-            <a href="/users" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Manage Users</div>
-                    <div class="dashboard-shortcut__desc">View, create, and edit accounts</div>
-                </div>
-            </a>
-            {% endif %}
-            {% if ctx.permissions.has("roles.manage") %}
-            <a href="/roles" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Manage Roles</div>
-                    <div class="dashboard-shortcut__desc">Configure permissions</div>
-                </div>
-            </a>
-            {% endif %}
-            {% if ctx.permissions.has("settings.manage") %}
-            <a href="/settings" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Settings</div>
-                    <div class="dashboard-shortcut__desc">App configuration</div>
-                </div>
-            </a>
-            {% endif %}
-            {% if ctx.permissions.has("audit.view") %}
-            <a href="/audit" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Audit Log</div>
-                    <div class="dashboard-shortcut__desc">Review system activity</div>
-                </div>
-            </a>
-            {% endif %}
-            {% if ctx.permissions.has("governance.view") %}
-            <a href="/governance/map" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Governance Map</div>
-                    <div class="dashboard-shortcut__desc">View organisation structure</div>
-                </div>
-            </a>
-            {% endif %}
-            {% if ctx.permissions.has("warnings.view") %}
-            <a href="/warnings" class="dashboard-shortcut">
-                <svg class="dashboard-shortcut__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <div>
-                    <div class="dashboard-shortcut__label">Warnings</div>
-                    <div class="dashboard-shortcut__desc">Review system warnings</div>
-                </div>
-            </a>
-            {% endif %}
-        </div>
-    </section>
 
 </div>
 {% endblock %}

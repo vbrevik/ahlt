@@ -3,7 +3,7 @@ use actix_web::{web, HttpResponse};
 use chrono::{Local, Timelike};
 use sqlx::PgPool;
 
-use crate::models::{user, entity, audit, proposal};
+use crate::models::{user, entity, audit, proposal, dashboard};
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, DashboardTemplate};
 
@@ -24,8 +24,9 @@ pub async fn index(
 ) -> Result<HttpResponse, AppError> {
     let ctx = PageContext::build(&session, &pool, "/dashboard").await?;
 
-    // Multi-role: derive role labels from DB (union of all assigned roles)
     let user_id = crate::auth::session::get_user_id(&session).unwrap_or(0);
+
+    // Multi-role: derive role labels from DB
     let role_label: String = sqlx::query_scalar(
         "SELECT COALESCE(STRING_AGG(role_e.label, ', '), '') \
          FROM relations r \
@@ -39,13 +40,19 @@ pub async fn index(
     .unwrap_or_else(|_| String::new());
 
     let greeting = time_greeting(&ctx.username);
+
+    // System stats (secondary)
     let user_count = user::count(&pool).await?;
     let role_count = entity::count_by_type(&pool, "role").await?;
     let proposal_count = proposal::count_by_status(&pool, "submitted").await;
     let tor_position_count = entity::count_by_type(&pool, "tor_function").await?;
     let audit_entry_count = entity::count_by_type(&pool, "audit_entry").await?;
-
     let recent_activity = audit::find_recent(&pool, 5).await.unwrap_or_default();
+
+    // Personalized data (non-critical — use unwrap_or_default)
+    let user_tors = dashboard::find_user_tors(&pool, user_id).await;
+    let upcoming_meetings = dashboard::find_upcoming_meetings(&pool, user_id, 7).await;
+    let pending_items = dashboard::find_pending_items(&pool, user_id).await;
 
     let tmpl = DashboardTemplate {
         ctx,
@@ -57,6 +64,9 @@ pub async fn index(
         tor_position_count,
         audit_entry_count,
         recent_activity,
+        user_tors,
+        upcoming_meetings,
+        pending_items,
     };
     render(tmpl)
 }

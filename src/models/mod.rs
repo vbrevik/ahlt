@@ -1,5 +1,6 @@
 pub mod agenda_point;
 pub mod audit;
+pub mod dashboard;
 pub mod coa;
 pub mod data_manager;
 pub mod document;
