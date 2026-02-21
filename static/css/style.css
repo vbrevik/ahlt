@@ -4871,3 +4871,263 @@ fieldset legend {
     white-space: nowrap;
 }
 .sort-link:hover { color: var(--accent); }
+
+/* === Point Paper (Agenda Point Detail) === */
+
+/* Layout */
+.point-paper-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* Description prose block — left accent bar */
+.point-paper-desc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+    line-height: 1.7;
+}
+
+/* Sidebar — unified metadata + actions card */
+.point-paper-sidebar {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.point-paper-meta {
+    padding: 1.25rem;
+}
+
+.point-paper-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    gap: 0.5rem;
+}
+
+.point-paper-meta-row:last-child {
+    border-bottom: none;
+}
+
+.point-paper-meta-label {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.point-paper-meta-value {
+    color: var(--text);
+    text-align: right;
+}
+
+.point-paper-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+}
+
+.point-paper-actions {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.point-paper-actions-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+/* COA comparison grid */
+.coa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.coa-comparison-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    transition: box-shadow var(--duration) var(--ease);
+}
+
+.coa-comparison-card:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.coa-comparison-card-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+/* Preference bar */
+.coa-pref {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.coa-pref-bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.coa-pref-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: var(--radius-full);
+    transition: width var(--duration-slow) var(--ease-out);
+}
+
+.coa-pref-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.coa-pref-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.coa-card-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    flex: 1;
+}
+
+.coa-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.25rem;
+}
+
+.coa-card-link {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    transition: color var(--duration) var(--ease);
+}
+
+.coa-card-link:hover {
+    color: var(--accent-hover);
+}
+
+/* Opinions — collapsible groups */
+.opinion-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.opinion-group-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875rem 1.25rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--text);
+    gap: 0.75rem;
+    transition: background var(--duration) var(--ease);
+}
+
+.opinion-group-summary::-webkit-details-marker { display: none; }
+
+.opinion-group-summary:hover {
+    background: var(--bg-subtle);
+}
+
+.opinion-group-summary-left {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.opinion-chevron {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform var(--duration) var(--ease);
+}
+
+details[open] .opinion-chevron {
+    transform: rotate(180deg);
+}
+
+.opinion-group-body {
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0;
+}
+
+.opinion-item {
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+}
+
+.opinion-item:hover {
+    background: var(--bg-subtle);
+}
+
+.opinion-member {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.opinion-commentary {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.opinion-date {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
