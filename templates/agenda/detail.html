@@ -22,182 +22,219 @@
     </div>
 </div>
 
-<!-- Main Details -->
-<div class="detail-card">
-    <div class="detail-row">
-        <span class="detail-label">Status</span>
-        <span class="detail-value">
-            {% if agenda_point.status.as_str() == "draft" %}
-            <span class="badge badge-muted">Draft</span>
-            {% else if agenda_point.status.as_str() == "scheduled" %}
-            <span class="badge badge-info">Scheduled</span>
-            {% else if agenda_point.status.as_str() == "presented" %}
-            <span class="badge badge-primary">Presented</span>
-            {% else if agenda_point.status.as_str() == "decided" %}
-            <span class="badge badge-success">Decided</span>
-            {% else %}
-            <span class="badge badge-muted">{{ agenda_point.status }}</span>
-            {% endif %}
-        </span>
-    </div>
+<div class="point-paper-grid">
 
-    <div class="detail-row">
-        <span class="detail-label">Type</span>
-        <span class="detail-value">
-            {% if agenda_point.item_type.as_str() == "decision" %}
-            <span class="badge badge-warning">Decision</span>
-            {% else %}
-            <span class="badge badge-info">Informative</span>
-            {% endif %}
-        </span>
-    </div>
-
-    <div class="detail-row">
-        <span class="detail-label">Scheduled Date</span>
-        <span class="detail-value">{{ agenda_point.scheduled_date }}</span>
-    </div>
-
-    <div class="detail-row">
-        <span class="detail-label">Time Allocation</span>
-        <span class="detail-value">{{ agenda_point.time_allocation_minutes }} minutes</span>
-    </div>
+<!-- ── Left column: document content ── -->
+<div class="point-paper-body">
 
     {% if !agenda_point.description.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Description</span>
-        <span class="detail-value">{{ agenda_point.description }}</span>
-    </div>
+    <div class="point-paper-desc">{{ agenda_point.description }}</div>
     {% endif %}
 
-    <div class="detail-row">
-        <span class="detail-label">Created</span>
-        <span class="detail-value">{{ agenda_point.created_date }}</span>
-    </div>
-
-    {% if !agenda_point.presenter.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Presenter</span>
-        <span class="detail-value">{{ agenda_point.presenter }}</span>
-    </div>
-    {% endif %}
-
-    {% if agenda_point.priority.as_str() != "normal" %}
-    {% if !agenda_point.priority.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Priority</span>
-        <span class="detail-value">
-            {% if agenda_point.priority.as_str() == "urgent" %}
-            <span class="badge badge-danger">Urgent</span>
-            {% else %}
-            <span class="badge badge-warning">High</span>
-            {% endif %}
-        </span>
-    </div>
-    {% endif %}
-    {% endif %}
-
-    {% if !agenda_point.pre_read_url.is_empty() %}
-    <div class="detail-row">
-        <span class="detail-label">Pre-Read</span>
-        <span class="detail-value"><a href="{{ agenda_point.pre_read_url }}" target="_blank" rel="noopener">Background Material</a></span>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Related Courses of Action -->
-{% if !coas.is_empty() %}
-<section class="section">
-    <div class="section-header">
-        <h2>Related Courses of Action ({{ coas.len() }})</h2>
-        {% if agenda_point.item_type.as_str() == "decision" && ctx.permissions.has("agenda.manage") %}
-        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/new" class="btn btn-sm btn-primary">Manage COAs</a>
-        {% endif %}
-    </div>
-
-    <div class="coa-list">
-        {% for coa in coas %}
-        <div class="coa-card">
-            <div class="coa-card-header">
-                <h3>{{ coa.title }}</h3>
-                <span class="badge badge-info">{% if coa.coa_type.as_str() == "complex" %}Complex{% else %}Simple{% endif %}</span>
-            </div>
-            {% if !coa.description.is_empty() %}
-            <p class="coa-description">{{ coa.description }}</p>
-            {% endif %}
-            <div class="coa-actions">
-                <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/{{ coa.id }}/edit" class="btn btn-sm">View</a>
-            </div>
+    <!-- COA comparison grid -->
+    {% if !coas.is_empty() %}
+    <section class="section">
+        <div class="section-header">
+            <h2>Courses of Action</h2>
         </div>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
+        <div class="coa-grid">
+            {% for coa in coas %}
+            <div class="coa-comparison-card">
+                <div class="coa-comparison-card-title">{{ coa.title }}</div>
 
-<!-- Opinions (for decision items) -->
-{% if agenda_point.item_type.as_str() == "decision" %}
-<section class="section">
-    <div class="section-header">
-        <h2>Opinions ({{ opinions.len() }})</h2>
-        {% if ctx.permissions.has("agenda.participate") %}
-        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/input" class="btn btn-sm btn-primary">Record Opinion</a>
-        {% endif %}
-    </div>
+                <!-- Preference bar: find matching opinion summary by coa_id -->
+                {% for summary in opinions %}
+                {% if summary.coa_id == coa.id %}
+                <div class="coa-pref">
+                    <div class="coa-pref-bar-track">
+                        <div class="coa-pref-bar-fill" style="width: {{ summary.preference_pct }}%"></div>
+                    </div>
+                    {% if summary.preference_count == 1 %}
+                    <span class="coa-pref-count">1 prefer</span>
+                    {% else %}
+                    <span class="coa-pref-count">{{ summary.preference_count }} prefer</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
 
-    {% if opinions.is_empty() %}
-    <p class="empty-hint">No opinions recorded yet.</p>
-    {% else %}
-    <div class="opinions-summary">
-        {% for summary in opinions %}
-        <div class="opinion-group">
-            <div class="opinion-header">
-                <strong>{{ summary.coa_title }}</strong>
-                <span class="opinion-count">{{ summary.preference_count }} member(s)</span>
+                <div class="coa-card-footer">
+                    <span class="badge badge-muted">
+                        {% if coa.coa_type.as_str() == "complex" %}Complex{% else %}Simple{% endif %}
+                    </span>
+                    {% if ctx.permissions.has("agenda.manage") %}
+                    <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/{{ coa.id }}/edit" class="coa-card-link">View details &#x2192;</a>
+                    {% endif %}
+                </div>
+
+                {% if !coa.description.is_empty() %}
+                <p class="coa-card-desc">{{ coa.description }}</p>
+                {% endif %}
             </div>
-            <ul class="opinion-list">
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Opinions — collapsible groups -->
+    {% if agenda_point.item_type.as_str() == "decision" %}
+    <section class="section">
+        <div class="section-header">
+            <h2>Member Opinions</h2>
+        </div>
+
+        {% if opinions.is_empty() %}
+        <p class="empty-hint">No opinions recorded yet.</p>
+        {% else %}
+        {% for summary in opinions %}
+        <details class="opinion-group">
+            <summary class="opinion-group-summary">
+                <span class="opinion-group-summary-left">
+                    <span class="opinion-chevron">&#x25BE;</span>
+                    {{ summary.coa_title }}
+                </span>
+                {% if summary.preference_count == 1 %}
+                <span class="badge badge-info">1 member</span>
+                {% else %}
+                <span class="badge badge-info">{{ summary.preference_count }} members</span>
+                {% endif %}
+            </summary>
+            <div class="opinion-group-body">
                 {% for opinion in summary.opinions %}
-                <li>
+                <div class="opinion-item">
                     <span class="opinion-member">{{ opinion.recorded_by_name }}</span>
                     {% if !opinion.commentary.is_empty() %}
                     <span class="opinion-commentary">{{ opinion.commentary }}</span>
+                    {% else %}
+                    <span class="opinion-commentary" style="opacity:0.4">&#x2014;</span>
                     {% endif %}
                     <span class="opinion-date">{{ opinion.created_date }}</span>
-                </li>
+                </div>
                 {% endfor %}
-            </ul>
-        </div>
+            </div>
+        </details>
         {% endfor %}
-    </div>
+        {% endif %}
+    </section>
     {% endif %}
-</section>
-{% endif %}
 
-<!-- Action Buttons -->
-{% if !available_transitions.is_empty() && ctx.permissions.has("agenda.manage") %}
-<section class="section">
-    <div class="section-header">
-        <h2>Workflow Actions</h2>
+</div><!-- end .point-paper-body -->
+
+<!-- ── Right column: sticky sidebar ── -->
+<div class="point-paper-sidebar">
+    <div class="point-paper-meta">
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Status</span>
+            <span class="point-paper-meta-value">
+                {% if agenda_point.status.as_str() == "draft" %}
+                <span class="badge badge-muted">Draft</span>
+                {% else if agenda_point.status.as_str() == "scheduled" %}
+                <span class="badge badge-info">Scheduled</span>
+                {% else if agenda_point.status.as_str() == "presented" %}
+                <span class="badge badge-primary">Presented</span>
+                {% else if agenda_point.status.as_str() == "decided" %}
+                <span class="badge badge-success">Decided</span>
+                {% else %}
+                <span class="badge badge-muted">{{ agenda_point.status }}</span>
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Type</span>
+            <span class="point-paper-meta-value">
+                {% if agenda_point.item_type.as_str() == "decision" %}
+                <span class="badge badge-warning">Decision</span>
+                {% else %}
+                <span class="badge badge-info">Informative</span>
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Date</span>
+            <span class="point-paper-meta-value">{{ agenda_point.scheduled_date }}</span>
+        </div>
+
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Time</span>
+            <span class="point-paper-meta-value">{{ agenda_point.time_allocation_minutes }} min</span>
+        </div>
+
+        {% if !agenda_point.presenter.is_empty() %}
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Presenter</span>
+            <span class="point-paper-meta-value">{{ agenda_point.presenter }}</span>
+        </div>
+        {% endif %}
+
+        {% if !agenda_point.priority.is_empty() %}
+        {% if agenda_point.priority.as_str() != "normal" %}
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Priority</span>
+            <span class="point-paper-meta-value">
+                {% if agenda_point.priority.as_str() == "urgent" %}
+                <span class="badge badge-danger">Urgent</span>
+                {% else %}
+                <span class="badge badge-warning">High</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {% if !agenda_point.pre_read_url.is_empty() %}
+        <div class="point-paper-meta-row">
+            <span class="point-paper-meta-label">Pre-Read</span>
+            <span class="point-paper-meta-value">
+                <a href="{{ agenda_point.pre_read_url }}" target="_blank" rel="noopener">Open &#x2192;</a>
+            </span>
+        </div>
+        {% endif %}
     </div>
-    <div class="action-buttons">
+
+    <!-- Actions section -->
+    <div class="point-paper-divider"></div>
+    <div class="point-paper-actions">
+        <div class="point-paper-actions-label">Actions</div>
+
+        {% if !available_transitions.is_empty() %}
+        {% if ctx.permissions.has("agenda.manage") %}
         {% for transition in available_transitions %}
-        <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/transition" class="inline">
+        <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/transition">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <input type="hidden" name="to_status" value="{{ transition.to_status_code }}">
-            <button type="submit" class="btn btn-secondary">
+            <button type="submit" class="btn btn-sm btn-secondary" style="width:100%">
                 {{ transition.transition_label }}
             </button>
         </form>
         {% endfor %}
-    </div>
-</section>
-{% endif %}
+        {% endif %}
+        {% endif %}
 
-<!-- Decision Recording (if user has permission and item is decision type) -->
-{% if agenda_point.item_type.as_str() == "decision" && ctx.permissions.has("agenda.decide") && agenda_point.status.as_str() != "decided" %}
-<section class="section">
-    <div class="section-header">
-        <h2>Record Final Decision</h2>
+        {% if agenda_point.item_type.as_str() == "decision" %}
+        {% if ctx.permissions.has("agenda.manage") %}
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/coa/new" class="btn btn-sm" style="width:100%;text-align:center">Manage COAs</a>
+        {% endif %}
+        {% if ctx.permissions.has("agenda.participate") %}
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/input" class="btn btn-sm btn-primary" style="width:100%;text-align:center">Record Opinion</a>
+        {% endif %}
+        {% if ctx.permissions.has("agenda.decide") %}
+        {% if agenda_point.status.as_str() != "decided" %}
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="btn btn-sm btn-primary" style="width:100%;text-align:center">Finalize Decision</a>
+        {% endif %}
+        {% endif %}
+        {% endif %}
+
+        {% if available_transitions.is_empty() %}
+        {% if agenda_point.status.as_str() == "decided" %}
+        <p class="empty-hint" style="font-size:0.8125rem;margin:0">Decision recorded.</p>
+        {% else %}
+        <p class="empty-hint" style="font-size:0.8125rem;margin:0">No actions available.</p>
+        {% endif %}
+        {% endif %}
     </div>
-    <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point.id }}/decide" class="btn btn-primary">Finalize Decision</a>
-</section>
-{% endif %}
+</div><!-- end .point-paper-sidebar -->
+
+</div><!-- end .point-paper-grid -->
 {% endblock %}
