@@ -24,7 +24,7 @@
 use crate::auth::session::{get_user_id, require_permission, Permissions};
 use crate::errors::AppError;
 use actix_session::Session;
-use rusqlite::{params, Connection};
+use sqlx::PgPool;
 
 /// Check whether a user holds a specific capability in a given resource,
 /// by traversing the EAV graph:
@@ -38,14 +38,14 @@ use rusqlite::{params, Connection};
 /// Fail-closed: a misspelled `belongs_to_rel` causes the scalar subquery to
 /// return NULL, so the WHERE clause evaluates to UNKNOWN (false in SQL
 /// three-valued logic), and the function returns `Ok(false)`.
-pub fn has_resource_capability(
-    conn: &Connection,
+pub async fn has_resource_capability(
+    pool: &PgPool,
     user_id: i64,
     resource_id: i64,
     belongs_to_rel: &str,
     capability: &str,
 ) -> Result<bool, AppError> {
-    let count: i64 = conn.query_row(
+    let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*)
          FROM entity_properties ep
          JOIN entities func
@@ -53,24 +53,28 @@ pub fn has_resource_capability(
              AND func.entity_type = 'tor_function'
          JOIN relations r_fills
              ON r_fills.target_id = func.id
-             AND r_fills.source_id = ?1
+             AND r_fills.source_id = $1
              AND r_fills.relation_type_id = (
                  SELECT id FROM entities
                  WHERE entity_type = 'relation_type' AND name = 'fills_position'
              )
          JOIN relations r_belongs
              ON r_belongs.source_id = func.id
-             AND r_belongs.target_id = ?2
+             AND r_belongs.target_id = $2
              AND r_belongs.relation_type_id = (
                  SELECT id FROM entities
-                 WHERE entity_type = 'relation_type' AND name = ?3
+                 WHERE entity_type = 'relation_type' AND name = $3
              )
-         WHERE ep.key = ?4
+         WHERE ep.key = $4
            AND ep.value = 'true'",
-        params![user_id, resource_id, belongs_to_rel, capability],
-        |row| row.get(0),
-    )?;
-    Ok(count > 0)
+    )
+    .bind(user_id)
+    .bind(resource_id)
+    .bind(belongs_to_rel)
+    .bind(capability)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0 > 0)
 }
 
 /// Load all capability keys the user holds in a specific ToR, in a single
@@ -81,12 +85,12 @@ pub fn has_resource_capability(
 ///
 /// The `LIKE 'can_%'` filter captures all six capability types, making this
 /// function forward-compatible when new capabilities are added.
-pub fn load_tor_capabilities(
-    conn: &Connection,
+pub async fn load_tor_capabilities(
+    pool: &PgPool,
     user_id: i64,
     tor_id: i64,
 ) -> Result<Permissions, AppError> {
-    let mut stmt = conn.prepare(
+    let rows: Vec<(String,)> = sqlx::query_as(
         "SELECT DISTINCT ep.key
          FROM entity_properties ep
          JOIN entities func
@@ -94,24 +98,26 @@ pub fn load_tor_capabilities(
              AND func.entity_type = 'tor_function'
          JOIN relations r_fills
              ON r_fills.target_id = func.id
-             AND r_fills.source_id = ?1
+             AND r_fills.source_id = $1
              AND r_fills.relation_type_id = (
                  SELECT id FROM entities
                  WHERE entity_type = 'relation_type' AND name = 'fills_position'
              )
          JOIN relations r_belongs
              ON r_belongs.source_id = func.id
-             AND r_belongs.target_id = ?2
+             AND r_belongs.target_id = $2
              AND r_belongs.relation_type_id = (
                  SELECT id FROM entities
                  WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor'
              )
          WHERE ep.key LIKE 'can_%'
            AND ep.value = 'true'",
-    )?;
-    let keys = stmt
-        .query_map(params![user_id, tor_id], |row| row.get::<_, String>(0))?
-        .collect::<Result<Vec<_>, _>>()?;
+    )
+    .bind(user_id)
+    .bind(tor_id)
+    .fetch_all(pool)
+    .await?;
+    let keys: Vec<String> = rows.into_iter().map(|r| r.0).collect();
     Ok(Permissions(keys))
 }
 
@@ -128,8 +134,8 @@ pub fn load_tor_capabilities(
 /// - Unauthenticated session → `AppError::Session`
 /// - Capability not held → `AppError::PermissionDenied(capability)`
 /// - Database error → `AppError::Db`
-pub fn require_tor_capability(
-    conn: &Connection,
+pub async fn require_tor_capability(
+    pool: &PgPool,
     session: &Session,
     tor_id: i64,
     capability: &str,
@@ -143,7 +149,7 @@ pub fn require_tor_capability(
     }
     // Phase 2: resource-level capability check via ABAC graph traversal.
     // ToR-specific: the resource link relation is always 'belongs_to_tor'.
-    if has_resource_capability(conn, user_id, tor_id, "belongs_to_tor", capability)? {
+    if has_resource_capability(pool, user_id, tor_id, "belongs_to_tor", capability).await? {
         Ok(())
     } else {
         Err(AppError::PermissionDenied(capability.to_string()))

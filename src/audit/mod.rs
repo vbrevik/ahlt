@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use sqlx::PgPool;
 use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -6,7 +6,7 @@ use std::io::Write;
 #[derive(Debug)]
 pub enum AuditError {
     File(std::io::Error),
-    Db(rusqlite::Error),
+    Db(sqlx::Error),
     Json(serde_json::Error),
 }
 
@@ -16,8 +16,8 @@ impl From<std::io::Error> for AuditError {
     }
 }
 
-impl From<rusqlite::Error> for AuditError {
-    fn from(err: rusqlite::Error) -> Self {
+impl From<sqlx::Error> for AuditError {
+    fn from(err: sqlx::Error) -> Self {
         AuditError::Db(err)
     }
 }
@@ -53,15 +53,19 @@ fn get_current_date() -> String {
 }
 
 // Helper: Get log file path for given date
-fn get_log_path(conn: &Connection, date: &str) -> Result<String, AuditError> {
+async fn get_log_path(pool: &PgPool, date: &str) -> Result<String, AuditError> {
     // Get audit.log_path setting
-    let log_path: String = conn.query_row(
+    let log_path: String = sqlx::query_as::<_, (String,)>(
         "SELECT value FROM entity_properties
          WHERE entity_id = (SELECT id FROM entities WHERE entity_type='setting' AND name='audit.log_path')
            AND key='value'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or_else(|_| "data/audit/".to_string());
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| r.0)
+    .unwrap_or_else(|| "data/audit/".to_string());
 
     // Ensure directory exists
     fs::create_dir_all(&log_path)?;
@@ -73,17 +77,22 @@ fn get_log_path(conn: &Connection, date: &str) -> Result<String, AuditError> {
 }
 
 // Helper: Get username from user_id
-fn get_username(conn: &Connection, user_id: i64) -> String {
-    conn.query_row(
-        "SELECT name FROM entities WHERE id = ? AND entity_type = 'user'",
-        [user_id],
-        |row| row.get::<_, String>(0),
-    ).unwrap_or_else(|_| "unknown".to_string())
+async fn get_username(pool: &PgPool, user_id: i64) -> String {
+    sqlx::query_as::<_, (String,)>(
+        "SELECT name FROM entities WHERE id = $1 AND entity_type = 'user'",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| r.0)
+    .unwrap_or_else(|| "unknown".to_string())
 }
 
 // Write audit entry to filesystem
-fn write_to_file(
-    conn: &Connection,
+async fn write_to_file(
+    pool: &PgPool,
     user_id: i64,
     action: &str,
     target_type: &str,
@@ -91,21 +100,25 @@ fn write_to_file(
     details: &Value,
 ) -> Result<(), AuditError> {
     // Check if audit is enabled
-    let enabled: String = conn.query_row(
+    let enabled: String = sqlx::query_as::<_, (String,)>(
         "SELECT value FROM entity_properties
          WHERE entity_id = (SELECT id FROM entities WHERE entity_type='setting' AND name='audit.enabled')
            AND key='value'",
-        [],
-        |row| row.get(0),
-    ).unwrap_or_else(|_| "false".to_string());
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| r.0)
+    .unwrap_or_else(|| "false".to_string());
 
     if enabled != "true" {
         return Ok(());
     }
 
     let date = get_current_date();
-    let log_path = get_log_path(conn, &date)?;
-    let username = get_username(conn, user_id);
+    let log_path = get_log_path(pool, &date).await?;
+    let username = get_username(pool, user_id).await;
 
     // Get current timestamp in ISO 8601 format
     let timestamp = chrono::Utc::now().to_rfc3339();
@@ -149,8 +162,8 @@ fn write_to_file(
 }
 
 // Main audit logging function
-pub fn log(
-    conn: &Connection,
+pub async fn log(
+    pool: &PgPool,
     user_id: i64,
     action: &str,
     target_type: &str,
@@ -158,14 +171,14 @@ pub fn log(
     details: Value,
 ) -> Result<(), AuditError> {
     // Always write to filesystem (errors logged but not propagated)
-    if let Err(e) = write_to_file(conn, user_id, action, target_type, target_id, &details) {
+    if let Err(e) = write_to_file(pool, user_id, action, target_type, target_id, &details).await {
         eprintln!("Audit filesystem write failed: {:?}", e);
     }
 
     // If high-value event, also write to database
     if is_important(action) {
         let summary = format!("{} {}", action, details.get("summary").and_then(|v| v.as_str()).unwrap_or(""));
-        if let Err(e) = crate::models::audit::create(conn, user_id, action, target_type, target_id, &summary) {
+        if let Err(e) = crate::models::audit::create(pool, user_id, action, target_type, target_id, &summary).await {
             eprintln!("Audit database write failed: {:?}", e);
         }
     }
@@ -173,15 +186,19 @@ pub fn log(
     Ok(())
 }
 
-pub fn cleanup_old_entries(conn: &Connection) {
+pub async fn cleanup_old_entries(pool: &PgPool) {
     // Get retention_days setting
-    let retention_days: i64 = conn.query_row(
+    let retention_days: i64 = sqlx::query_as::<_, (String,)>(
         "SELECT value FROM entity_properties
          WHERE entity_id = (SELECT id FROM entities WHERE entity_type='setting' AND name='audit.retention_days')
            AND key='value'",
-        [],
-        |row| row.get::<_, String>(0).map(|s| s.parse().unwrap_or(90)),
-    ).unwrap_or(90);
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| r.0.parse().unwrap_or(90))
+    .unwrap_or(90);
 
     // Skip if retention is 0 (keep forever)
     if retention_days == 0 {
@@ -190,15 +207,18 @@ pub fn cleanup_old_entries(conn: &Connection) {
     }
 
     // Delete old audit entries (CASCADE deletes properties automatically)
-    let result = conn.execute(
+    let result = sqlx::query(
         "DELETE FROM entities
          WHERE entity_type = 'audit_entry'
-           AND created_at < date('now', '-' || ?1 || ' days')",
-        [retention_days],
-    );
+           AND created_at < NOW() - ($1 || ' days')::INTERVAL",
+    )
+    .bind(retention_days.to_string())
+    .execute(pool)
+    .await;
 
     match result {
-        Ok(deleted) => {
+        Ok(r) => {
+            let deleted = r.rows_affected();
             if deleted > 0 {
                 eprintln!("Audit cleanup: deleted {} entries older than {} days", deleted, retention_days);
             }

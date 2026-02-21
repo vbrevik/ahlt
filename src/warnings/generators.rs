@@ -1,11 +1,10 @@
-use rusqlite::{Connection, params};
+use sqlx::PgPool;
 
-use crate::db::DbPool;
 use crate::handlers::warning_handlers::ws::ConnectionMap;
 
 /// Check for users without a role assignment.
-pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, pool: &DbPool) {
-    let mut stmt = match conn.prepare(
+pub async fn check_users_without_role(pool: &PgPool, conn_map: &ConnectionMap) {
+    let user_ids: Vec<i64> = match sqlx::query_as::<_, (i64,)>(
         "SELECT e.id FROM entities e
          WHERE e.entity_type = 'user'
            AND NOT EXISTS (
@@ -13,17 +12,15 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
                JOIN entities rt ON rt.id = r.relation_type_id AND rt.name = 'has_role'
                WHERE r.source_id = e.id
            )"
-    ) {
-        Ok(s) => s,
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => rows.into_iter().map(|r| r.0).collect(),
         Err(e) => {
             log::error!("Generator check_users_without_role query failed: {}", e);
             return;
         }
-    };
-
-    let user_ids: Vec<i64> = match stmt.query_map([], |row| row.get(0)) {
-        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-        Err(_) => return,
     };
 
     if user_ids.is_empty() {
@@ -31,7 +28,7 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
     }
 
     let source_action = "scheduled.users_without_role";
-    if super::warning_exists(conn, source_action, "users_without_role") {
+    if super::warning_exists(pool, source_action, "users_without_role").await {
         return;
     }
 
@@ -39,9 +36,9 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
     let details = serde_json::json!({ "dedup": "users_without_role", "user_ids": user_ids }).to_string();
 
     let warning_id = match super::create_warning(
-        conn, "medium", "data_integrity", source_action,
+        pool, "medium", "data_integrity", source_action,
         &message, &details, "system",
-    ) {
+    ).await {
         Ok(id) => id,
         Err(e) => {
             log::error!("Failed to create users_without_role warning: {}", e);
@@ -50,13 +47,14 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
     };
 
     // Target all admin users
-    let admin_ids = super::get_users_with_permission(conn, "admin.settings")
+    let admin_ids = super::get_users_with_permission(pool, "admin.settings")
+        .await
         .unwrap_or_default();
     if admin_ids.is_empty() {
         return;
     }
 
-    if let Ok(receipt_ids) = super::create_receipts(conn, warning_id, &admin_ids) {
+    if let Ok(receipt_ids) = super::create_receipts(pool, warning_id, &admin_ids).await {
         let _ = receipt_ids; // receipts created
         crate::handlers::warning_handlers::ws::notify_users(
             conn_map, pool, &admin_ids, warning_id, "medium", &message,
@@ -64,15 +62,22 @@ pub fn check_users_without_role(conn: &Connection, conn_map: &ConnectionMap, poo
     }
 }
 
-/// Check database file size against threshold.
-pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &DbPool, data_dir: &str) {
-    let db_path = format!("{}/app.db", data_dir);
-    let size_bytes = match std::fs::metadata(&db_path) {
-        Ok(m) => m.len(),
-        Err(_) => return,
+/// Check database size against threshold using pg_database_size().
+pub async fn check_database_size(pool: &PgPool, conn_map: &ConnectionMap) {
+    let size_bytes: i64 = match sqlx::query_as::<_, (i64,)>(
+        "SELECT pg_database_size(current_database())",
+    )
+    .fetch_one(pool)
+    .await
+    {
+        Ok(row) => row.0,
+        Err(e) => {
+            log::error!("Failed to check database size: {}", e);
+            return;
+        }
     };
 
-    let threshold_mb: u64 = 500; // 500 MB
+    let threshold_mb: i64 = 500; // 500 MB
     let size_mb = size_bytes / (1024 * 1024);
 
     if size_mb < threshold_mb {
@@ -80,7 +85,7 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
     }
 
     let source_action = "scheduled.database_size";
-    if super::warning_exists(conn, source_action, "database_size") {
+    if super::warning_exists(pool, source_action, "database_size").await {
         return;
     }
 
@@ -89,9 +94,9 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
 
     let details = serde_json::json!({ "dedup": "database_size", "size_mb": size_mb }).to_string();
     let warning_id = match super::create_warning(
-        conn, severity, "system", source_action,
+        pool, severity, "system", source_action,
         &message, &details, "system",
-    ) {
+    ).await {
         Ok(id) => id,
         Err(e) => {
             log::error!("Failed to create database_size warning: {}", e);
@@ -99,13 +104,14 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
         }
     };
 
-    let admin_ids = super::get_users_with_permission(conn, "admin.settings")
+    let admin_ids = super::get_users_with_permission(pool, "admin.settings")
+        .await
         .unwrap_or_default();
     if admin_ids.is_empty() {
         return;
     }
 
-    if super::create_receipts(conn, warning_id, &admin_ids).is_ok() {
+    if super::create_receipts(pool, warning_id, &admin_ids).await.is_ok() {
         crate::handlers::warning_handlers::ws::notify_users(
             conn_map, pool, &admin_ids, warning_id, severity, &message,
         );
@@ -115,9 +121,9 @@ pub fn check_database_size(conn: &Connection, conn_map: &ConnectionMap, pool: &D
 /// Check for vacant mandatory positions in active ToRs.
 /// Creates one warning per ToR with unfilled mandatory positions.
 /// Auto-resolves warnings when vacancies are filled.
-pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &DbPool) {
+pub async fn check_tor_vacancies(pool: &PgPool, conn_map: &ConnectionMap) {
     // Find all active ToRs with vacant mandatory positions
-    let mut stmt = match conn.prepare(
+    let rows: Vec<(i64, String, i64, String)> = match sqlx::query_as::<_, (i64, String, i64, String)>(
         "SELECT t.id AS tor_id, t.label AS tor_label,
                 f.id AS position_id, f.label AS position_label
          FROM entities t
@@ -135,25 +141,15 @@ pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &D
                      SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position')
            )
          ORDER BY t.label, f.label"
-    ) {
-        Ok(s) => s,
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
         Err(e) => {
             log::error!("Generator check_tor_vacancies query failed: {}", e);
             return;
         }
-    };
-
-    // Group vacant positions by ToR
-    let rows: Vec<(i64, String, i64, String)> = match stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i64>("tor_id")?,
-            row.get::<_, String>("tor_label")?,
-            row.get::<_, i64>("position_id")?,
-            row.get::<_, String>("position_label")?,
-        ))
-    }) {
-        Ok(r) => r.filter_map(|r| r.ok()).collect(),
-        Err(_) => return,
     };
 
     // Build per-ToR vacancy map
@@ -170,12 +166,13 @@ pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &D
     let source_action = "scheduled.tor_vacancy";
 
     // Create warnings for ToRs with vacancies
-    let target_ids = super::get_users_with_permission(conn, "tor.manage_members")
+    let target_ids = super::get_users_with_permission(pool, "tor.manage_members")
+        .await
         .unwrap_or_default();
 
     for (tor_id, (tor_label, positions)) in &tor_vacancies {
         let dedup_key = format!("tor_vacancy_{}", tor_id);
-        if super::warning_exists(conn, source_action, &dedup_key) {
+        if super::warning_exists(pool, source_action, &dedup_key).await {
             continue;
         }
 
@@ -197,9 +194,9 @@ pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &D
         .to_string();
 
         let warning_id = match super::create_warning(
-            conn, "medium", "governance", source_action,
+            pool, "medium", "governance", source_action,
             &message, &details, "system",
-        ) {
+        ).await {
             Ok(id) => id,
             Err(e) => {
                 log::error!("Failed to create tor_vacancy warning for ToR {}: {}", tor_id, e);
@@ -211,7 +208,7 @@ pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &D
             continue;
         }
 
-        if super::create_receipts(conn, warning_id, &target_ids).is_ok() {
+        if super::create_receipts(pool, warning_id, &target_ids).await.is_ok() {
             crate::handlers::warning_handlers::ws::notify_users(
                 conn_map, pool, &target_ids, warning_id, "medium", &message,
             );
@@ -219,33 +216,30 @@ pub fn check_tor_vacancies(conn: &Connection, conn_map: &ConnectionMap, pool: &D
     }
 
     // Auto-resolve: find active tor_vacancy warnings for ToRs that no longer have vacancies
-    auto_resolve_tor_vacancies(conn, &tor_vacancies);
+    auto_resolve_tor_vacancies(pool, &tor_vacancies).await;
 }
 
 /// Resolve vacancy warnings for ToRs that no longer have unfilled mandatory positions.
-fn auto_resolve_tor_vacancies(
-    conn: &Connection,
+async fn auto_resolve_tor_vacancies(
+    pool: &PgPool,
     current_vacancies: &std::collections::HashMap<i64, (String, Vec<(i64, String)>)>,
 ) {
     let source_action = "scheduled.tor_vacancy";
 
     // Find all active tor_vacancy warnings
-    let mut stmt = match conn.prepare(
+    let warnings: Vec<(i64, String)> = match sqlx::query_as::<_, (i64, String)>(
         "SELECT e.id, det.value AS details
          FROM entities e
          JOIN entity_properties st ON st.entity_id = e.id AND st.key = 'status' AND st.value = 'active'
-         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action' AND sa.value = ?1
+         JOIN entity_properties sa ON sa.entity_id = e.id AND sa.key = 'source_action' AND sa.value = $1
          JOIN entity_properties det ON det.entity_id = e.id AND det.key = 'details'
          WHERE e.entity_type = 'warning'"
-    ) {
-        Ok(s) => s,
-        Err(_) => return,
-    };
-
-    let warnings: Vec<(i64, String)> = match stmt.query_map(params![source_action], |row| {
-        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-    }) {
-        Ok(r) => r.filter_map(|r| r.ok()).collect(),
+    )
+    .bind(source_action)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
         Err(_) => return,
     };
 
@@ -259,7 +253,7 @@ fn auto_resolve_tor_vacancies(
         if let Some(tid) = tor_id {
             // If this ToR no longer has vacancies, resolve the warning
             if !current_vacancies.contains_key(&tid) {
-                if let Err(e) = super::resolve_warning(conn, warning_id, 0) {
+                if let Err(e) = super::resolve_warning(pool, warning_id, 0).await {
                     log::error!("Failed to auto-resolve vacancy warning {}: {}", warning_id, e);
                 }
                 log::info!("Auto-resolved vacancy warning {} for ToR {}", warning_id, tid);
@@ -269,9 +263,9 @@ fn auto_resolve_tor_vacancies(
 }
 
 /// Clean up old warnings based on retention settings.
-pub fn cleanup_old_warnings(conn: &Connection) -> rusqlite::Result<()> {
-    let resolved_days = get_setting_days(conn, "warnings.retention_resolved_days", 30);
-    let deleted_days = get_setting_days(conn, "warnings.retention_deleted_days", 7);
+pub async fn cleanup_old_warnings(pool: &PgPool) -> Result<(), sqlx::Error> {
+    let resolved_days = get_setting_days(pool, "warnings.retention_resolved_days", 30).await;
+    let deleted_days = get_setting_days(pool, "warnings.retention_deleted_days", 7).await;
 
     // Delete receipts that have been resolved for longer than retention
     let resolved_cutoff = chrono::Utc::now()
@@ -285,44 +279,52 @@ pub fn cleanup_old_warnings(conn: &Connection) -> rusqlite::Result<()> {
         .unwrap_or_default();
 
     // Delete resolved receipts past retention
-    let count = conn.execute(
+    let result = sqlx::query(
         "DELETE FROM entities WHERE id IN (
             SELECT ep_ent.entity_id FROM entity_properties ep_ent
             JOIN entity_properties ep_at ON ep_at.entity_id = ep_ent.entity_id AND ep_at.key = 'status_at'
             WHERE ep_ent.key = 'status' AND ep_ent.value = 'resolved'
-              AND ep_at.value < ?1
+              AND ep_at.value < $1
               AND ep_ent.entity_id IN (SELECT id FROM entities WHERE entity_type = 'warning_receipt')
         )",
-        params![resolved_cutoff],
-    )?;
+    )
+    .bind(&resolved_cutoff)
+    .execute(pool)
+    .await?;
+    let count = result.rows_affected();
     if count > 0 {
         log::info!("Cleaned up {} resolved warning receipts", count);
     }
 
     // Delete dismissed receipts past retention
-    let count = conn.execute(
+    let result = sqlx::query(
         "DELETE FROM entities WHERE id IN (
             SELECT ep_ent.entity_id FROM entity_properties ep_ent
             JOIN entity_properties ep_at ON ep_at.entity_id = ep_ent.entity_id AND ep_at.key = 'status_at'
             WHERE ep_ent.key = 'status' AND ep_ent.value = 'deleted'
-              AND ep_at.value < ?1
+              AND ep_at.value < $1
               AND ep_ent.entity_id IN (SELECT id FROM entities WHERE entity_type = 'warning_receipt')
         )",
-        params![deleted_cutoff],
-    )?;
+    )
+    .bind(&deleted_cutoff)
+    .execute(pool)
+    .await?;
+    let count = result.rows_affected();
     if count > 0 {
         log::info!("Cleaned up {} deleted warning receipts", count);
     }
 
     // Delete orphaned warnings (no remaining receipts)
-    let count = conn.execute(
+    let result = sqlx::query(
         "DELETE FROM entities WHERE entity_type = 'warning'
          AND id NOT IN (
              SELECT r.target_id FROM relations r
              JOIN entities rt ON rt.id = r.relation_type_id AND rt.name = 'for_warning'
          )",
-        [],
-    )?;
+    )
+    .execute(pool)
+    .await?;
+    let count = result.rows_affected();
     if count > 0 {
         log::info!("Cleaned up {} orphaned warnings", count);
     }
@@ -330,15 +332,19 @@ pub fn cleanup_old_warnings(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-fn get_setting_days(conn: &Connection, setting_name: &str, default: i64) -> i64 {
-    conn.query_row(
+async fn get_setting_days(pool: &PgPool, setting_name: &str, default: i64) -> i64 {
+    let result: Option<(String,)> = sqlx::query_as(
         "SELECT ep.value FROM entities e
          JOIN entity_properties ep ON ep.entity_id = e.id AND ep.key = 'value'
-         WHERE e.entity_type = 'setting' AND e.name = ?1",
-        params![setting_name],
-        |row| row.get::<_, String>(0),
+         WHERE e.entity_type = 'setting' AND e.name = $1",
     )
+    .bind(setting_name)
+    .fetch_optional(pool)
+    .await
     .ok()
-    .and_then(|v| v.parse().ok())
-    .unwrap_or(default)
+    .flatten();
+
+    result
+        .and_then(|r| r.0.parse().ok())
+        .unwrap_or(default)
 }
