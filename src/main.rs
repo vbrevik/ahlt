@@ -1,6 +1,5 @@
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpServer, cookie::Key, middleware, web};
-use sqlx::PgPool;
 
 use ahlt::{audit, auth, db, handlers, warnings};
 
@@ -26,6 +25,19 @@ async fn main() -> std::io::Result<()> {
         "staging" => db::seed_staging(&pool, &admin_hash).await,
         _ => db::seed_ontology(&pool, &admin_hash).await,
     }
+
+    // Initialize Neo4j graph connection (optional — app works without it)
+    let neo4j_graph = match std::env::var("NEO4J_URI") {
+        Ok(uri) => {
+            let user = std::env::var("NEO4J_USER").unwrap_or_else(|_| "neo4j".to_string());
+            let password = std::env::var("NEO4J_PASSWORD").unwrap_or_else(|_| "secretpass".to_string());
+            ahlt::models::graph_sync::init(&uri, &user, &password).await
+        }
+        Err(_) => {
+            log::info!("NEO4J_URI not set — running without graph projection");
+            None
+        }
+    };
 
     // Clean up old audit entries based on retention policy
     audit::cleanup_old_entries(&pool).await;
@@ -88,6 +100,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(conn_map.clone()))
             .app_data(web::Data::new(rate_limiter.clone()))
+            .app_data(web::Data::new(neo4j_graph.clone()))
             // Static files
             .service(actix_files::Files::new("/static", "./static"))
             // WebSocket route (before auth middleware scope)

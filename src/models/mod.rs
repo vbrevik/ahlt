@@ -4,6 +4,7 @@ pub mod coa;
 pub mod data_manager;
 pub mod document;
 pub mod entity;
+pub mod graph_sync;
 pub mod meeting;
 pub mod minutes;
 pub mod nav_item;
