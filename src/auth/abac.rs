@@ -23,6 +23,7 @@
 
 use crate::auth::session::{get_user_id, require_permission, Permissions};
 use crate::errors::AppError;
+use crate::models::graph_sync::{self, GraphPool};
 use actix_session::Session;
 use sqlx::PgPool;
 
@@ -39,6 +40,38 @@ use sqlx::PgPool;
 /// return NULL, so the WHERE clause evaluates to UNKNOWN (false in SQL
 /// three-valued logic), and the function returns `Ok(false)`.
 pub async fn has_resource_capability(
+    pool: &PgPool,
+    user_id: i64,
+    resource_id: i64,
+    belongs_to_rel: &str,
+    capability: &str,
+) -> Result<bool, AppError> {
+    has_resource_capability_pg(pool, user_id, resource_id, belongs_to_rel, capability).await
+}
+
+/// Try Neo4j first for ToR capability checks, fall back to Postgres.
+pub async fn has_resource_capability_with_graph(
+    pool: &PgPool,
+    graph: &GraphPool,
+    user_id: i64,
+    resource_id: i64,
+    belongs_to_rel: &str,
+    capability: &str,
+) -> Result<bool, AppError> {
+    // Try Neo4j path for ToR capabilities
+    if belongs_to_rel == "belongs_to_tor" {
+        if let Some(g) = graph {
+            if let Some(result) = graph_sync::queries::has_tor_capability(g, user_id, resource_id, capability).await {
+                return Ok(result);
+            }
+            // Neo4j returned None (query failed) — fall through to Postgres
+        }
+    }
+    has_resource_capability_pg(pool, user_id, resource_id, belongs_to_rel, capability).await
+}
+
+/// Postgres-only ABAC capability check.
+async fn has_resource_capability_pg(
     pool: &PgPool,
     user_id: i64,
     resource_id: i64,
