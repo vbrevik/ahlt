@@ -35,10 +35,12 @@ pub async fn governance_graph_api(
     // Try Neo4j first for graph data, fall back to Postgres
     if let Some(g) = graph.get_ref() {
         if let Some((nodes, edges)) = graph_sync::queries::governance_graph(g).await {
-            return Ok(HttpResponse::Ok().json(serde_json::json!({
-                "nodes": nodes,
-                "edges": edges,
-            })));
+            if !nodes.is_empty() {
+                return Ok(HttpResponse::Ok().json(serde_json::json!({
+                    "nodes": nodes,
+                    "edges": edges,
+                })));
+            }
         }
     }
 
