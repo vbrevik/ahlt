@@ -12,11 +12,7 @@ tokio = { version = "1", features = ["time", "sync", "macros"] }
 
 askama = "0.14"
 
-rusqlite = { version = "0.32", features = ["bundled"] }
-r2d2 = "0.8"
-r2d2_sqlite = "0.25"
-
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros", "migrate"] }
 neo4rs = "0.8"
 
 argon2 = "0.5"
@@ -38,5 +34,5 @@ strip = true
 actix-rt = "2.11"
 serde_urlencoded = "0.7"
 regex = "1"
-tempfile = "3"
-rusqlite = { version = "0.32", features = ["bundled"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros", "migrate"] }

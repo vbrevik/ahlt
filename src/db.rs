@@ -3,8 +3,6 @@ use sqlx::PgPool;
 
 use crate::models::data_manager::{import::import_data, types::ImportPayload};
 
-pub type DbPool = PgPool;
-
 const ONTOLOGY_SEED: &str = include_str!("../data/seed/ontology.json");
 const STAGING_SEED: &str = include_str!("../data/seed/staging.json");
 
