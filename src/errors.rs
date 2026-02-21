@@ -4,8 +4,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum AppError {
-    Db(rusqlite::Error),
-    Pool(r2d2::Error),
+    Db(sqlx::Error),
     Template(askama::Error),
     Hash(String),
     NotFound,
@@ -18,7 +17,6 @@ impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AppError::Db(e) => write!(f, "Database error: {e}"),
-            AppError::Pool(e) => write!(f, "Pool error: {e}"),
             AppError::Template(e) => write!(f, "Template error: {e}"),
             AppError::Hash(e) => write!(f, "Hash error: {e}"),
             AppError::NotFound => write!(f, "Not found"),
@@ -62,15 +60,9 @@ pub fn render<T: Template>(tmpl: T) -> Result<HttpResponse, AppError> {
         .body(body))
 }
 
-impl From<rusqlite::Error> for AppError {
-    fn from(e: rusqlite::Error) -> Self {
+impl From<sqlx::Error> for AppError {
+    fn from(e: sqlx::Error) -> Self {
         AppError::Db(e)
-    }
-}
-
-impl From<r2d2::Error> for AppError {
-    fn from(e: r2d2::Error) -> Self {
-        AppError::Pool(e)
     }
 }
 
