@@ -1,0 +1,16 @@
+# Development environment overrides
+
+env:
+  APP_ENV: dev
+  RUST_LOG: info,ahlt=debug
+  COOKIE_SECURE: "false"
+
+secretEnv:
+  DATABASE_URL: postgresql://ahlt:ahlt_k8s_pass@postgres-postgresql.shared-infra.svc.cluster.local/ahlt_dev
+  NEO4J_PASSWORD: secretpass
+
+ingress:
+  enabled: true
+  host: dev.local
+  tls: true
+  tlsSecret: dev-tls

@@ -1,0 +1,27 @@
+# Production environment overrides
+
+replicaCount: 2
+
+env:
+  APP_ENV: prod
+  RUST_LOG: info
+  COOKIE_SECURE: "true"
+
+secretEnv:
+  DATABASE_URL: postgresql://ahlt:ahlt_k8s_pass@postgres-postgresql.shared-infra.svc.cluster.local/ahlt_prod
+  NEO4J_PASSWORD: secretpass
+  SESSION_KEY: ""  # Must be set via --set or CI variable
+
+ingress:
+  enabled: true
+  host: app.local
+  tls: true
+  tlsSecret: prod-tls
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi

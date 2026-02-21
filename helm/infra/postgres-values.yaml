@@ -1,0 +1,34 @@
+# Bitnami PostgreSQL Helm chart values for shared infrastructure.
+# Install: helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql -n shared-infra -f helm/infra/postgres-values.yaml
+
+auth:
+  username: ahlt
+  password: ahlt_k8s_pass
+  database: postgres
+
+primary:
+  persistence:
+    enabled: true
+    size: 5Gi
+  initdb:
+    scripts:
+      init-databases.sh: |
+        #!/bin/bash
+        set -e
+        PGPASSWORD=$POSTGRES_PASSWORD psql -U ahlt <<-EOSQL
+            CREATE DATABASE ahlt_dev;
+            CREATE DATABASE ahlt_staging;
+            CREATE DATABASE ahlt_prod;
+            CREATE DATABASE ahlt_test;
+        EOSQL
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+image:
+  tag: "17"

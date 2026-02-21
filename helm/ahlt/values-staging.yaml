@@ -1,0 +1,16 @@
+# Staging environment overrides
+
+env:
+  APP_ENV: staging
+  RUST_LOG: info
+  COOKIE_SECURE: "false"
+
+secretEnv:
+  DATABASE_URL: postgresql://ahlt:ahlt_k8s_pass@postgres-postgresql.shared-infra.svc.cluster.local/ahlt_staging
+  NEO4J_PASSWORD: secretpass
+
+ingress:
+  enabled: true
+  host: staging.local
+  tls: true
+  tlsSecret: staging-tls

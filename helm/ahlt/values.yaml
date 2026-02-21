@@ -1,0 +1,45 @@
+# Default values for ahlt Helm chart.
+# Override per-environment with values-dev.yaml, values-staging.yaml, values-prod.yaml.
+
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.local:5050/group/im-ctrl
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  host: ""
+  tls: false
+  tlsSecret: ""
+
+env:
+  APP_ENV: dev
+  HOST: "0.0.0.0"
+  PORT: "8080"
+  RUST_LOG: info
+  COOKIE_SECURE: "false"
+
+# These are set via Secret, not ConfigMap
+secretEnv:
+  DATABASE_URL: ""
+  SESSION_KEY: ""
+  NEO4J_PASSWORD: ""
+
+neo4j:
+  uri: bolt://neo4j.shared-infra.svc.cluster.local:7687
+  user: neo4j
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

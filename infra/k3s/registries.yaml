@@ -1,0 +1,15 @@
+# k3s registry configuration for local GitLab container registry.
+# Copy to ~/.config/rancher-desktop/lima/_config/registries.yaml (Rancher Desktop)
+# or /etc/rancher/k3s/registries.yaml (standalone k3s).
+#
+# Restart k3s/Rancher Desktop after modifying.
+
+mirrors:
+  "registry.gitlab.local:5050":
+    endpoint:
+      - "http://registry.gitlab.local:5050"
+
+configs:
+  "registry.gitlab.local:5050":
+    tls:
+      insecure_skip_verify: true

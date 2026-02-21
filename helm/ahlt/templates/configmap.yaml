@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+data:
+  APP_ENV: {{ .Values.env.APP_ENV | quote }}
+  HOST: {{ .Values.env.HOST | quote }}
+  PORT: {{ .Values.env.PORT | quote }}
+  RUST_LOG: {{ .Values.env.RUST_LOG | quote }}
+  COOKIE_SECURE: {{ .Values.env.COOKIE_SECURE | quote }}

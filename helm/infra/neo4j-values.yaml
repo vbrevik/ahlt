@@ -1,0 +1,23 @@
+# Neo4j Community Helm chart values for shared infrastructure.
+# Install: helm install neo4j neo4j/neo4j -n shared-infra -f helm/infra/neo4j-values.yaml
+
+neo4j:
+  name: neo4j
+  edition: community
+  password: secretpass
+  acceptLicenseAgreement: "yes"
+
+volumes:
+  data:
+    mode: defaultStorageClass
+    defaultStorageClass:
+      requests:
+        storage: 5Gi
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
