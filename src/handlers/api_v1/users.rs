@@ -1,5 +1,6 @@
 use actix_session::Session;
 use actix_web::{web, HttpResponse};
+use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::models::user;
@@ -213,4 +214,33 @@ pub async fn delete(
     let _ = crate::audit::log(&pool, current_user_id, "user.deleted", "user", user_id, details).await;
 
     Ok(HttpResponse::NoContent().finish())
+}
+
+#[derive(Deserialize)]
+pub struct UpdateThemeRequest {
+    pub theme: String,
+}
+
+/// POST /api/v1/user/theme - Update user theme preference
+pub async fn update_theme(
+    pool: web::Data<PgPool>,
+    session: Session,
+    body: web::Json<UpdateThemeRequest>,
+) -> Result<HttpResponse, AppError> {
+    let user_id = get_user_id(&session)
+        .ok_or_else(|| AppError::Session("User not logged in".to_string()))?;
+
+    // Validate theme value
+    if !["light", "dark", "auto"].contains(&body.theme.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Invalid theme value. Must be 'light', 'dark', or 'auto'"
+        })));
+    }
+
+    user::set_user_theme(&pool, user_id, &body.theme).await?;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "theme": body.theme
+    })))
 }

@@ -21,4 +21,5 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .route("/{id}", web::put().to(users::update))
             .route("/{id}", web::delete().to(users::delete))
     );
+    cfg.route("/user/theme", web::post().to(users::update_theme));
 }
