@@ -38,6 +38,13 @@ pub struct PageContext {
     pub app_name: String,
     pub csrf_token: String,
     pub warning_count: i64,
+    pub tor_context: Option<TorContext>,
+}
+
+pub struct TorContext {
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub active_section: String,
 }
 
 impl PageContext {
@@ -53,7 +60,17 @@ impl PageContext {
         let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
         let user_id = crate::auth::session::get_user_id(session).unwrap_or(0);
         let warning_count = crate::warnings::queries::count_unread(pool, user_id).await;
-        Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count })
+        Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count, tor_context: None })
+    }
+
+    /// Attach ToR context for pages nested under /tor/{id}/...
+    pub fn with_tor(mut self, tor_id: i64, name: &str, section: &str) -> Self {
+        self.tor_context = Some(TorContext {
+            tor_id,
+            tor_name: name.to_string(),
+            active_section: section.to_string(),
+        });
+        self
     }
 }
 
