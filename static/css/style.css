@@ -5571,3 +5571,55 @@ details[open] .opinion-chevron {
     font-size: 0.8125rem;
     margin: 0;
 }
+
+/* ── ToR Context Bar ── */
+.tor-context-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 1.5rem;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+}
+
+.tor-context-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.tor-context-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.tor-tab {
+    display: inline-block;
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.tor-tab:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+}
+
+.tor-tab.active {
+    color: var(--accent);
+    border-radius: 0;
+    border-bottom: 2px solid var(--accent);
+    background: transparent;
+}
