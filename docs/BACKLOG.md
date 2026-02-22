@@ -508,6 +508,7 @@ Implementation notes:
 | T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
 | T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
 | T.4 | ~~**Minutes export (HTML/PDF print)**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
+| P.7 | ~~**ToR context bar**~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — persistent section navigation bar (Overview/Workflow/Meetings/Templates) on all ToR-scoped pages; new `/tor/{id}/meetings` route |
 
 ---
 
@@ -570,6 +571,7 @@ F.6b Dashboard Personalization (user ToRs, meetings, attention items)           
 CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)            ✓ done
 CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers)    ✓ done
 CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup)   ✓ done
+P7   ToR Context Bar (persistent section nav on all ToR-scoped pages, +meetings route) ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════
