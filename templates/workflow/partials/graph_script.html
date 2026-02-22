@@ -1,0 +1,300 @@
+<script>
+function toggleEditStatus(id) {
+    var row = document.getElementById('status-edit-' + id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+function toggleEditTransition(id) {
+    var row = document.getElementById('transition-edit-' + id);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+</script>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script>
+(function() {
+    var canvas = document.getElementById('wfb-canvas');
+    if (!canvas) return;
+
+    /* ---- Data from template ---- */
+    var statuses = [
+    {% for s in statuses %}
+        { id: {{ s.id }}, code: "{{ s.status_code }}", label: "{{ s.label }}", isInitial: {{ s.is_initial }}, isTerminal: {{ s.is_terminal }} },
+    {% endfor %}
+    ];
+    var transitions = [
+    {% for t in transitions %}
+        { id: {{ t.id }}, fromId: {{ t.from_status_id }}, toId: {{ t.to_status_id }}, label: "{{ t.transition_label }}" },
+    {% endfor %}
+    ];
+
+    if (!statuses.length) return;
+
+    var statEl = document.getElementById('wfb-graph-stat');
+    if (statEl) statEl.textContent = statuses.length + ' states \u00b7 ' + transitions.length + ' transitions';
+
+    /* ---- Colors ---- */
+    var CLR_INITIAL  = '#059669';
+    var CLR_TERMINAL = '#b91c1c';
+    var CLR_NORMAL   = '#b45309';
+    var CLR_NODE_BG  = '#ffffff';
+    var CLR_BORDER   = '#d6d3d1';
+    var CLR_EDGE     = '#78716c';
+    var CLR_EDGE_LBL = '#57534e';
+
+    function nodeColor(d) {
+        if (d.isInitial) return CLR_INITIAL;
+        if (d.isTerminal) return CLR_TERMINAL;
+        return CLR_NORMAL;
+    }
+
+    /* ---- SVG setup ---- */
+    var width  = canvas.clientWidth || 600;
+    var height = canvas.clientHeight || 283;
+
+    var svg = d3.select('#wfb-canvas')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', [0, 0, width, height]);
+
+    /* Arrow marker */
+    svg.append('defs')
+        .append('marker')
+        .attr('id', 'wfb-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 10)
+        .attr('refY', 0)
+        .attr('markerWidth', 7)
+        .attr('markerHeight', 7)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-4L10,0L0,4')
+        .attr('fill', CLR_EDGE);
+
+    var g = svg.append('g');
+
+    /* ---- Zoom ---- */
+    var zoom = d3.zoom()
+        .scaleExtent([0.3, 4])
+        .on('zoom', function(e) { g.attr('transform', e.transform); });
+    svg.call(zoom);
+
+    function fitAll(animate) {
+        var allNodes = g.selectAll('.wfb-gnode');
+        if (allNodes.empty()) return;
+        var xs = [], ys = [];
+        allNodes.each(function(d) { xs.push(d.x); ys.push(d.y); });
+        if (!xs.length) return;
+        var pad = 60;
+        var nodeW = 140, nodeH = 48;
+        var x0 = Math.min.apply(null, xs) - pad - nodeW / 2;
+        var y0 = Math.min.apply(null, ys) - pad - nodeH / 2;
+        var x1 = Math.max.apply(null, xs) + pad + nodeW / 2;
+        var y1 = Math.max.apply(null, ys) + pad + nodeH / 2;
+        var bw = x1 - x0, bh = y1 - y0;
+        if (bw < 1 || bh < 1) return;
+        var scale = Math.min(width / bw, height / bh, 1.8);
+        var tx = (width - bw * scale) / 2 - x0 * scale;
+        var ty = (height - bh * scale) / 2 - y0 * scale;
+        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+        if (animate) {
+            svg.transition().duration(500).call(zoom.transform, t);
+        } else {
+            svg.call(zoom.transform, t);
+        }
+    }
+
+    /* ---- Toolbar ---- */
+    document.getElementById('wfb-btn-fit').addEventListener('click', function() { fitAll(true); });
+    document.getElementById('wfb-btn-reset').addEventListener('click', function() {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+    });
+    document.getElementById('wfb-btn-zoom-in').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
+    document.getElementById('wfb-btn-zoom-out').addEventListener('click', function() {
+        svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+    });
+
+    /* Keyboard shortcuts (matches governance map) */
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        switch (e.key.toLowerCase()) {
+            case 'f': fitAll(true); break;
+            case '0': svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity); break;
+            case '=': case '+': svg.transition().duration(300).call(zoom.scaleBy, 1.5); break;
+            case '-': svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5); break;
+        }
+    });
+
+    /* ---- Dagre layout ---- */
+    var dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setGraph({
+        rankdir: 'LR',
+        nodesep: 30,
+        ranksep: 80,
+        marginx: 30,
+        marginy: 30
+    });
+    dagreGraph.setDefaultEdgeLabel(function() { return {}; });
+
+    var nodeW = 140, nodeH = 48;
+    statuses.forEach(function(s) {
+        dagreGraph.setNode(String(s.id), { width: nodeW, height: nodeH });
+    });
+    transitions.forEach(function(t) {
+        dagreGraph.setEdge(String(t.fromId), String(t.toId));
+    });
+
+    dagre.layout(dagreGraph);
+
+    /* Read positions back */
+    var nodeMap = {};
+    statuses.forEach(function(s) {
+        var pos = dagreGraph.node(String(s.id));
+        s.x = pos.x;
+        s.y = pos.y;
+        nodeMap[s.id] = s;
+    });
+
+    /* ---- Draw edges ---- */
+    var edgeGroup = g.append('g');
+    var line = d3.line().curve(d3.curveBasis);
+
+    transitions.forEach(function(t) {
+        var dagreEdge = dagreGraph.edge(String(t.fromId), String(t.toId));
+        if (!dagreEdge) return;
+        var points = dagreEdge.points.map(function(p) { return [p.x, p.y]; });
+
+        edgeGroup.append('path')
+            .attr('d', line(points))
+            .attr('fill', 'none')
+            .attr('stroke', CLR_EDGE)
+            .attr('stroke-width', 1.6)
+            .attr('marker-end', 'url(#wfb-arrow)')
+            .attr('opacity', 0.7);
+
+        /* Edge label at midpoint */
+        var mid = points[Math.floor(points.length / 2)];
+        edgeGroup.append('text')
+            .attr('x', mid[0])
+            .attr('y', mid[1] - 7)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 9.5)
+            .attr('fill', CLR_EDGE_LBL)
+            .attr('font-family', 'var(--font-mono)')
+            .text(t.label);
+    });
+
+    /* ---- Draw nodes ---- */
+    var nodeGroup = g.selectAll('.wfb-gnode')
+        .data(statuses)
+        .join('g')
+        .attr('class', 'wfb-gnode')
+        .attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+
+    /* Rounded rect with colored left accent bar */
+    nodeGroup.append('rect')
+        .attr('x', -nodeW / 2)
+        .attr('y', -nodeH / 2)
+        .attr('width', nodeW)
+        .attr('height', nodeH)
+        .attr('rx', 6)
+        .attr('ry', 6)
+        .attr('fill', CLR_NODE_BG)
+        .attr('stroke', CLR_BORDER)
+        .attr('stroke-width', 1);
+
+    /* Left accent bar */
+    nodeGroup.append('rect')
+        .attr('x', -nodeW / 2)
+        .attr('y', -nodeH / 2)
+        .attr('width', 4)
+        .attr('height', nodeH)
+        .attr('rx', 2)
+        .attr('fill', function(d) { return nodeColor(d); });
+
+    /* Status label */
+    nodeGroup.append('text')
+        .attr('x', 0)
+        .attr('y', -3)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 12)
+        .attr('font-weight', 600)
+        .attr('fill', 'var(--text)')
+        .attr('font-family', 'var(--font-body)')
+        .text(function(d) {
+            var label = d.label;
+            if (label.length > 16) label = label.substring(0, 14) + '\u2026';
+            return label;
+        });
+
+    /* Status code below */
+    nodeGroup.append('text')
+        .attr('x', 0)
+        .attr('y', 12)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 9.5)
+        .attr('fill', 'var(--text-muted)')
+        .attr('font-family', 'var(--font-mono)')
+        .text(function(d) { return d.code; });
+
+    /* Flag badges */
+    nodeGroup.each(function(d) {
+        var el = d3.select(this);
+        if (d.isInitial) {
+            el.append('circle')
+                .attr('cx', nodeW / 2 - 10)
+                .attr('cy', -nodeH / 2 + 10)
+                .attr('r', 4)
+                .attr('fill', CLR_INITIAL)
+                .append('title').text('Initial state');
+        }
+        if (d.isTerminal) {
+            el.append('circle')
+                .attr('cx', nodeW / 2 - 10)
+                .attr('cy', nodeH / 2 - 10)
+                .attr('r', 4)
+                .attr('fill', CLR_TERMINAL)
+                .append('title').text('Terminal state');
+        }
+    });
+
+    /* Hover highlight */
+    var edgeIndex = {};
+    transitions.forEach(function(t) {
+        if (!edgeIndex[t.fromId]) edgeIndex[t.fromId] = [];
+        if (!edgeIndex[t.toId]) edgeIndex[t.toId] = [];
+        edgeIndex[t.fromId].push(t.toId);
+        edgeIndex[t.toId].push(t.fromId);
+    });
+
+    nodeGroup
+        .style('cursor', 'default')
+        .on('mouseover', function(event, d) {
+            var connected = new Set();
+            connected.add(d.id);
+            (edgeIndex[d.id] || []).forEach(function(nid) { connected.add(nid); });
+            nodeGroup.attr('opacity', function(n) { return connected.has(n.id) ? 1 : 0.25; });
+            edgeGroup.selectAll('path').attr('opacity', 0.2);
+            edgeGroup.selectAll('text').attr('opacity', 0.2);
+            transitions.forEach(function(t, i) {
+                if (t.fromId === d.id || t.toId === d.id) {
+                    edgeGroup.selectAll('path').filter(function(x, j) { return j === i; }).attr('opacity', 1);
+                    edgeGroup.selectAll('text').filter(function(x, j) { return j === i; }).attr('opacity', 1);
+                }
+            });
+            d3.select(this).select('rect').attr('stroke', nodeColor(d)).attr('stroke-width', 2);
+        })
+        .on('mouseout', function() {
+            nodeGroup.attr('opacity', 1);
+            edgeGroup.selectAll('path').attr('opacity', 0.7);
+            edgeGroup.selectAll('text').attr('opacity', 1);
+            d3.select(this).select('rect').attr('stroke', CLR_BORDER).attr('stroke-width', 1);
+        });
+
+    /* Fit on load */
+    setTimeout(function() { fitAll(false); }, 50);
+})();
+</script>

@@ -1,0 +1,123 @@
+<style>
+.wfb-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+.wfb-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-subtle);
+}
+.wfb-section-header h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+.wfb-inline-form {
+    padding: 1rem 1.25rem;
+    background: var(--accent-subtle);
+    border-bottom: 1px solid var(--border);
+}
+.wfb-form-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+.wfb-form-row-wrap {
+    flex-wrap: wrap;
+}
+.wfb-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 120px;
+}
+.wfb-form-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.wfb-form-field input[type="text"],
+.wfb-form-field input[type="number"],
+.wfb-form-field select {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.8125rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: var(--font-body);
+}
+.wfb-field-narrow {
+    max-width: 80px;
+    flex: 0 0 80px;
+}
+.wfb-field-check {
+    flex: 0 0 auto;
+    min-width: auto;
+    justify-content: flex-end;
+}
+.wfb-field-check label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.wfb-field-actions {
+    flex: 0 0 auto;
+    min-width: auto;
+    display: flex;
+    gap: 0.375rem;
+}
+.wfb-table-wrap {
+    overflow-x: auto;
+}
+.wfb-table-wrap .table {
+    margin-bottom: 0;
+    border: none;
+}
+.wfb-table-wrap .table th {
+    background: transparent;
+    border-top: none;
+}
+.wfb-code {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--bg-subtle);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+.wfb-code-perm {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+.wfb-arrow-cell {
+    text-align: center;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 1rem;
+    width: 30px;
+    padding-left: 0;
+    padding-right: 0;
+}
+.wfb-edit-row td {
+    background: var(--accent-subtle);
+    border-top: 1px dashed var(--accent);
+}
+.badge-warning {
+    background: #f59e0b;
+    color: #fff;
+}
+</style>

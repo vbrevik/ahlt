@@ -1,0 +1,147 @@
+<!-- ============ TRANSITIONS ============ -->
+<div class="wfb-section">
+    <div class="wfb-section-header">
+        <h2>Transitions</h2>
+        {% if statuses.len() >= 2 %}
+        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('add-transition-form').style.display = document.getElementById('add-transition-form').style.display === 'none' ? 'block' : 'none'">
+            Add Transition
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Add transition form (hidden by default) -->
+    {% if statuses.len() >= 2 %}
+    <div id="add-transition-form" class="wfb-inline-form" style="display:none;">
+        <form method="post" action="/workflow/builder/{{ scope }}/transitions">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="wfb-form-row wfb-form-row-wrap">
+                <div class="wfb-form-field">
+                    <label>From Status</label>
+                    <select name="from_status_id" required>
+                        <option value="">Select...</option>
+                        {% for s in statuses %}
+                        <option value="{{ s.id }}">{{ s.label }} ({{ s.status_code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="wfb-form-field">
+                    <label>To Status</label>
+                    <select name="to_status_id" required>
+                        <option value="">Select...</option>
+                        {% for s in statuses %}
+                        <option value="{{ s.id }}">{{ s.label }} ({{ s.status_code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="wfb-form-field">
+                    <label>Label</label>
+                    <input type="text" name="label" placeholder="e.g. Submit" required>
+                </div>
+                <div class="wfb-form-field">
+                    <label>Required Permission</label>
+                    <select name="required_permission">
+                        <option value="">(none)</option>
+                        {% for p in permissions %}
+                        <option value="{{ p.name }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="wfb-form-field wfb-field-check">
+                    <label><input type="checkbox" name="requires_outcome" value="true"> Requires Outcome</label>
+                </div>
+                <div class="wfb-form-field">
+                    <label>Condition</label>
+                    <input type="text" name="condition" placeholder="key=value (optional)">
+                </div>
+                <div class="wfb-form-field wfb-field-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">Create</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if transitions.is_empty() %}
+    <div class="empty-state" style="padding: 1.5rem;">
+        <p class="empty-state-text">No transitions defined for this workflow.</p>
+    </div>
+    {% else %}
+    <div class="wfb-table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>From</th>
+                    <th></th>
+                    <th>To</th>
+                    <th>Label</th>
+                    <th>Permission</th>
+                    <th style="width:80px;">Flags</th>
+                    <th style="width:160px; text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in transitions %}
+                <tr>
+                    <td><code class="wfb-code">{{ t.from_status_code }}</code></td>
+                    <td class="wfb-arrow-cell">&rarr;</td>
+                    <td><code class="wfb-code">{{ t.to_status_code }}</code></td>
+                    <td><strong>{{ t.transition_label }}</strong></td>
+                    <td>
+                        {% if t.required_permission.is_empty() %}
+                        <span style="color: var(--text-muted);">&mdash;</span>
+                        {% else %}
+                        <code class="wfb-code wfb-code-perm">{{ t.required_permission }}</code>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.requires_outcome %}<span class="badge badge-warning">Outcome</span>{% endif %}
+                        {% if let Some(c) = t.condition %}<span class="badge badge-muted" title="{{ c }}">Cond</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <button type="button" class="btn btn-sm" onclick="toggleEditTransition({{ t.id }})">Edit</button>
+                        <form method="post" action="/workflow/builder/{{ scope }}/transitions/{{ t.id }}/delete"
+                              style="display:inline;" onsubmit="return confirm('Delete transition {{ t.transition_label }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr id="transition-edit-{{ t.id }}" class="wfb-edit-row" style="display:none;">
+                    <td colspan="7">
+                        <form method="post" action="/workflow/builder/{{ scope }}/transitions/{{ t.id }}/update">
+                            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                            <div class="wfb-form-row wfb-form-row-wrap">
+                                <div class="wfb-form-field">
+                                    <label>Label</label>
+                                    <input type="text" name="label" value="{{ t.transition_label }}" required>
+                                </div>
+                                <div class="wfb-form-field">
+                                    <label>Required Permission</label>
+                                    <select name="required_permission">
+                                        <option value="">(none)</option>
+                                        {% for p in permissions %}
+                                        <option value="{{ p.name }}" {% if p.name.as_str() == t.required_permission.as_str() %}selected{% endif %}>{{ p.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="wfb-form-field wfb-field-check">
+                                    <label><input type="checkbox" name="requires_outcome" value="true" {% if t.requires_outcome %}checked{% endif %}> Requires Outcome</label>
+                                </div>
+                                <div class="wfb-form-field">
+                                    <label>Condition</label>
+                                    <input type="text" name="condition" value="{% if let Some(c) = t.condition %}{{ c }}{% endif %}" placeholder="key=value">
+                                </div>
+                                <div class="wfb-form-field wfb-field-actions">
+                                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                    <button type="button" class="btn btn-sm" onclick="toggleEditTransition({{ t.id }})">Cancel</button>
+                                </div>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>

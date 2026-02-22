@@ -1,0 +1,109 @@
+<!-- ============ STATUSES ============ -->
+<div class="wfb-section">
+    <div class="wfb-section-header">
+        <h2>Statuses</h2>
+        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('add-status-form').style.display = document.getElementById('add-status-form').style.display === 'none' ? 'block' : 'none'">
+            Add Status
+        </button>
+    </div>
+
+    <!-- Add status form (hidden by default) -->
+    <div id="add-status-form" class="wfb-inline-form" style="display:none;">
+        <form method="post" action="/workflow/builder/{{ scope }}/statuses">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="wfb-form-row">
+                <div class="wfb-form-field">
+                    <label>Status Code</label>
+                    <input type="text" name="status_code" placeholder="e.g. draft" required>
+                </div>
+                <div class="wfb-form-field">
+                    <label>Label</label>
+                    <input type="text" name="label" placeholder="e.g. Draft" required>
+                </div>
+                <div class="wfb-form-field wfb-field-narrow">
+                    <label>Order</label>
+                    <input type="number" name="order" value="0">
+                </div>
+                <div class="wfb-form-field wfb-field-check">
+                    <label><input type="checkbox" name="is_initial" value="true"> Initial</label>
+                </div>
+                <div class="wfb-form-field wfb-field-check">
+                    <label><input type="checkbox" name="is_terminal" value="true"> Terminal</label>
+                </div>
+                <div class="wfb-form-field wfb-field-actions">
+                    <button type="submit" class="btn btn-sm btn-primary">Create</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if statuses.is_empty() %}
+    <div class="empty-state" style="padding: 1.5rem;">
+        <p class="empty-state-text">No statuses defined for this workflow.</p>
+    </div>
+    {% else %}
+    <div class="wfb-table-wrap">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Label</th>
+                    <th style="width:60px;">Order</th>
+                    <th style="width:100px;">Flags</th>
+                    <th style="width:160px; text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in statuses %}
+                <tr id="status-row-{{ s.id }}">
+                    <td>
+                        <code class="wfb-code">{{ s.status_code }}</code>
+                    </td>
+                    <td>{{ s.label }}</td>
+                    <td>{{ s.order }}</td>
+                    <td>
+                        {% if s.is_initial %}<span class="badge badge-success">Initial</span>{% endif %}
+                        {% if s.is_terminal %}<span class="badge badge-danger">Terminal</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <button type="button" class="btn btn-sm" onclick="toggleEditStatus({{ s.id }})">Edit</button>
+                        <form method="post" action="/workflow/builder/{{ scope }}/statuses/{{ s.id }}/delete"
+                              style="display:inline;" onsubmit="return confirm('Delete status {{ s.label }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr id="status-edit-{{ s.id }}" class="wfb-edit-row" style="display:none;">
+                    <td colspan="5">
+                        <form method="post" action="/workflow/builder/{{ scope }}/statuses/{{ s.id }}/update">
+                            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                            <div class="wfb-form-row">
+                                <div class="wfb-form-field">
+                                    <label>Label</label>
+                                    <input type="text" name="label" value="{{ s.label }}" required>
+                                </div>
+                                <div class="wfb-form-field wfb-field-narrow">
+                                    <label>Order</label>
+                                    <input type="number" name="order" value="{{ s.order }}">
+                                </div>
+                                <div class="wfb-form-field wfb-field-check">
+                                    <label><input type="checkbox" name="is_initial" value="true" {% if s.is_initial %}checked{% endif %}> Initial</label>
+                                </div>
+                                <div class="wfb-form-field wfb-field-check">
+                                    <label><input type="checkbox" name="is_terminal" value="true" {% if s.is_terminal %}checked{% endif %}> Terminal</label>
+                                </div>
+                                <div class="wfb-form-field wfb-field-actions">
+                                    <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                    <button type="button" class="btn btn-sm" onclick="toggleEditStatus({{ s.id }})">Cancel</button>
+                                </div>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
