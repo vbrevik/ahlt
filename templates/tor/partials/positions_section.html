@@ -1,0 +1,66 @@
+<!-- Positions Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Positions <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ members.len() }}</span></h2>
+    </div>
+
+    {% if members.is_empty() %}
+    <p class="empty-hint">No positions defined yet. Add functions first, then assign people.</p>
+    {% else %}
+    <div class="position-list">
+    {% for member in members %}
+        <div class="position-row {% if member.membership_type.as_str() == "mandatory" %}{% if member.holder_id.is_some() %}pos-mandatory-filled{% else %}pos-mandatory-vacant{% endif %}{% else %}pos-optional{% endif %}">
+            <div>
+                <span class="position-label-text">{{ member.position_label }}</span>
+                <span class="position-name-text">{{ member.position_name }}</span>
+            </div>
+            <div>
+                {% if member.membership_type.as_str() == "mandatory" %}
+                <span class="badge badge-error">Mandatory</span>
+                {% else %}
+                <span class="badge badge-muted">Optional</span>
+                {% endif %}
+            </div>
+            <div class="position-holder">
+                {% if let Some(label) = member.holder_label %}
+                <strong>{{ label }}</strong>
+                {% else %}
+                    {% if member.membership_type.as_str() == "mandatory" %}
+                    <span class="badge badge-warning">Vacant</span>
+                    {% else %}
+                    <span class="text-muted">Vacant</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+            {% if ctx.permissions.has("tor.manage_members") %}
+            <div class="position-actions">
+                {% if member.holder_id.is_some() %}
+                <form method="post" action="/tor/{{ tor.id }}/members" class="inline"
+                      onsubmit="return confirm('Vacate this position?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="action" value="vacate">
+                    <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                    <button type="submit" class="btn btn-sm btn-danger">Vacate</button>
+                </form>
+                {% else %}
+                <form method="post" action="/tor/{{ tor.id }}/members" class="assign-inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="action" value="assign">
+                    <input type="hidden" name="position_id" value="{{ member.position_id }}">
+                    <input type="hidden" name="membership_type" value="{{ member.membership_type }}">
+                    <select name="user_id" required>
+                        <option value="">Assign...</option>
+                        {% for u in available_users %}
+                        <option value="{{ u.id }}">{{ u.label }} ({{ u.name }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Assign</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+    {% endif %}
+</section>

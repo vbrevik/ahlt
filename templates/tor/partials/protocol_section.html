@@ -1,0 +1,120 @@
+<!-- Meeting Protocol Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Meeting Protocol <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ protocol_steps.len() }} steps</span></h2>
+    </div>
+
+    {% if protocol_steps.is_empty() %}
+    <p class="empty-hint">No protocol steps defined. Define the standard meeting order below.</p>
+    {% else %}
+    <div class="protocol-step-list">
+    {% for step in protocol_steps %}
+        <div class="protocol-step-row">
+            <div class="step-num">{{ step.sequence_order }}</div>
+            <div class="step-body">
+                <div class="step-title-row">
+                    <span class="step-label-text">{{ step.label }}</span>
+                    <span class="step-name-code">{{ step.name }}</span>
+                    {% if step.step_type.as_str() == "procedural" %}
+                    <span class="badge badge-muted">Procedural</span>
+                    {% else if step.step_type.as_str() == "agenda_slot" %}
+                    <span class="badge badge-info">Agenda Slot</span>
+                    {% else %}
+                    <span class="badge badge-warning">Fixed</span>
+                    {% endif %}
+                    {% if step.is_required %}
+                    <span class="badge badge-error">Required</span>
+                    {% endif %}
+                </div>
+                <div class="step-meta-row">
+                    {% if let Some(dur) = step.default_duration_minutes %}
+                    <span class="step-dur">{{ dur }} min</span>
+                    {% endif %}
+                    {% if !step.responsible.is_empty() %}
+                    <span style="font-size:0.8125rem;color:var(--text-secondary);">Responsible: {{ step.responsible }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if ctx.permissions.has("tor.edit") %}
+            <div class="step-controls">
+                {% if loop.index > 1 %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="direction" value="up">
+                    <button type="submit" class="btn btn-sm" title="Move up">↑</button>
+                </form>
+                {% endif %}
+                {% if loop.index < protocol_steps.len() %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/move" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <input type="hidden" name="direction" value="down">
+                    <button type="submit" class="btn btn-sm" title="Move down">↓</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/tor/{{ tor.id }}/protocol/{{ step.id }}/delete" class="inline"
+                      onsubmit="return confirm('Delete this protocol step?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">&times;</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div class="form-section">
+        <h3>Add Protocol Step</h3>
+        <form method="post" action="/tor/{{ tor.id }}/protocol">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_name">Name (internal)</label>
+                    <input type="text" id="step_name" name="name" required placeholder="e.g. roll_call">
+                </div>
+                <div class="form-group">
+                    <label for="step_label">Label (display)</label>
+                    <input type="text" id="step_label" name="label" required placeholder="e.g. Roll Call">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_type">Type</label>
+                    <select id="step_type" name="step_type">
+                        <option value="procedural">Procedural</option>
+                        <option value="agenda_slot">Agenda Slot</option>
+                        <option value="fixed">Fixed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="step_order">Sequence Order</label>
+                    <input type="number" id="step_order" name="sequence_order" value="1" min="1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_duration">Duration (minutes, optional)</label>
+                    <input type="number" id="step_duration" name="default_duration_minutes" min="1" placeholder="e.g. 15">
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;padding-top:1.75rem;">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;text-transform:none;font-size:0.875rem;">
+                        <input type="checkbox" name="is_required" value="true" style="width:auto;accent-color:var(--accent);"> Required step
+                    </label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="step_desc">Description</label>
+                    <input type="text" id="step_desc" name="description" placeholder="Brief description of this step">
+                </div>
+                <div class="form-group">
+                    <label for="step_responsible">Responsible</label>
+                    <input type="text" id="step_responsible" name="responsible" placeholder="e.g. Chair, Secretary">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Step</button>
+        </form>
+    </div>
+    {% endif %}
+</section>

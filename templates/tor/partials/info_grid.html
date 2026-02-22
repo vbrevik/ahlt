@@ -1,0 +1,133 @@
+<!-- ToR Info Grid -->
+<div class="tor-info-grid">
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Status</div>
+        <div class="tor-info-value">
+            {% if tor.status.as_str() == "active" %}
+            <span class="badge badge-success">Active</span>
+            {% else %}
+            <span class="badge badge-muted">{{ tor.status }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Meeting Cadence</div>
+        <div class="tor-info-value">
+            {{ tor.meeting_cadence }}{% if !tor.cadence_day.is_empty() %} &mdash; {{ tor.cadence_day }}{% endif %}{% if !tor.cadence_time.is_empty() %} at {{ tor.cadence_time }}{% endif %}
+        </div>
+    </div>
+    {% if !tor.description.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Description</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.description }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.default_location.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Location</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.default_location }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.remote_url.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Remote Meeting</div>
+        <div class="tor-info-value" style="font-size:0.875rem;"><a href="{{ tor.remote_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">{{ tor.remote_url }}</a></div>
+    </div>
+    {% endif %}
+    {% if !tor.background_repo_url.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Background Documents</div>
+        <div class="tor-info-value" style="font-size:0.875rem;"><a href="{{ tor.background_repo_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;">{{ tor.background_repo_url }}</a></div>
+    </div>
+    {% endif %}
+    {% if !tor.tor_number.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">ToR Number</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.tor_number }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.classification.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Classification</div>
+        <div class="tor-info-value">{{ tor.classification }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.version.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Version</div>
+        <div class="tor-info-value tor-info-mono">{{ tor.version }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.organization.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Organization</div>
+        <div class="tor-info-value">{{ tor.organization }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.focus_scope.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Focus / Scope</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.focus_scope }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.objectives_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Objectives</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for obj in tor.objectives_list() %}
+                <li>{{ obj }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.inputs_required_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Inputs Required</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for inp in tor.inputs_required_list() %}
+                <li>{{ inp }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.outputs_expected_list().is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Outputs Expected</div>
+        <div class="tor-info-value" style="font-weight:400;">
+            <ul style="margin:0;padding-left:1.25rem;">
+            {% for out in tor.outputs_expected_list() %}
+                <li>{{ out }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if !tor.poc_contact.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Point of Contact</div>
+        <div class="tor-info-value">{{ tor.poc_contact }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.phase_scheduling.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Phase / Scheduling</div>
+        <div class="tor-info-value">{{ tor.phase_scheduling }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.info_platform.is_empty() %}
+    <div class="tor-info-cell">
+        <div class="tor-info-label">Information Platform</div>
+        <div class="tor-info-value">{{ tor.info_platform }}</div>
+    </div>
+    {% endif %}
+    {% if !tor.invite_policy.is_empty() %}
+    <div class="tor-info-cell full-width">
+        <div class="tor-info-label">Invite Policy</div>
+        <div class="tor-info-value" style="font-weight:400;color:var(--text-secondary);">{{ tor.invite_policy }}</div>
+    </div>
+    {% endif %}
+</div>

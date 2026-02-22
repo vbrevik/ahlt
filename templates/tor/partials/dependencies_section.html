@@ -1,0 +1,121 @@
+<!-- Dependencies Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Dependencies <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ upstream_deps.len() }} upstream · {{ downstream_deps.len() }} downstream</span></h2>
+    </div>
+
+    {% if upstream_deps.is_empty() %}
+    {% if downstream_deps.is_empty() %}
+    <p class="empty-hint">No dependencies defined. Add relationships to other ToRs below.</p>
+    {% endif %}
+    {% endif %}
+
+    {% if !upstream_deps.is_empty() %}
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Upstream — feeds into this ToR</div>
+        <div class="dep-flow-list">
+        {% for dep in upstream_deps %}
+            <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
+                <a href="/tor/{{ dep.other_tor_id }}" class="dep-node-link">{{ dep.other_tor_label }}</a>
+                <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
+                    {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
+                </span>
+                <span class="dep-node-self">{{ tor.label }}</span>
+                <span class="dep-spacer"></span>
+                <div class="dep-meta">
+                    {% if dep.is_blocking %}
+                    <span class="badge badge-error">Blocking</span>
+                    {% endif %}
+                    {% if !dep.output_types.is_empty() %}
+                    <span style="font-size:0.75rem;">{{ dep.output_types }}</span>
+                    {% endif %}
+                </div>
+                {% if ctx.permissions.has("tor.edit") %}
+                <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                      onsubmit="return confirm('Remove this dependency?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if !downstream_deps.is_empty() %}
+    <div class="dep-sub-section">
+        <div class="dep-sub-label">Downstream — this ToR feeds into</div>
+        <div class="dep-flow-list">
+        {% for dep in downstream_deps %}
+            <div class="dep-flow-row {% if dep.is_blocking %}dep-blocking{% endif %}">
+                <span class="dep-node-self">{{ tor.label }}</span>
+                <span class="dep-arrow-badge {% if dep.relation_type.as_str() == "feeds_into" %}dep-arrow-feeds{% else %}dep-arrow-escalates{% endif %}">
+                    {% if dep.relation_type.as_str() == "feeds_into" %}→ Feeds Into{% else %}↑ Escalates To{% endif %}
+                </span>
+                <a href="/tor/{{ dep.other_tor_id }}" class="dep-node-link">{{ dep.other_tor_label }}</a>
+                <span class="dep-spacer"></span>
+                <div class="dep-meta">
+                    {% if dep.is_blocking %}
+                    <span class="badge badge-error">Blocking</span>
+                    {% endif %}
+                    {% if !dep.output_types.is_empty() %}
+                    <span style="font-size:0.75rem;">{{ dep.output_types }}</span>
+                    {% endif %}
+                </div>
+                {% if ctx.permissions.has("tor.edit") %}
+                <form method="post" action="/tor/{{ tor.id }}/dependencies/{{ dep.relation_id }}/delete" class="inline"
+                      onsubmit="return confirm('Remove this dependency?')">
+                    <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+                    <button type="submit" class="btn btn-sm btn-danger">&times;</button>
+                </form>
+                {% endif %}
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if ctx.permissions.has("tor.edit") %}
+    <div class="form-section">
+        <h3>Add Dependency</h3>
+        <form method="post" action="/tor/{{ tor.id }}/dependencies">
+            <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dep_target">Target ToR</label>
+                    <select id="dep_target" name="target_tor_id" required>
+                        <option value="">Select a ToR...</option>
+                        {% for t in other_tors %}
+                        <option value="{{ t.0 }}">{{ t.2 }} ({{ t.1 }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dep_type">Relation Type</label>
+                    <select id="dep_type" name="relation_type">
+                        <option value="feeds_into">Feeds Into</option>
+                        <option value="escalates_to">Escalates To</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dep_output_types">Output Types (comma-separated)</label>
+                    <input type="text" id="dep_output_types" name="output_types" placeholder="e.g. budget_report, recommendations">
+                </div>
+                <div class="form-group">
+                    <label for="dep_description">Description</label>
+                    <input type="text" id="dep_description" name="description" placeholder="Brief description of this dependency">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;text-transform:none;font-size:0.875rem;">
+                    <input type="checkbox" name="is_blocking" value="true" style="width:auto;accent-color:var(--accent);"> Blocking dependency
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Dependency</button>
+        </form>
+    </div>
+    {% endif %}
+</section>

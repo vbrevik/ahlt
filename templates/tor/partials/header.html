@@ -1,0 +1,17 @@
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <div>
+        <h1>{{ tor.label }}</h1>
+        <div style="font-family:var(--font-mono);font-size:0.8125rem;color:var(--text-muted);margin-top:0.25rem;">{{ tor.name }}</div>
+    </div>
+    <div class="page-actions">
+        {% if ctx.permissions.has("tor.edit") %}
+        <a href="/tor/{{ tor.id }}/templates" class="btn btn-sm">Presentation Templates</a>
+        <a href="/tor/{{ tor.id }}/edit" class="btn btn-sm">Edit</a>
+        {% endif %}
+        <a href="/tor" class="btn btn-sm">All ToRs</a>
+    </div>
+</div>

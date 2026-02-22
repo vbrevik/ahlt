@@ -1,0 +1,34 @@
+<!-- Functions Section -->
+<section class="section">
+    <div class="section-header">
+        <h2>Functions <span style="font-family:var(--font-mono);font-size:0.8125rem;font-weight:400;color:var(--text-muted);">{{ functions.len() }}</span></h2>
+        {% if ctx.permissions.has("tor.edit") %}
+        <a href="/tor/{{ tor.id }}/functions/new" class="btn btn-sm btn-primary">New Function</a>
+        {% endif %}
+    </div>
+
+    {% if functions.is_empty() %}
+    <p class="empty-hint">No functions defined yet.</p>
+    {% else %}
+    <div class="function-list">
+    {% for func in functions %}
+        <div class="function-row">
+            <div>
+                <span class="function-label-text">{{ func.label }}</span>
+                <span class="function-name-text">{{ func.name }}</span>
+            </div>
+            <div class="function-category-text">{{ func.category }}</div>
+            <div class="function-assigned">
+                {% if func.assigned_to.is_empty() %}
+                <span class="text-muted" style="font-size:0.8125rem;">Unassigned</span>
+                {% else %}
+                {% for user_label in func.assigned_to %}
+                <span class="badge badge-user">{{ user_label }}</span>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+    {% endif %}
+</section>
