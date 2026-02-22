@@ -1,5 +1,4 @@
 use askama::Template;
-use serde::{Serialize, Deserialize};
 
 use crate::models::role::{RoleListItem, RoleDetail, PermissionCheckbox};
 use crate::models::role::builder::NavItemPreview;
