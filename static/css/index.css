@@ -30,6 +30,7 @@
 @import "components/section.css";
 @import "components/tabs.css";
 @import "components/tor-context.css";
+@import "components/toast.css";
 
 @import "pages/error.css";
 @import "pages/login.css";
@@ -55,6 +56,7 @@
 @import "pages/point-paper.css";
 @import "pages/role-list.css";
 @import "pages/role-builder.css";
+@import "pages/dashboard.css";
 
 @import "utilities/utilities.css";
 @import "utilities/scrollbar.css";
