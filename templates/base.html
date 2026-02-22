@@ -27,6 +27,7 @@
 </head>
 <body>
     {% block nav %}{% endblock %}
+    {% block tor_context_bar %}{% include "partials/tor_context_bar.html" %}{% endblock %}
     <div class="app-body">
         {% block sidebar %}{% endblock %}
         <main class="container">

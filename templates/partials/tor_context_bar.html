@@ -1,0 +1,15 @@
+{% if let Some(tc) = ctx.tor_context %}
+<div class="tor-context-bar">
+    <span class="tor-context-name">{{ tc.tor_name }}</span>
+    <nav class="tor-context-tabs" aria-label="ToR sections">
+        <a href="/tor/{{ tc.tor_id }}"
+           class="tor-tab{% if tc.active_section.as_str() == "overview" %} active{% endif %}">Overview</a>
+        <a href="/tor/{{ tc.tor_id }}/workflow"
+           class="tor-tab{% if tc.active_section.as_str() == "workflow" %} active{% endif %}">Workflow</a>
+        <a href="/tor/{{ tc.tor_id }}/meetings"
+           class="tor-tab{% if tc.active_section.as_str() == "meetings" %} active{% endif %}">Meetings</a>
+        <a href="/tor/{{ tc.tor_id }}/templates"
+           class="tor-tab{% if tc.active_section.as_str() == "templates" %} active{% endif %}">Templates</a>
+    </nav>
+</div>
+{% endif %}
