@@ -11,146 +11,17 @@
 {% endblock %}
 
 {% block content %}
-{% if let Some(msg) = ctx.flash %}
-<div class="alert alert-success">{{ msg }}</div>
-{% endif %}
-
-<div class="page-header">
-    <h1>Data Manager</h1>
-    <p class="page-subtitle">Import and export entity data as JSON, JSON-LD, or SQL</p>
-</div>
+{% include "admin/partials/header_section.html" %}
 
 <div class="data-manager-grid">
-    <!-- Import Panel -->
-    <div class="card dm-panel">
-        <div class="card-header">
-            <h2>Import</h2>
-        </div>
-        <div class="card-body">
-            <div id="drop-zone" class="dm-drop-zone" role="button" tabindex="0"
-                 aria-label="Drop a JSON or JSON-LD file here, or click to browse">
-                <div class="dm-drop-icon">&#8593;</div>
-                <p class="dm-drop-text">Drop a <strong>.json</strong> or <strong>.jsonld</strong> file here</p>
-                <p class="dm-drop-subtext">or click to browse</p>
-                <input type="file" id="import-file" accept=".json,.jsonld" hidden aria-hidden="true" multiple>
-            </div>
-
-            <div id="file-name" class="dm-file-name" hidden></div>
-
-            <div class="form-group">
-                <label for="conflict-mode">Conflict mode</label>
-                <select id="conflict-mode" class="form-control">
-                    <option value="skip">Skip existing</option>
-                    <option value="upsert">Upsert (merge)</option>
-                    <option value="fail">Fail on conflict</option>
-                </select>
-            </div>
-
-            <button id="btn-import" class="btn btn-primary" disabled>Import</button>
-        </div>
-    </div>
-
-    <!-- Export Panel -->
-    <div class="card dm-panel">
-        <div class="card-header">
-            <h2>Export</h2>
-        </div>
-        <div class="card-body">
-            <fieldset class="form-group">
-                <legend>Entity types</legend>
-                <div class="dm-type-grid">
-                    <label class="dm-checkbox">
-                        <input type="checkbox" id="type-all" checked> <strong>All</strong>
-                    </label>
-                    {% for t in entity_types %}
-                    <label class="dm-checkbox">
-                        <input type="checkbox" class="type-filter" value="{{ t }}"> {{ t }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </fieldset>
-
-            <fieldset class="form-group">
-                <legend>Format</legend>
-                <div class="dm-radio-group">
-                    <label class="dm-radio"><input type="radio" name="export-format" value="json" checked> JSON</label>
-                    <label class="dm-radio"><input type="radio" name="export-format" value="jsonld"> JSON-LD</label>
-                    <label class="dm-radio"><input type="radio" name="export-format" value="sql"> SQL</label>
-                </div>
-            </fieldset>
-
-            <button id="btn-export" class="btn btn-primary">Export</button>
-        </div>
-    </div>
+    {% include "admin/partials/import_panel.html" %}
+    {% include "admin/partials/export_panel.html" %}
 </div>
 
-<!-- Import Result Summary (hidden by default) -->
-<div id="import-result" class="card dm-result" hidden>
-    <div class="card-header">
-        <h2>Import Result</h2>
-    </div>
-    <div class="card-body">
-        <div class="dm-result-counts">
-            <span class="dm-count dm-count-created"><strong id="count-created">0</strong> created</span>
-            <span class="dm-count dm-count-updated"><strong id="count-updated">0</strong> updated</span>
-            <span class="dm-count dm-count-skipped"><strong id="count-skipped">0</strong> skipped</span>
-            <span class="dm-count dm-count-errors"><strong id="count-errors">0</strong> errors</span>
-        </div>
-    </div>
-</div>
-
-<!-- Error Table (hidden by default) -->
-<div id="error-section" class="card dm-errors" hidden>
-    <div class="card-header">
-        <h2>Errors</h2>
-        <div class="dm-error-actions">
-            <button id="btn-retry-all" class="btn btn-sm">Retry all</button>
-            <button id="btn-skip-all" class="btn btn-sm btn-danger">Skip all</button>
-            <select id="retry-conflict-mode" class="form-control form-control-sm">
-                <option value="skip">Skip</option>
-                <option value="upsert">Upsert</option>
-                <option value="fail">Fail</option>
-            </select>
-        </div>
-    </div>
-    <div class="card-body">
-        <table class="table" id="error-table">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Reason</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="error-tbody"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Inline Editor Modal -->
-<div id="editor-overlay" class="dm-editor-overlay" hidden>
-    <div class="dm-editor-modal card">
-        <div class="card-header">
-            <h3>Edit Item</h3>
-            <button id="editor-close" class="btn btn-sm" aria-label="Close">&times;</button>
-        </div>
-        <div class="card-body">
-            <textarea id="editor-json" class="dm-editor-textarea" rows="12" spellcheck="false"></textarea>
-            <div id="editor-error" class="alert alert-danger" hidden></div>
-        </div>
-        <div class="dm-editor-footer">
-            <button id="editor-save" class="btn btn-primary">Retry this item</button>
-            <button id="editor-cancel" class="btn">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<!-- Loading Overlay -->
-<div id="loading" class="dm-loading" hidden>
-    <div class="dm-spinner"></div>
-    <p>Processing...</p>
-    <p id="loading-status" class="dm-loading-status"></p>
-</div>
+{% include "admin/partials/import_result.html" %}
+{% include "admin/partials/error_section.html" %}
+{% include "admin/partials/editor_modal.html" %}
+{% include "admin/partials/loading_overlay.html" %}
 
 <script>
 (function() {
@@ -161,10 +32,10 @@
     function fetchWithTimeout(url, options, ms) {
         var controller = new AbortController();
         var timeoutId = setTimeout(function() { controller.abort(); }, ms);
-        
+
         if (!options) options = {};
         options.signal = controller.signal;
-        
+
         return fetch(url, options).catch(function(e) {
             if (e.name === 'AbortError') {
                 var timeoutErr = new Error('Request timed out. The server may be busy.');

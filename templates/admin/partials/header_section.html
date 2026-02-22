@@ -1,0 +1,8 @@
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
+
+<div class="page-header">
+    <h1>Data Manager</h1>
+    <p class="page-subtitle">Import and export entity data as JSON, JSON-LD, or SQL</p>
+</div>

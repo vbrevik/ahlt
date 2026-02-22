@@ -1,0 +1,32 @@
+<!-- Export Panel -->
+<div class="card dm-panel">
+    <div class="card-header">
+        <h2>Export</h2>
+    </div>
+    <div class="card-body">
+        <fieldset class="form-group">
+            <legend>Entity types</legend>
+            <div class="dm-type-grid">
+                <label class="dm-checkbox">
+                    <input type="checkbox" id="type-all" checked> <strong>All</strong>
+                </label>
+                {% for t in entity_types %}
+                <label class="dm-checkbox">
+                    <input type="checkbox" class="type-filter" value="{{ t }}"> {{ t }}
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="form-group">
+            <legend>Format</legend>
+            <div class="dm-radio-group">
+                <label class="dm-radio"><input type="radio" name="export-format" value="json" checked> JSON</label>
+                <label class="dm-radio"><input type="radio" name="export-format" value="jsonld"> JSON-LD</label>
+                <label class="dm-radio"><input type="radio" name="export-format" value="sql"> SQL</label>
+            </div>
+        </fieldset>
+
+        <button id="btn-export" class="btn btn-primary">Export</button>
+    </div>
+</div>

@@ -1,0 +1,27 @@
+<!-- Error Table (hidden by default) -->
+<div id="error-section" class="card dm-errors" hidden>
+    <div class="card-header">
+        <h2>Errors</h2>
+        <div class="dm-error-actions">
+            <button id="btn-retry-all" class="btn btn-sm">Retry all</button>
+            <button id="btn-skip-all" class="btn btn-sm btn-danger">Skip all</button>
+            <select id="retry-conflict-mode" class="form-control form-control-sm">
+                <option value="skip">Skip</option>
+                <option value="upsert">Upsert</option>
+                <option value="fail">Fail</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table" id="error-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Reason</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="error-tbody"></tbody>
+        </table>
+    </div>
+</div>

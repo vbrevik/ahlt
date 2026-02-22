@@ -1,0 +1,17 @@
+<!-- Inline Editor Modal -->
+<div id="editor-overlay" class="dm-editor-overlay" hidden>
+    <div class="dm-editor-modal card">
+        <div class="card-header">
+            <h3>Edit Item</h3>
+            <button id="editor-close" class="btn btn-sm" aria-label="Close">&times;</button>
+        </div>
+        <div class="card-body">
+            <textarea id="editor-json" class="dm-editor-textarea" rows="12" spellcheck="false"></textarea>
+            <div id="editor-error" class="alert alert-danger" hidden></div>
+        </div>
+        <div class="dm-editor-footer">
+            <button id="editor-save" class="btn btn-primary">Retry this item</button>
+            <button id="editor-cancel" class="btn">Cancel</button>
+        </div>
+    </div>
+</div>
