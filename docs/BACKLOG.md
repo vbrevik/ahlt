@@ -471,6 +471,29 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **No Dependencies**: Pure HTML/CSS, no external PDF library needed
 - **Build**: PASS | **Tests**: 141 passing (unchanged)
 
+### CA4.1 — Account Preferences Theme → DB Sync (Bug Fix)
+- **Root Cause**: Account page `/account` Preferences tab theme buttons called `window.toggleTheme()` + updated `localStorage` but never hit the `POST /api/v1/user/theme` endpoint — preferences were browser-local only, not cross-device.
+- **Fix**: Added a `fetch('/api/v1/user/theme', ...)` call in the `.theme-btn` click handler after `window.toggleTheme()`, mirroring the identical pattern in `base.html` (header toggle). `~10 lines` added to `templates/account.html`.
+- **Behaviour**: Theme selection on account page now persists to `entity_properties` DB, loaded server-side on next page load from any device/browser.
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
+### Users Page Editorial Redesign (UI)
+- **Avatar circles**: Replaced emoji with colored initial circles using 8-hue warm palette; hue computed from `charCode % 8`, CSS `[data-hue]` variants, dark mode support.
+- **Count badge**: Amber pill badge showing total user count next to page heading.
+- **Compact action buttons**: Replaced `.btn.btn-sm` pairs with `.action-btn` / `.action-btn--danger` (compact borderline style).
+- **Pagination v2**: Pill-style pagination with info text + prev/current/next controls replacing plain links.
+- **Left accent hover**: `tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent) }` — subtle row focus cue with no layout shift.
+- **Files**: `templates/users/list.html` (HTML + JS), `static/css/style.css` (~175 lines added)
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
+### Role Builder One-Page Redesign (UI)
+- **One-page layout**: Converted from two-step wizard to a single-page three-column grid (240px details / 1fr permissions / 200px preview) with nav and sidebar visible.
+- **Compact form overrides**: Scoped `.rb-details-panel .form-group` overrides reduce input padding and margins for IDE-config-panel density.
+- **Sticky group headers**: Permission group headers use `position: sticky; top: 0` inside the `overflow-y: auto` permissions scroll area.
+- **Checked row state**: CSS `:has(.permission-item:checked)` applies accent left-border + `color-mix()` background tint — zero JS.
+- **Files**: `templates/roles/builder.html` (rewritten), `static/css/style.css` (role builder section replaced)
+- **Build**: PASS | **Tests**: 171 passing (unchanged)
+
 ---
 
 ## Remaining Backlog
@@ -518,7 +541,7 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 
 | ID | Item | Type | Priority | Effort |
 |----|------|------|----------|--------|
-| CA4.1 | **Account preferences theme → DB disconnect** | Bug | High | XS |
+| ~~CA4.1~~ | ~~**Account preferences theme → DB disconnect**~~ | ~~Bug~~ | ~~High~~ | ~~XS~~ | **DONE** |
 | CA4.2 | **REST API integration tests** | Quality | High | S |
 | CA4.3 | **Calendar fetch timeout** | Hardening | Medium | S |
 | CA4.4 | **REST API coverage expansion** | Architecture | Medium | M |
@@ -813,10 +836,12 @@ CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers) 
 CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup)   ✓ done
 P7   ToR Context Bar (persistent section nav on all ToR-scoped pages, +meetings route) ✓ done
 P8   Dark Mode Header Toggle (persistent DB storage, syncs across devices)             ✓ done
+CA4.1  Account preferences theme → DB disconnect (bug, XS)                             ✓ done
+UI.1   Users page editorial redesign (avatar circles, count badge, action buttons)      ✓ done
+UI.2   Role builder one-page layout + compact redesign                                  ✓ done
 
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-CA4.1  Account preferences theme → DB disconnect  (bug, XS)
 CA4.2  REST API integration tests                 (quality, S)
 CA4.3  Calendar fetch timeout                     (hardening, S)
 CA4.4  REST API coverage expansion               (architecture, M)

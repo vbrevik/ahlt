@@ -1,152 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}{% if role.is_some() %}Edit Role{% else %}Role Builder{% endif %}{% endblock %}
+{% block title %}{% if role.is_some() %}Edit Role{% else %}New Role{% endif %} — {{ ctx.app_name }}{% endblock %}
+{% block nav %}{% include "partials/nav.html" %}{% endblock %}
+{% block sidebar %}{% include "partials/sidebar.html" %}{% endblock %}
 
 {% block content %}
-<div class="role-builder-container">
-    <h1>{% if role.is_some() %}Edit Role{% else %}Create New Role{% endif %}</h1>
+{% if let Some(msg) = ctx.flash %}
+<div class="alert alert-success">{{ msg }}</div>
+{% endif %}
 
-    <!-- Step Indicator -->
-    <div class="step-indicator">
-        <div class="step active" data-step="1">
-            <span class="step-number">1</span>
-            <span class="step-label">Details</span>
-        </div>
-        <div class="step" data-step="2">
-            <span class="step-number">2</span>
-            <span class="step-label">Permissions &amp; Preview</span>
-        </div>
+<div class="page-header">
+    <h1>{% if role.is_some() %}Edit Role{% else %}New Role{% endif %}</h1>
+    <div class="page-header-actions">
+        <a href="/roles" class="btn btn-sm">Cancel</a>
+        <button type="submit" form="role-builder-form" class="btn btn-primary" id="submit-btn" disabled>
+            {% if role.is_some() %}Update Role{% else %}Create Role{% endif %}
+        </button>
     </div>
+</div>
 
-    <form id="role-builder-form" action="{% if let Some(r) = role %}/roles/builder/update{% else %}/roles/builder/create{% endif %}" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="permission_ids" id="permission-ids-input" value="[]">
-        {% if let Some(r) = role %}
-        <input type="hidden" name="role_id" value="{{ r.id }}">
-        {% endif %}
+<form id="role-builder-form"
+      action="{% if let Some(r) = role %}/roles/builder/update{% else %}/roles/builder/create{% endif %}"
+      method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="permission_ids" id="permission-ids-input" value="[]">
+    {% if let Some(r) = role %}
+    <input type="hidden" name="role_id" value="{{ r.id }}">
+    {% endif %}
 
-        <!-- Step 1: Role Details -->
-        <div class="wizard-step" data-step="1">
+    <div class="role-builder-layout">
+
+        <!-- Left: Role details -->
+        <aside class="rb-details-panel">
+            <h2 class="rb-panel-heading">Role Details</h2>
+
             <div class="form-group">
-                <label for="name">Role Name *</label>
-                <input type="text" id="name" name="name" required pattern="[a-zA-Z0-9_]+" maxlength="50"
-                       value="{% if let Some(r) = role %}{{ r.name }}{% endif %}">
-                <small>Alphanumeric and underscore only</small>
+                <label for="name" class="form-label">Internal Name <span class="required-mark">*</span></label>
+                <input type="text" id="name" name="name" class="form-input" required
+                       pattern="[a-zA-Z0-9_]+" maxlength="50"
+                       value="{% if let Some(r) = role %}{{ r.name }}{% endif %}"
+                       placeholder="e.g. content_editor">
+                <small class="form-hint">Alphanumeric and underscore only</small>
             </div>
 
             <div class="form-group">
-                <label for="label">Display Label *</label>
-                <input type="text" id="label" name="label" required maxlength="100"
-                       value="{% if let Some(r) = role %}{{ r.label }}{% endif %}">
+                <label for="label" class="form-label">Display Label <span class="required-mark">*</span></label>
+                <input type="text" id="label" name="label" class="form-input" required
+                       maxlength="100"
+                       value="{% if let Some(r) = role %}{{ r.label }}{% endif %}"
+                       placeholder="e.g. Content Editor">
             </div>
 
             <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" name="description" rows="3">{% if let Some(r) = role %}{{ r.description }}{% endif %}</textarea>
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-input" rows="3"
+                          placeholder="What can users with this role do?">{% if let Some(r) = role %}{{ r.description }}{% endif %}</textarea>
             </div>
 
-            <button type="button" class="btn btn-primary" onclick="nextStep()">Next: Select Permissions</button>
-        </div>
+            {% if let Some(r) = role %}
+            <div class="rb-danger-zone">
+                <p class="rb-danger-zone__label">Danger Zone</p>
+                <form method="post" action="/roles/builder/{{ r.id }}/delete"
+                      onsubmit="return confirm('Delete this role? This cannot be undone.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete Role</button>
+                </form>
+            </div>
+            {% endif %}
+        </aside>
 
-        <!-- Step 2: Permissions + Live Preview -->
-        <div class="wizard-step" data-step="2" style="display: none;">
-            <div class="permissions-preview-layout">
-                <!-- Left: Permission checkboxes -->
-                <div class="permissions-panel">
-                    <h2 class="panel-title">Permissions</h2>
-                    {% for group in permission_groups %}
-                    <div class="permission-group">
-                        <div class="group-header">
-                            <h3>{{ group.group_name }}</h3>
-                            <label class="select-all-label">
-                                <input type="checkbox" class="select-all-checkbox" data-group="{{ group.group_name }}">
-                                Select All
-                            </label>
-                        </div>
-                        <div class="permission-list">
-                            {% for perm in group.permissions %}
-                            <label class="permission-checkbox">
+        <!-- Center: Permissions -->
+        <div class="rb-permissions-panel">
+            <h2 class="rb-panel-heading">
+                Permissions
+                <span class="rb-perm-count" id="perm-count"></span>
+            </h2>
+
+            <div class="rb-permission-scroll">
+                {% for group in permission_groups %}
+                <div class="rb-permission-group">
+                    <div class="rb-group-header">
+                        <span class="rb-group-name">{{ group.group_name }}</span>
+                        <label class="rb-select-all">
+                            <input type="checkbox" class="checkbox-input select-all-checkbox"
+                                   data-group="{{ group.group_name }}">
+                            <span class="checkbox-mark"></span>
+                            All
+                        </label>
+                    </div>
+                    <div class="rb-permission-list">
+                        {% for perm in group.permissions %}
+                        <label class="rb-perm-row">
+                            <span class="rb-perm-row__check">
                                 <input type="checkbox"
-                                       class="permission-item"
+                                       class="checkbox-input permission-item"
                                        data-group="{{ group.group_name }}"
                                        value="{{ perm.id }}"
                                        {% if perm.checked %}checked{% endif %}>
-                                <span class="permission-label">{{ perm.label }}</span>
-                                <span class="permission-code">{{ perm.code }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
+                                <span class="checkbox-mark"></span>
+                            </span>
+                            <span class="rb-perm-row__label">{{ perm.label }}</span>
+                            <code class="rb-perm-row__code">{{ perm.code }}</code>
+                        </label>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
-
-                <!-- Right: Live menu preview -->
-                <div class="preview-panel">
-                    <h2 class="panel-title">Menu Preview</h2>
-                    <div class="preview-sidebar-mock">
-                        <div class="mock-sidebar" id="mock-sidebar">
-                            <div id="preview-empty" class="preview-empty-state">
-                                Select permissions to see menu access
-                            </div>
-                            <div id="preview-loading" style="display: none;" class="preview-loading">Updating...</div>
-                        </div>
-                    </div>
-                    <p id="preview-summary" class="preview-count"></p>
-                </div>
-            </div>
-
-            <div class="button-group">
-                <button type="button" class="btn btn-secondary" onclick="prevStep()">Back</button>
-                <button type="submit" class="btn btn-success" id="create-btn" disabled>
-                    {% if role.is_some() %}Update Role{% else %}Create Role{% endif %}
-                </button>
+                {% endfor %}
             </div>
         </div>
-    </form>
 
-    {% if let Some(r) = role %}
-    <div class="form-actions form-actions--danger">
-        <form method="post" action="/roles/builder/{{ r.id }}/delete"
-              onsubmit="return confirm('Delete this role? This cannot be undone.')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-danger">Delete Role</button>
-        </form>
+        <!-- Right: Live menu preview -->
+        <aside class="rb-preview-panel">
+            <h2 class="rb-panel-heading">Menu Preview</h2>
+            <div class="rb-mock-sidebar" id="mock-sidebar">
+                <div id="preview-empty" class="rb-preview-empty">
+                    Select permissions to preview menu access
+                </div>
+                <div id="preview-loading" class="rb-preview-loading" style="display:none">Updating…</div>
+            </div>
+            <p class="rb-preview-summary" id="preview-summary"></p>
+        </aside>
+
     </div>
-    {% endif %}
-</div>
+</form>
 
 <script>
-let currentStep = 1;
-let debounceTimer = null;
-
-function showStep(step) {
-    document.querySelectorAll('.wizard-step').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-
-    document.querySelector('.wizard-step[data-step="' + step + '"]').style.display = 'block';
-    document.querySelector('.step[data-step="' + step + '"]').classList.add('active');
-    currentStep = step;
-
-    if (step === 2) {
-        fetchPreview();
-    }
-}
-
-function nextStep() {
-    if (currentStep === 1) {
-        var name = document.getElementById('name').value;
-        var label = document.getElementById('label').value;
-        if (!name || !label) {
-            alert('Please fill in required fields');
-            return;
-        }
-    }
-    showStep(currentStep + 1);
-}
-
-function prevStep() {
-    showStep(currentStep - 1);
-}
+var debounceTimer = null;
 
 // Select All toggle
 document.querySelectorAll('.select-all-checkbox').forEach(function(checkbox) {
@@ -167,9 +146,7 @@ document.querySelectorAll('.permission-item').forEach(function(checkbox) {
         var groupCheckboxes = document.querySelectorAll('.permission-item[data-group="' + group + '"]');
         var allChecked = Array.from(groupCheckboxes).every(function(cb) { return cb.checked; });
         var selectAllCheckbox = document.querySelector('.select-all-checkbox[data-group="' + group + '"]');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = allChecked;
-        }
+        if (selectAllCheckbox) selectAllCheckbox.checked = allChecked;
         onPermissionChange();
     });
 });
@@ -181,9 +158,13 @@ function getSelectedIds() {
 
 function onPermissionChange() {
     var selectedIds = getSelectedIds();
-
     document.getElementById('permission-ids-input').value = JSON.stringify(selectedIds);
-    document.getElementById('create-btn').disabled = selectedIds.length === 0;
+
+    var submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = selectedIds.length === 0;
+
+    var countEl = document.getElementById('perm-count');
+    countEl.textContent = selectedIds.length > 0 ? selectedIds.length + ' selected' : '';
 
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(fetchPreview, 200);
@@ -210,7 +191,7 @@ async function fetchPreview() {
             body: JSON.stringify({ permission_ids: selectedIds })
         });
 
-        if (!response.ok) throw new Error('Failed to load preview');
+        if (!response.ok) throw new Error('Preview failed');
 
         var data = await response.json();
         displayPreview(data);
@@ -223,8 +204,14 @@ async function fetchPreview() {
 
 function clearPreview() {
     var sidebar = document.getElementById('mock-sidebar');
-    var existing = sidebar.querySelectorAll('.mock-module-group');
-    existing.forEach(function(el) { el.remove(); });
+    sidebar.querySelectorAll('.rb-mock-module').forEach(function(el) { el.remove(); });
+}
+
+function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
 }
 
 function displayPreview(data) {
@@ -232,45 +219,33 @@ function displayPreview(data) {
     document.getElementById('preview-empty').style.display = 'none';
     clearPreview();
 
-    var summary = document.getElementById('preview-summary');
-    summary.textContent = data.count + ' menu item' + (data.count !== 1 ? 's' : '') + ' accessible';
+    document.getElementById('preview-summary').textContent =
+        data.count + ' menu item' + (data.count !== 1 ? 's' : '') + ' accessible';
 
     var byModule = {};
     data.items.forEach(function(item) {
-        if (!byModule[item.module_name]) {
-            byModule[item.module_name] = [];
-        }
+        if (!byModule[item.module_name]) byModule[item.module_name] = [];
         byModule[item.module_name].push(item);
     });
 
     var sidebar = document.getElementById('mock-sidebar');
-
     Object.keys(byModule).sort().forEach(function(moduleName) {
-        var group = document.createElement('div');
-        group.className = 'mock-module-group';
-
-        var header = document.createElement('div');
-        header.className = 'mock-module-header';
-        header.textContent = moduleName;
-        group.appendChild(header);
-
+        var group = el('div', 'rb-mock-module');
+        group.appendChild(el('div', 'rb-mock-module-name', moduleName));
         byModule[moduleName].forEach(function(item) {
-            var a = document.createElement('a');
-            a.className = 'mock-sidebar-link';
+            var a = el('a', 'rb-mock-link', item.label);
             a.href = '#';
-            a.onclick = function(e) { e.preventDefault(); };
-            a.textContent = item.label;
+            a.addEventListener('click', function(e) { e.preventDefault(); });
             group.appendChild(a);
         });
-
         sidebar.appendChild(group);
     });
 }
 
-// Initialize on page load — handles edit mode with pre-checked permissions
+// Initialize on load (handles edit mode with pre-checked permissions)
 onPermissionChange();
 
-// Sync "Select All" checkboxes on load for groups where all are checked
+// Sync "Select All" checkboxes on load
 document.querySelectorAll('.select-all-checkbox').forEach(function(selectAll) {
     var group = selectAll.dataset.group;
     var groupCheckboxes = document.querySelectorAll('.permission-item[data-group="' + group + '"]');

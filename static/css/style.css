@@ -5680,3 +5680,463 @@ details[open] .opinion-chevron {
     50% { transform: rotate(180deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   Users page — editorial directory redesign
+   ============================================================ */
+
+/* Page header with count badge */
+.users-page-title {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+}
+
+.users-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.5rem;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    line-height: 1.6;
+}
+
+/* Avatar circle — letter initial */
+.user-avatar {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.user-avatar-circle {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-display);
+    letter-spacing: 0;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+/* 8-hue palette — warm tones that fit the stone/earthy design system */
+.user-avatar-circle[data-hue="0"] { background: #fde68a; color: #92400e; }
+.user-avatar-circle[data-hue="1"] { background: #bbf7d0; color: #166534; }
+.user-avatar-circle[data-hue="2"] { background: #bfdbfe; color: #1e40af; }
+.user-avatar-circle[data-hue="3"] { background: #fecaca; color: #991b1b; }
+.user-avatar-circle[data-hue="4"] { background: #e9d5ff; color: #6b21a8; }
+.user-avatar-circle[data-hue="5"] { background: #fed7aa; color: #9a3412; }
+.user-avatar-circle[data-hue="6"] { background: #a7f3d0; color: #065f46; }
+.user-avatar-circle[data-hue="7"] { background: #fce7f3; color: #9d174d; }
+
+:root.dark .user-avatar-circle[data-hue="0"] { background: #78350f; color: #fde68a; }
+:root.dark .user-avatar-circle[data-hue="1"] { background: #14532d; color: #bbf7d0; }
+:root.dark .user-avatar-circle[data-hue="2"] { background: #1e3a5f; color: #bfdbfe; }
+:root.dark .user-avatar-circle[data-hue="3"] { background: #7f1d1d; color: #fecaca; }
+:root.dark .user-avatar-circle[data-hue="4"] { background: #4c1d95; color: #e9d5ff; }
+:root.dark .user-avatar-circle[data-hue="5"] { background: #7c2d12; color: #fed7aa; }
+:root.dark .user-avatar-circle[data-hue="6"] { background: #064e3b; color: #a7f3d0; }
+:root.dark .user-avatar-circle[data-hue="7"] { background: #831843; color: #fce7f3; }
+
+/* User info block alongside avatar */
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+/* Row accent: left border flash on hover */
+.users-table tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Compact action buttons */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-family: var(--font-body);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--duration) var(--ease),
+                border-color var(--duration) var(--ease),
+                color var(--duration) var(--ease);
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+.action-btn--danger {
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    color: var(--danger);
+}
+
+.action-btn--danger:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger);
+}
+
+/* Pagination v2 — pill-style controls */
+.pagination-v2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.pagination-v2__info {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.pagination-v2__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.pagination-v2__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--duration) var(--ease),
+                border-color var(--duration) var(--ease),
+                color var(--duration) var(--ease);
+}
+
+.pagination-v2__btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    color: var(--text);
+}
+
+.pagination-v2__btn--current {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    cursor: default;
+    font-weight: 600;
+}
+
+.pagination-v2__btn--current:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+}
+
+.pagination-v2__btn--disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* ============================================================
+   Role Builder — compact precision layout
+   ============================================================ */
+
+/* Grid: narrow details | flex permissions | narrow preview */
+.role-builder-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 200px;
+    gap: 1rem;
+    align-items: start;
+}
+
+/* Shared panel base — tight padding */
+.rb-details-panel,
+.rb-permissions-panel,
+.rb-preview-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+/* Panel section heading */
+.rb-panel-heading {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin: 0 0 0.875rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Permissions count badge */
+.rb-perm-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.45rem;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+    text-transform: none;
+}
+
+/* Compact form fields scoped to details panel */
+.rb-details-panel .form-group {
+    margin-bottom: 0.75rem;
+}
+
+.rb-details-panel .form-group label {
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+}
+
+.rb-details-panel .form-group input,
+.rb-details-panel .form-group textarea {
+    padding: 0.4rem 0.625rem;
+    font-size: 0.8125rem;
+}
+
+.rb-details-panel .form-group small {
+    font-size: 0.7rem;
+    margin-top: 0.2rem;
+    display: block;
+}
+
+/* Required asterisk */
+.required-mark {
+    color: var(--danger);
+    margin-left: 0.125rem;
+}
+
+/* Danger zone at bottom of details panel */
+.rb-danger-zone {
+    margin-top: 1.25rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--border);
+}
+
+.rb-danger-zone__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 0.5rem 0;
+}
+
+/* ── Permissions panel ── */
+
+.rb-permission-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 64vh;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.rb-permission-scroll::-webkit-scrollbar { width: 3px; }
+.rb-permission-scroll::-webkit-scrollbar-track { background: transparent; }
+.rb-permission-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+}
+
+.rb-permission-group {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+/* Sticky group headers */
+.rb-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.3rem 0.625rem;
+    background: var(--surface-hover);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.rb-group-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.rb-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--duration) var(--ease);
+}
+
+.rb-select-all:hover { color: var(--text); }
+
+.rb-permission-list { padding: 0.125rem 0; }
+
+/* Permission row — dense, with accent left-border on check */
+.rb-perm-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.625rem;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background var(--duration) var(--ease),
+                border-left-color var(--duration) var(--ease);
+}
+
+.rb-perm-row:hover { background: var(--surface-hover); }
+
+/* Checked state: accent marker + subtle tint */
+.rb-perm-row:has(.permission-item:checked) {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    border-left-color: var(--accent);
+}
+
+.rb-perm-row__check {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.rb-perm-row__label {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    transition: color var(--duration) var(--ease), font-weight 0s;
+}
+
+.rb-perm-row:has(.permission-item:checked) .rb-perm-row__label {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.rb-perm-row__code {
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    background: var(--bg-subtle);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Preview panel ── */
+
+.rb-mock-sidebar {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.rb-preview-empty,
+.rb-preview-loading {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 1.25rem 0.5rem;
+    line-height: 1.5;
+}
+
+.rb-mock-module { margin-bottom: 0.375rem; }
+
+.rb-mock-module-name {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 0.2rem 0.5rem 0.1rem;
+}
+
+.rb-mock-link {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 0.2rem 0.75rem;
+    border-radius: 3px;
+    transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+
+.rb-mock-link:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+
+.rb-preview-summary {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0 0;
+    font-family: var(--font-mono);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 1100px) {
+    .role-builder-layout {
+        grid-template-columns: 220px 1fr;
+    }
+    .rb-preview-panel { grid-column: 1 / -1; }
+}
+
+@media (max-width: 768px) {
+    .role-builder-layout { grid-template-columns: 1fr; }
+    .rb-permission-scroll { max-height: none; }
+}

@@ -37,6 +37,7 @@
 - **UNIQUE constraint on `(entity_type, name)`**: PostgreSQL strictly enforces this. Tests that create relation types already in seed data will fail with `23505` duplicate key error. Look up seeded relation types by name instead of re-inserting.
 - **All queries are async**: Every `sqlx::query` / model function requires `.await`. Missing `.await` produces "unused Future" warnings at compile time.
 - **`query_as` needs explicit column aliases for multi-table SELECTs**: PostgreSQL assigns the bare column name (e.g., `entity_type`) not `table.column`. When two tables share a column name, `FromRow` silently maps the wrong one. Always alias: `SELECT src.entity_type AS source, tgt.entity_type AS target`.
+- **Error type misuse in validation**: Don't return `Err(sqlx::Error::RowNotFound)` for input validation failures (e.g., invalid theme value). This error type implies the database row doesn't exist, but the real issue is invalid input. Maps to `AppError::Db` → HTTP 500 instead of 400. Instead: validate before the query and return a handler-appropriate error, or define a validation-specific error type that handlers can remap to HTTP 400.
 
 ## EAV Relations
 

@@ -10,7 +10,7 @@
 {% endif %}
 
 <div class="page-header">
-    <h1>Users</h1>
+    <h1 class="users-page-title">Users <span class="users-count-badge">{{ user_page.total_count }}</span></h1>
     {% if ctx.permissions.has("users.create") %}
     <a href="/users/new" class="btn btn-primary">New User</a>
     {% endif %}
@@ -88,10 +88,13 @@
                 {% if col.visible %}
                 <td class="users-table__{{ col.key }}">
                     {% if col.key.as_str() == "user" %}
-                    <div class="user-cell">
-                        <div class="user-name">&#x1F464; {{ user.display_name }}</div>
-                        <div class="user-username">@{{ user.username }}</div>
-                        <div class="user-role">{% for label in user.role_labels.split(',') %}{% if !label.is_empty() %}<span class="badge badge-user">{{ label }}</span>{% endif %}{% endfor %}</div>
+                    <div class="user-avatar">
+                        <div class="user-avatar-circle" data-name="{{ user.display_name }}"></div>
+                        <div class="user-info">
+                            <div class="user-name">{{ user.display_name }}</div>
+                            <div class="user-username">@{{ user.username }}</div>
+                            <div class="user-role">{% for label in user.role_labels.split(',') %}{% if !label.is_empty() %}<span class="badge badge-user">{{ label }}</span>{% endif %}{% endfor %}</div>
+                        </div>
                     </div>
                     {% else %}
                     {% if col.key.as_str() == "email" %}
@@ -108,8 +111,8 @@
                     {% else %}
                     {% if col.key.as_str() == "actions" %}
                     <div class="action-buttons">
-                        {% if ctx.permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="btn btn-sm">Edit</a>{% endif %}
-                        {% if ctx.permissions.has("users.delete") %}<button type="button" class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})">Delete</button>{% endif %}
+                        {% if ctx.permissions.has("users.edit") %}<a href="/users/{{ user.id }}/edit" class="action-btn">Edit</a>{% endif %}
+                        {% if ctx.permissions.has("users.delete") %}<button type="button" class="action-btn action-btn--danger" onclick="deleteUser({{ user.id }})">Delete</button>{% endif %}
                     </div>
                     {% endif %}
                     {% endif %}
@@ -128,19 +131,19 @@
 {% endif %}
 
 {% if user_page.total_pages > 1 %}
-<div class="pagination">
-    <div class="pagination-info">Page {{ user_page.page }} of {{ user_page.total_pages }}</div>
-    <div class="pagination-controls">
+<div class="pagination-v2">
+    <span class="pagination-v2__info">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
+    <div class="pagination-v2__controls">
         {% if user_page.page > 1 %}
-        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="btn btn-sm">&#x2190; Previous</a>
+        <a href="/users?page={{ user_page.page - 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="pagination-v2__btn" aria-label="Previous page">&#x2190;</a>
         {% else %}
-        <span class="btn btn-sm" aria-disabled="true">&#x2190; Previous</span>
+        <span class="pagination-v2__btn pagination-v2__btn--disabled" aria-disabled="true">&#x2190;</span>
         {% endif %}
-        <span class="pagination-current">Page {{ user_page.page }} of {{ user_page.total_pages }}</span>
+        <span class="pagination-v2__btn pagination-v2__btn--current">{{ user_page.page }}</span>
         {% if user_page.page < user_page.total_pages %}
-        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="btn btn-sm">Next &#x2192;</a>
+        <a href="/users?page={{ user_page.page + 1 }}&per_page={{ user_page.per_page }}&sort={{ sort_column }}&dir={{ sort_dir }}&filter={{ filter_json }}" class="pagination-v2__btn" aria-label="Next page">&#x2192;</a>
         {% else %}
-        <span class="btn btn-sm" aria-disabled="true">Next &#x2192;</span>
+        <span class="pagination-v2__btn pagination-v2__btn--disabled" aria-disabled="true">&#x2192;</span>
         {% endif %}
     </div>
 </div>
@@ -208,5 +211,13 @@ function confirmBulkDelete() {
 }
 
 updateBulkToolbar();
+
+// Avatar initials
+document.querySelectorAll('.user-avatar-circle[data-name]').forEach(function(el) {
+    var name = el.getAttribute('data-name') || '';
+    var initial = name.charAt(0).toUpperCase() || '?';
+    el.textContent = initial;
+    el.setAttribute('data-hue', String(initial.charCodeAt(0) % 8));
+});
 </script>
 {% endblock %}
