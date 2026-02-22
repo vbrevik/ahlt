@@ -86,6 +86,7 @@
                     <label for="dep_target">Target ToR</label>
                     <select id="dep_target" name="target_tor_id" required>
                         <option value="">Select a ToR...</option>
+                        {# other_tors: Vec<(id, name, label)> - TODO: Consider using named struct like UserOption for better maintainability #}
                         {% for t in other_tors %}
                         <option value="{{ t.0 }}">{{ t.2 }} ({{ t.1 }})</option>
                         {% endfor %}

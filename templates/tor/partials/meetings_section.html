@@ -29,7 +29,8 @@
                 <span style="font-size:0.75rem;color:var(--text-muted);">{{ m.agenda_count }} agenda</span>
                 {% endif %}
             </div>
-        {% endif %}{% endif %}
+            {% endif %}
+            {% endif %}
         {% endfor %}
         </div>
     </div>
@@ -75,6 +76,7 @@
         <h3>Confirm Meeting</h3>
         <form method="post" action="/tor/{{ tor.id }}/meetings/confirm">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
+            {# tor_name stores the display label (tor.label), not the internal identifier (tor.name) #}
             <input type="hidden" name="tor_name" value="{{ tor.label }}">
             <div class="form-row">
                 <div class="form-group">
