@@ -39,6 +39,7 @@ pub struct PageContext {
     pub csrf_token: String,
     pub warning_count: i64,
     pub tor_context: Option<TorContext>,
+    pub theme: String,
 }
 
 pub struct TorContext {
@@ -59,8 +60,10 @@ impl PageContext {
         let csrf_token = csrf::get_or_create_token(session);
         let avatar_initial = username.chars().next().unwrap_or('?').to_uppercase().to_string();
         let user_id = crate::auth::session::get_user_id(session).unwrap_or(0);
+        let theme = crate::models::user::get_user_theme(pool, user_id).await
+            .unwrap_or_else(|_| "auto".to_string());
         let warning_count = crate::warnings::queries::count_unread(pool, user_id).await;
-        Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count, tor_context: None })
+        Ok(Self { username, avatar_initial, permissions, flash, nav_modules, sidebar_items, app_name, csrf_token, warning_count, tor_context: None, theme })
     }
 
     /// Attach ToR context for pages nested under /tor/{id}/...

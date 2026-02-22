@@ -1,16 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if ctx is defined %} data-theme="{{ ctx.theme }}"{% endif %}>
 <head>
     <!-- Theme initialization script (must run before CSS loads to prevent flash) -->
     <script>
         (function() {
-            const savedTheme = localStorage.getItem('theme-preference');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-            
+            // Fetch theme from server-side context if available
+            const serverTheme = document.documentElement.getAttribute('data-theme') || null;
+
+            // Fallback order: server → localStorage → system preference
+            let theme = serverTheme;
+            if (!theme) {
+                theme = localStorage.getItem('theme-preference');
+            }
+            if (!theme) {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                theme = prefersDark ? 'dark' : 'light';
+            }
+
+            // Apply theme before CSS loads (prevents flash)
             if (theme === 'dark') {
                 document.documentElement.classList.add('dark');
             }
+
+            // Persist theme
             localStorage.setItem('theme-preference', theme);
         })();
     </script>
