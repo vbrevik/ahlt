@@ -4,18 +4,9 @@
 //!
 //! # Test Database Setup
 //! - `setup_test_db()` - Schema + basic entities (relation types, roles)
-//! - `setup_test_db_seeded()` - Schema + full staging seed data (in progress)
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-
-// ============================================================================
-// TEST CONSTANTS
-// ============================================================================
-
-pub const ADMIN_USER: &str = "admin";
-pub const ADMIN_PASS: &str = "admin123";
-pub const TEST_USER_EMAIL: &str = "test@example.com";
 
 // ============================================================================
 // DATABASE SETUP
@@ -197,11 +188,6 @@ async fn seed_base_entities(pool: &PgPool) -> Result<(), sqlx::Error> {
     .await?;
 
     Ok(())
-}
-
-/// Setup a test database with schema and staging seed data.
-pub async fn setup_test_db_seeded() -> TestDb {
-    setup_test_db().await
 }
 
 // ============================================================================

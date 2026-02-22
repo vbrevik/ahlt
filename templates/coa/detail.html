@@ -15,14 +15,14 @@
     <h1>{{ coa.title }}</h1>
     <div class="page-actions">
         {% if ctx.permissions.has("coa.edit") %}
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/coas/{{ coa.id }}/edit" class="btn btn-sm">Edit</a>
-        <form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/coas/{{ coa.id }}/delete" class="inline"
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}/coa/{{ coa.id }}/edit" class="btn btn-sm">Edit</a>
+        <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}/coa/{{ coa.id }}/delete" class="inline"
               onsubmit="return confirm('Delete this course of action? This action cannot be undone.')">
             <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
         </form>
         {% endif %}
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
     </div>
 </div>
 

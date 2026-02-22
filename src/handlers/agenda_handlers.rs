@@ -16,6 +16,11 @@ pub struct AgendaTransitionForm {
     pub to_status: String,
 }
 
+#[derive(serde::Deserialize)]
+pub struct AgendaDeleteForm {
+    pub csrf_token: String,
+}
+
 // ---------------------------------------------------------------------------
 // CRUD handlers (Task 13)
 // ---------------------------------------------------------------------------
@@ -365,5 +370,39 @@ pub async fn transition(
     let _ = session.insert("flash", format!("Status changed to {}", &form.to_status));
     Ok(HttpResponse::SeeOther()
         .insert_header(("Location", format!("/tor/{tor_id}/workflow/agenda/{agenda_point_id}")))
+        .finish())
+}
+
+/// POST /tor/{id}/workflow/agenda/{agenda_id}/delete
+pub async fn delete(
+    pool: web::Data<PgPool>,
+    session: Session,
+    path: web::Path<(i64, i64)>,
+    form: web::Form<AgendaDeleteForm>,
+) -> Result<HttpResponse, AppError> {
+    require_permission(&session, "agenda.manage")?;
+    csrf::validate_csrf(&session, &form.csrf_token)?;
+
+    let (tor_id, agenda_point_id) = path.into_inner();
+    let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
+
+    let ap = agenda_point::find_by_id(&pool, agenda_point_id).await?
+        .ok_or(AppError::NotFound)?;
+    let ap_title = ap.title.clone();
+
+    entity::delete(&pool, agenda_point_id).await.map_err(AppError::Db)?;
+
+    let details = serde_json::json!({
+        "agenda_point_id": agenda_point_id,
+        "tor_id": tor_id,
+        "title": ap_title,
+        "summary": format!("Deleted agenda point '{}'", ap_title),
+    });
+    let _ = crate::audit::log(&pool, user_id, "agenda_point.deleted", "agenda_point", agenda_point_id, details).await;
+
+    let _ = session.insert("flash", "Agenda point deleted");
+    Ok(HttpResponse::SeeOther()
+        .insert_header(("Location", format!("/tor/{tor_id}/workflow?tab=agenda_points")))
         .finish())
 }

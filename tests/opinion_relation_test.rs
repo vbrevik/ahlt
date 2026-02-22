@@ -1,6 +1,6 @@
 use ahlt::models::{entity, relation, opinion};
 mod common;
-use common::{setup_test_db, insert_entity};
+use common::setup_test_db;
 
 /// Insert opinion-related relation types not included in the base seed.
 async fn seed_opinion_relation_types(pool: &sqlx::PgPool) {

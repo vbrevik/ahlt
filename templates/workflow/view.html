@@ -230,7 +230,7 @@
 {% if active_tab.as_str() == "agenda_points" %}
 <div class="tab-actions">
     {% if ctx.permissions.has("agenda.create") %}
-    <a href="/tor/{{ tor_id }}/agenda-points/new" class="btn btn-primary">New Agenda Point</a>
+    <a href="/tor/{{ tor_id }}/workflow/agenda/new" class="btn btn-primary">New Agenda Point</a>
     {% endif %}
 </div>
 
@@ -239,7 +239,7 @@
     <p class="empty-state-title">No agenda points yet</p>
     <p>Agenda points are scheduled items for discussion and decision-making in the ToR.</p>
     {% if ctx.permissions.has("agenda.create") %}
-    <a href="/tor/{{ tor_id }}/agenda-points/new" class="btn btn-primary">Create first agenda point</a>
+    <a href="/tor/{{ tor_id }}/workflow/agenda/new" class="btn btn-primary">Create first agenda point</a>
     {% endif %}
 </div>
 {% else %}
@@ -281,23 +281,23 @@
                 {% endif %}
             </td>
             <td class="actions">
-                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}" class="btn btn-sm">View</a>
+                <a href="/tor/{{ tor_id }}/workflow/agenda/{{ item.id }}" class="btn btn-sm">View</a>
                 {% if item.status.as_str() == "draft" && ctx.permissions.has("agenda.manage") %}
-                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/edit" class="btn btn-sm btn-warning">Edit</a>
+                <a href="/tor/{{ tor_id }}/workflow/agenda/{{ item.id }}/edit" class="btn btn-sm btn-warning">Edit</a>
                 {% endif %}
                 {% if ctx.permissions.has("agenda.manage") %}
                 <button type="button" class="btn btn-sm btn-danger"
                         onclick="document.getElementById('delete-{{ item.id }}').style.display='block'">Delete</button>
                 {% endif %}
                 {% if item.item_type.as_str() == "decision" && ctx.permissions.has("agenda.participate") %}
-                <a href="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/opinions/new" class="btn btn-sm btn-secondary">Opinion</a>
+                <a href="/tor/{{ tor_id }}/workflow/agenda/{{ item.id }}/input" class="btn btn-sm btn-secondary">Opinion</a>
                 {% endif %}
             </td>
         </tr>
         {% if ctx.permissions.has("agenda.manage") %}
         <tr id="delete-{{ item.id }}" style="display:none">
             <td colspan="6">
-                <form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ item.id }}/delete" class="inline-form">
+                <form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ item.id }}/delete" class="inline-form">
                     <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
                     <div class="form-group">
                         <strong>Delete agenda point "{{ item.title }}"?</strong> This action cannot be undone.

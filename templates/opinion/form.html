@@ -14,7 +14,7 @@
 <div class="page-header">
     <h1>Record Opinion on Decision Item</h1>
     <div class="page-actions">
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}" class="btn btn-sm">Back to Agenda Point</a>
     </div>
 </div>
 
@@ -22,7 +22,7 @@
 <div class="alert alert-error">{{ err }}</div>
 {% endfor %}
 
-<form method="post" action="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}/opinions" class="form-card">
+<form method="post" action="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}/input" class="form-card">
     <input type="hidden" name="csrf_token" value="{{ ctx.csrf_token }}">
 
     <!-- Agenda Point Context -->
@@ -73,7 +73,7 @@
             Record Opinion
             {% endif %}
         </button>
-        <a href="/tor/{{ tor_id }}/agenda-points/{{ agenda_point_id }}" class="btn">Cancel</a>
+        <a href="/tor/{{ tor_id }}/workflow/agenda/{{ agenda_point_id }}" class="btn">Cancel</a>
     </div>
 </form>
 {% endblock %}

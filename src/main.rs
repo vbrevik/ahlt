@@ -232,6 +232,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/edit", web::get().to(handlers::agenda_handlers::edit_form))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}", web::post().to(handlers::agenda_handlers::update))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/transition", web::post().to(handlers::agenda_handlers::transition))
+                    .route("/tor/{id}/workflow/agenda/{agenda_id}/delete", web::post().to(handlers::agenda_handlers::delete))
                     // COAs — /new BEFORE /{coa_id}
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/coa/new", web::get().to(handlers::coa_handlers::new_form))
                     .route("/tor/{id}/workflow/agenda/{agenda_id}/coa", web::post().to(handlers::coa_handlers::create))

@@ -441,6 +441,9 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **CA.1 — Opinion seed direction**: Standardized 2 `opinion_by` relations in `staging.json` to match programmatic direction (`user → opinion`)
 - **CA.2 — Minutes export button**: Added Export button to `minutes/view.html` (visible only when status is "approved", opens in new tab)
 - **CA.2 — Audit logging gaps**: Added `audit::log()` calls to 6 mutation handlers: `mark_deleted`, `forward` (warning actions), `move_step` (protocol), `handle_add_slide`, `handle_delete_slide`, `handle_move_slide` (presentation)
+- **CA.3 — Stale `/agenda-points/` URL prefix**: Fixed 12 broken links across `templates/opinion/form.html`, `templates/coa/detail.html`, `templates/workflow/view.html` — all now use `/workflow/agenda/` prefix matching actual routes
+- **CA.3 — Missing agenda point delete handler**: Added `delete()` handler + `AgendaDeleteForm` struct to `agenda_handlers.rs` and registered `POST /tor/{id}/workflow/agenda/{agenda_id}/delete` in `main.rs`; delete button in workflow view was previously wired to a non-existent route
+- **CA.3 — Dead code cleanup**: Removed unused `setup_test_db_seeded()` wrapper, unused `ADMIN_USER`/`ADMIN_PASS`/`TEST_USER_EMAIL` constants from `tests/common/mod.rs`, and unused `insert_entity` import from `opinion_relation_test.rs`
 - **Build**: PASS | **Tests**: 171 passing (unchanged)
 
 ### Ontology Graph Redesign (OG.1)
@@ -566,6 +569,7 @@ OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down) 
 F.6b Dashboard Personalization (user ToRs, meetings, attention items)                 ✓ done
 CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)            ✓ done
 CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers)    ✓ done
+CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup)   ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════
