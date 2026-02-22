@@ -258,6 +258,7 @@ async fn main() -> std::io::Result<()> {
                     // Meeting management — confirm BEFORE {mid} to avoid path param conflict
                     .route("/meetings", web::get().to(handlers::meeting_handlers::list))
                     .route("/tor/{id}/meetings/confirm", web::post().to(handlers::meeting_handlers::confirm))
+                    .route("/tor/{id}/meetings", web::get().to(handlers::meeting_handlers::list_for_tor))
                     .route("/tor/{id}/meetings/{mid}", web::get().to(handlers::meeting_handlers::detail))
                     .route("/tor/{id}/meetings/{mid}/transition", web::post().to(handlers::meeting_handlers::transition))
                     .route("/tor/{id}/meetings/{mid}/agenda/assign", web::post().to(handlers::meeting_handlers::assign_agenda))

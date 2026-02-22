@@ -534,6 +534,17 @@ pub struct MeetingsListTemplate {
     pub past: Vec<MeetingListItem>,
 }
 
+// --- ToR meeting list template ---
+
+#[derive(Template)]
+#[template(path = "meetings/tor_list.html")]
+pub struct TorMeetingsListTemplate {
+    pub ctx: PageContext,
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub meetings: Vec<MeetingListItem>,
+}
+
 // --- Meeting detail template ---
 
 #[derive(Template)]
