@@ -572,6 +572,7 @@ CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)       
 CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers)    ✓ done
 CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup)   ✓ done
 P7   ToR Context Bar (persistent section nav on all ToR-scoped pages, +meetings route) ✓ done
+P8   Dark Mode Header Toggle (persistent DB storage, syncs across devices)             ✓ done
 
 CANDIDATES (pick next)
 ══════════════════════
