@@ -1,8 +1,21 @@
 use sqlx::PgPool;
 use crate::auth::session::get_user_id;
-use crate::models::user;
+use crate::models::user::{self, UserForm};
 use crate::errors::AppError;
+use crate::auth::validate;
 use actix_session::Session;
+
+/// Validate user form data (used in both create and update flows)
+pub fn validate_user_form(form: &UserForm, require_password: bool) -> Vec<String> {
+    let mut errors = vec![];
+    errors.extend(validate::validate_username(&form.username));
+    errors.extend(validate::validate_email(&form.email));
+    errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
+    if require_password || !form.password.is_empty() {
+        errors.extend(validate::validate_password(&form.password));
+    }
+    errors
+}
 
 /// Check if a user is the last admin in the system
 pub async fn is_last_admin(pool: &PgPool, user_id: i64) -> Result<bool, AppError> {

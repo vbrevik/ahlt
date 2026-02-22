@@ -146,8 +146,8 @@ async fn main() -> std::io::Result<()> {
                     // User CRUD — /users/new BEFORE /users/{id} to avoid routing conflict
                     .route("/users", web::get().to(handlers::user_handlers::list))
                     .route("/users/new", web::get().to(handlers::user_handlers::new_form))
-                    .route("/users/export.csv", web::get().to(handlers::user_handlers::crud::export_csv))
-                    .route("/users/columns", web::post().to(handlers::user_handlers::crud::save_columns))
+                    .route("/users/export.csv", web::get().to(handlers::user_handlers::export_csv))
+                    .route("/users/columns", web::post().to(handlers::user_handlers::save_columns))
                     .route("/users", web::post().to(handlers::user_handlers::create))
                     .route("/users/{id}/edit", web::get().to(handlers::user_handlers::edit_form))
                     .route("/users/{id}", web::post().to(handlers::user_handlers::update))

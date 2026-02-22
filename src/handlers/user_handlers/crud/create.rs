@@ -3,11 +3,12 @@ use actix_web::{web, HttpResponse};
 use sqlx::PgPool;
 
 use crate::models::user::{self, UserForm};
-use crate::auth::{csrf, password, validate};
+use crate::auth::{csrf, password};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
 use crate::handlers::warning_handlers::ws::ConnectionMap;
 use crate::templates_structs::{PageContext, UserFormTemplate};
+use super::helpers;
 
 pub async fn new_form(
     pool: web::Data<PgPool>,
@@ -36,11 +37,7 @@ pub async fn create(
     require_permission(&session, "users.create")?;
     csrf::validate_csrf(&session, &form.csrf_token)?;
 
-    let mut errors: Vec<String> = vec![];
-    errors.extend(validate::validate_username(&form.username));
-    errors.extend(validate::validate_password(&form.password));
-    errors.extend(validate::validate_email(&form.email));
-    errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
+    let errors = helpers::validate_user_form(&form, true);
 
     if !errors.is_empty() {
         let ctx = PageContext::build(&session, &pool, "/users").await?;

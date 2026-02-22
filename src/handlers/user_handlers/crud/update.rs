@@ -3,10 +3,11 @@ use actix_web::{web, HttpResponse};
 use sqlx::PgPool;
 
 use crate::models::user::{self, UserForm};
-use crate::auth::{csrf, password, validate};
+use crate::auth::{csrf, password};
 use crate::auth::session::require_permission;
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, UserFormTemplate};
+use super::helpers;
 
 pub async fn update(
     pool: web::Data<PgPool>,
@@ -19,15 +20,8 @@ pub async fn update(
 
     let id = path.into_inner();
 
-    // Validate
-    let mut errors: Vec<String> = vec![];
-    errors.extend(validate::validate_username(&form.username));
-    errors.extend(validate::validate_email(&form.email));
-    errors.extend(validate::validate_optional(&form.display_name, "Display name", 100));
-    // Password is optional on update — only validate if provided
-    if !form.password.is_empty() {
-        errors.extend(validate::validate_password(&form.password));
-    }
+    // Validate (password is optional on update)
+    let errors = helpers::validate_user_form(&form, false);
 
     if !errors.is_empty() {
         let existing = user::find_display_by_id(&pool, id).await.ok().flatten();
