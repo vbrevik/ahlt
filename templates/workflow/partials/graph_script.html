@@ -106,14 +106,18 @@ function toggleEditTransition(id) {
     }
 
     /* ---- Toolbar ---- */
-    document.getElementById('wfb-btn-fit').addEventListener('click', function() { fitAll(true); });
-    document.getElementById('wfb-btn-reset').addEventListener('click', function() {
+    function addButtonListener(id, handler) {
+        var btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', handler);
+    }
+    addButtonListener('wfb-btn-fit', function() { fitAll(true); });
+    addButtonListener('wfb-btn-reset', function() {
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
     });
-    document.getElementById('wfb-btn-zoom-in').addEventListener('click', function() {
+    addButtonListener('wfb-btn-zoom-in', function() {
         svg.transition().duration(300).call(zoom.scaleBy, 1.5);
     });
-    document.getElementById('wfb-btn-zoom-out').addEventListener('click', function() {
+    addButtonListener('wfb-btn-zoom-out', function() {
         svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
     });
 
