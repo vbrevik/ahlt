@@ -2,6 +2,7 @@
 (function() {
     var csrfToken = '{{ ctx.csrf_token }}';
     var FETCH_TIMEOUT_MS = 60000;
+    var CHUNK_SIZE = 100;
 
     // Helper function for fetch with timeout using AbortController
     function fetchWithTimeout(url, options, ms) {
@@ -22,9 +23,8 @@
             clearTimeout(timeoutId);
         });
     }
-    var CHUNK_SIZE = 100;
     var pendingErrors = [];
-    var cumulativeCounts = { created: 0, updated: 0, skipped: 0 };
+    var cumulativeCounts = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
     function chunkArray(arr, size) {
         var chunks = [];
@@ -219,7 +219,8 @@
         document.getElementById('count-created').textContent = cumulativeCounts.created;
         document.getElementById('count-updated').textContent = cumulativeCounts.updated;
         document.getElementById('count-skipped').textContent = cumulativeCounts.skipped;
-        document.getElementById('count-errors').textContent = result.errors.length;
+        cumulativeCounts.errors += result.errors.length;
+        document.getElementById('count-errors').textContent = cumulativeCounts.errors;
         resultSection.hidden = false;
 
         if (result.errors.length > 0) {
@@ -534,6 +535,7 @@
         document.getElementById('count-created').textContent = cumulativeCounts.created;
         document.getElementById('count-updated').textContent = cumulativeCounts.updated;
         document.getElementById('count-skipped').textContent = cumulativeCounts.skipped;
+        document.getElementById('count-errors').textContent = cumulativeCounts.errors;
     }
 
     function describeItem(item) {
