@@ -230,7 +230,8 @@ pub async fn bulk_schedule(
     if !errors.is_empty() {
         let queued_proposals = proposal::find_queued_proposals(&pool, tor_id).await?;
         let tor_name = tor::get_tor_name(&pool, tor_id).await?;
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
 
         let tmpl = QueueTemplate {
             ctx,

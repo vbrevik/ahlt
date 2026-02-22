@@ -93,7 +93,9 @@ pub async fn submit(
         let _agenda_point = agenda_point::find_by_id(&pool, agenda_point_id).await?
             .ok_or(AppError::NotFound)?;
         let coas = coa::find_all_for_agenda_point(&pool, agenda_point_id).await?;
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
 
         let existing_opinion = opinion::find_opinion_by_user_and_agenda_point(&pool, user_id, agenda_point_id).await?;
         let opinion_detail = if let Some(opinion_id) = existing_opinion {
@@ -287,7 +289,9 @@ pub async fn record_decision(
             });
         }
 
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
 
         let tmpl = DecisionFormTemplate {
             ctx,

@@ -98,7 +98,9 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,
@@ -296,7 +298,9 @@ pub async fn update(
 
     if !errors.is_empty() {
         let existing = agenda_point::find_by_id(&pool, agenda_point_id).await.ok().flatten();
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
         let tmpl = AgendaPointFormTemplate {
             ctx,
             tor_id,

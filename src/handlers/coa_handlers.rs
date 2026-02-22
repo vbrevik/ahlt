@@ -87,7 +87,9 @@ pub async fn create(
     }
 
     if !errors.is_empty() {
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,
@@ -196,7 +198,9 @@ pub async fn update(
 
     if !errors.is_empty() {
         let coa_detail = coa::find_by_id(&pool, coa_id).await.ok();
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let tor_name = tor::get_tor_name(&pool, tor_id).await.unwrap_or_default();
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
         let tmpl = CoaFormTemplate {
             ctx,
             tor_id,

@@ -55,7 +55,8 @@ pub async fn create(
     let description = form.description.trim();
     if description.is_empty() {
         let tor_name = tor::get_tor_name(&pool, tor_id).await?;
-        let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+        let ctx = PageContext::build(&session, &pool, "/workflow").await?
+            .with_tor(tor_id, &tor_name, "workflow");
         let tmpl = SuggestionFormTemplate {
             ctx,
             tor_id,

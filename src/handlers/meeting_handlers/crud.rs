@@ -69,9 +69,7 @@ pub async fn detail(
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "meetings.view")?;
     let (tor_id, mid) = path.into_inner();
-    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
-    let ctx = PageContext::build(&session, &pool, "/meetings").await?
-        .with_tor(tor_id, &tor_name, "meetings");
+    let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
 
     let meeting = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
@@ -80,6 +78,12 @@ pub async fn detail(
     if meeting.tor_id != tor_id {
         return Err(AppError::NotFound);
     }
+
+    tor::require_tor_membership(&pool, user_id, tor_id).await?;
+
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/meetings").await?
+        .with_tor(tor_id, &tor_name, "meetings");
 
     let agenda_points = meeting::find_agenda_points(&pool, mid).await?;
     let unassigned_points = meeting::find_unassigned_agenda_points(&pool, tor_id).await?;
@@ -94,7 +98,6 @@ pub async fn detail(
         &HashMap::new(),
     ).await?;
     let existing_minutes = minutes::find_by_meeting(&pool, mid).await?;
-    let user_id = get_user_id(&session).unwrap_or(0);
     let tor_capabilities = abac::load_tor_capabilities(&pool, user_id, tor_id)
         .await
         .unwrap_or_default();
