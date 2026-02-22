@@ -1,0 +1,15 @@
+
+/* === App Layout === */
+.app-body {
+    display: flex;
+    min-height: calc(100vh - 62px);
+}
+
+.app-body .container {
+    flex: 1;
+    min-width: 0;
+    max-width: 1080px;
+    padding: 2.5rem 2rem;
+    animation: fadeUp var(--duration-slow) var(--ease-out);
+}
+

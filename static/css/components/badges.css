@@ -1,0 +1,45 @@
+
+/* === Badges === */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.625rem;
+    border-radius: var(--radius-full);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.badge-admin,
+.badge-administrator {
+    background: var(--primary);
+    color: #fff;
+}
+
+.badge-user {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.badge-editor {
+    background: #065f46;
+    color: #fff;
+}
+
+.badge-viewer {
+    background: #1e40af;
+    color: #fff;
+}
+
+.badge-manager {
+    background: #7c2d12;
+    color: #fff;
+}
+
+.badge-analyst {
+    background: #6b21a8;
+    color: #fff;
+}
+

@@ -36,15 +36,57 @@ When writing to **CLAUDE.md**: place the learning in the most relevant existing 
 
 State which tier was applied for each learning.
 
-## Step 3: Update Backlog
+## Step 3: Measure Effectiveness & Efficiency
+
+Run the measurement skills to score the completed task:
+
+1. **Invoke `/measure-effectiveness`** — traces prompt contract requirements against delivered code and produces a scorecard. If no prompt contract exists, construct requirements from the original user request.
+2. **Invoke `/measure-efficiency`** — computes resource cost per delivered requirement, path efficiency, and combined score weighted by effectiveness. Requires effectiveness to have been measured first.
+
+These persist results to both `claude-mem` (project: `im-ctrl-metrics`) and `docs/metrics/` markdown logs.
+
+Summarize both scores in the output (see Output Format below).
+
+## Step 4: Scan for Long Files & Technical Debt
+
+### Long File Scan
+
+Scan for files that have grown too large and should be split:
+
+- **CSS**: Any `.css` file over 2,000 lines → backlog item to split into feature modules
+- **Rust source**: Any `.rs` file over 500 lines → backlog item to split into submodules
+- **Templates**: Any `.html` template over 300 lines → backlog item to extract partials
+- **JavaScript**: Any inline `<script>` block or `.js` file over 200 lines → backlog item to extract
+
+Use `wc -l` on relevant file types to check. Report files exceeding thresholds.
+
+### Technical Debt Scan
+
+Scan for other indicators of accumulated technical debt:
+
+- **Dead code**: Check `cargo build` warnings for `dead_code`, `unused_imports`, `unused_variables`
+- **TODO/FIXME/HACK comments**: `grep -rn 'TODO\|FIXME\|HACK' src/ templates/` — count and list locations
+- **Duplicate code patterns**: Note any patterns you observed during the task where similar logic exists in multiple places
+- **Missing tests**: Handler files with no corresponding test file in `tests/`
+- **Stale documentation**: Plan docs in `docs/plans/` that reference completed work but haven't been updated
+
+For each issue found, create a concise backlog entry with:
+- What the issue is
+- Where it is (file:line or file pattern)
+- Suggested fix approach (1 sentence)
+
+**Priority**: Long files and dead code go at the TOP of the "Remaining Backlog" as the next items to address.
+
+## Step 5: Update Backlog
 
 - Read `docs/BACKLOG.md`.
 - Move the completed task from "Remaining Backlog" to "Completed Work" (or update its status).
 - If the task revealed new work items, add them to the appropriate section.
+- **Add any long-file or tech-debt items found in Step 4 as the next items in the backlog.**
 - If the implementation order diagram needs updating, update it.
 - Summarize what changed in the backlog.
 
-## Step 4: Commit & Push
+## Step 6: Commit & Push
 
 - Run `git status` and `git diff --stat` to see what changed.
 - Stage relevant files (be specific, avoid `git add .`).
@@ -52,19 +94,20 @@ State which tier was applied for each learning.
 - Commit and push to the current branch.
 - Show the commit hash and push result.
 
-## Step 5: Suggest Next Task
+## Step 7: Suggest Next Task
 
 - Re-read the "Implementation Order" and "Remaining Backlog" sections of `docs/BACKLOG.md`.
+- If tech debt items were added in Step 4, consider whether they should be the immediate next task (especially long files blocking further feature work).
 - Recommend the single highest-priority next task with a 1-2 sentence rationale.
 - Ask the user if they want to proceed with it.
 
-## Step 6: Clear Context Window
+## Step 8: Clear Context Window
 
 - Inform the user that you're clearing the context window to start fresh.
 - Use the `/clear` command to clear the conversation context.
 - This ensures a clean slate for the next task without accumulated context weight.
 
-## Step 7: Run Catch-Up
+## Step 9: Run Catch-Up
 
 - Invoke the `catch-up` skill to initialize fresh context for the next session.
 - This loads current project state, recent changes, and prepares for the next task.
@@ -83,8 +126,21 @@ Use this structure so the user can scan quickly:
 - bullet 2 → [CLAUDE.md | memory | backlog | skip]
 - ...
 
+### Effectiveness: [score%]
+[n] requirements — Met: [n] | Partial: [n] | Missed: [n]
+
+### Efficiency: [score%]
+Work tokens: [n] | Path efficiency: [0.XX] | Top overhead: [category]
+
+### Technical Health
+**Long files:** [n found / none]
+- [file:lines — action needed]
+
+**Tech debt:** [n items / clean]
+- [item — location — action]
+
 ### Backlog Updated
-[what moved/changed]
+[what moved/changed, including any tech debt items added]
 
 ### Committed
 [commit hash] [message]

@@ -1,0 +1,30 @@
+
+/* === Graph Panel (shared between governance map and workflow builder) === */
+.graph-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.graph-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-subtle);
+}
+
+.graph-panel-header h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.graph-panel-stat {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+

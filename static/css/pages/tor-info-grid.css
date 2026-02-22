@@ -1,0 +1,45 @@
+
+/* === ToR Info Grid (detail header) === */
+.tor-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.tor-info-cell {
+    background: var(--surface);
+    padding: 1rem 1.25rem;
+}
+
+.tor-info-cell.full-width {
+    grid-column: 1 / -1;
+}
+
+.tor-info-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.tor-info-value {
+    font-size: 0.9375rem;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.tor-info-mono {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+

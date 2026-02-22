@@ -1,0 +1,72 @@
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .app-body {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 0.75rem 0;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0;
+    }
+
+    .sidebar-nav a {
+        padding: 0.5rem 1rem;
+        white-space: nowrap;
+    }
+
+    .sidebar-nav a.active {
+        border-right: none;
+        border-bottom: 2px solid var(--accent);
+    }
+
+    .app-body .container {
+        padding: 1.5rem 1rem;
+    }
+
+    .navbar {
+        padding: 0 1rem;
+        height: 52px;
+    }
+
+    .navbar-center {
+        gap: 0;
+    }
+
+    .navbar-center a {
+        padding: 0.5rem;
+        font-size: 0.8125rem;
+    }
+
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .table {
+        font-size: 0.8125rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.625rem 0.75rem;
+    }
+
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .login-box {
+        padding: 2rem 1.5rem;
+    }
+}
+

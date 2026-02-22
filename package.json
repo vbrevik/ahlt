@@ -1,0 +1,15 @@
+{
+  "name": "im-ctrl",
+  "version": "1.0.0",
+  "description": "Ontology-based entity management system",
+  "scripts": {
+    "css:build": "postcss static/css/index.css -o static/css/style.css",
+    "css:watch": "postcss static/css/index.css -o static/css/style.css --watch",
+    "css:verify": "node scripts/verify-css.js"
+  },
+  "devDependencies": {
+    "postcss": "^8.4.31",
+    "postcss-cli": "^10.1.0",
+    "postcss-import": "^16.0.0"
+  }
+}

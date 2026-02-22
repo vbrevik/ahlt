@@ -1,0 +1,53 @@
+
+/* === Governance Map Cards === */
+.gov-map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+}
+
+.gov-tor-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    transition: box-shadow var(--duration-slow) var(--ease), transform var(--duration-slow) var(--ease);
+}
+
+.gov-tor-card:hover {
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.gov-tor-link {
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.9375rem;
+    display: block;
+    margin-bottom: 0.25rem;
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+}
+
+.gov-tor-link:hover { color: var(--accent); }
+
+.gov-tor-name {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Governance dep table visual flow */
+.dep-table-flow td {
+    vertical-align: middle;
+}
+
+.dep-table-source {
+    font-weight: 600;
+}
+
+.dep-table-target {
+    font-weight: 600;
+}
+

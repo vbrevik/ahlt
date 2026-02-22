@@ -1,0 +1,32 @@
+
+/* === Inline Form (rejection reason rows) === */
+.inline-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.inline-form .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.inline-form .btn {
+    margin-top: 0.25rem;
+}
+
+/* --- Warning severity dots --- */
+.severity-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+.severity-dot.severity-critical { background: #dc2626; }
+.severity-dot.severity-high { background: #ea580c; }
+.severity-dot.severity-medium { background: #ca8a04; }
+.severity-dot.severity-low { background: #3b82f6; }
+.severity-dot.severity-info { background: #6b7280; }
+

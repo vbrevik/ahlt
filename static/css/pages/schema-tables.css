@@ -1,0 +1,54 @@
+
+/* === Schema Tables === */
+.schema-tables {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.schema-table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+
+.schema-table-card h3 {
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+}
+
+.schema-tbl {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.schema-tbl td {
+    padding: 0.25rem 0;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.schema-tbl td:first-child {
+    width: 40%;
+}
+
+.schema-tbl td:last-child {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.schema-tbl code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+.schema-note {
+    margin-top: 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+

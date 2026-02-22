@@ -1,0 +1,398 @@
+
+/* === Point Paper (Agenda Point Detail) === */
+
+/* Layout */
+.point-paper-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* Description prose block — left accent bar */
+.point-paper-desc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+    line-height: 1.7;
+}
+
+/* Sidebar — unified metadata + actions card */
+.point-paper-sidebar {
+    position: sticky;
+    top: calc(60px + 1.25rem); /* nav height + breathing room */
+    align-self: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.point-paper-meta {
+    padding: 1.25rem;
+}
+
+.point-paper-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    gap: 0.5rem;
+}
+
+.point-paper-meta-row:last-child {
+    border-bottom: none;
+}
+
+.point-paper-meta-label {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.point-paper-meta-value {
+    color: var(--text);
+    text-align: right;
+}
+
+.point-paper-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+}
+
+.point-paper-actions {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.point-paper-actions-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+/* COA comparison grid */
+.coa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.coa-comparison-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    transition: box-shadow var(--duration) var(--ease);
+}
+
+.coa-comparison-card:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.coa-comparison-card-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+/* Preference bar */
+.coa-pref {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.coa-pref-bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.coa-pref-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: var(--radius-full);
+    transition: width var(--duration-slow) var(--ease-out);
+}
+
+.coa-pref-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.coa-pref-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.coa-card-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    flex: 1;
+}
+
+.coa-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.25rem;
+}
+
+.coa-card-link {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    transition: color var(--duration) var(--ease);
+}
+
+.coa-card-link:hover {
+    color: var(--accent-hover);
+}
+
+/* Opinions — collapsible groups */
+.opinion-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.opinion-group-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875rem 1.25rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--text);
+    gap: 0.75rem;
+    transition: background var(--duration) var(--ease);
+}
+
+.opinion-group-summary::-webkit-details-marker { display: none; }
+
+.opinion-group-summary:hover {
+    background: var(--bg-subtle);
+}
+
+.opinion-group-summary-left {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.opinion-chevron {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform var(--duration) var(--ease);
+}
+
+details[open] .opinion-chevron {
+    transform: rotate(180deg);
+}
+
+.opinion-group-body {
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0;
+}
+
+.opinion-item {
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+}
+
+.opinion-item:hover {
+    background: var(--bg-subtle);
+}
+
+.opinion-member {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.opinion-commentary {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.opinion-date {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
+
+/* Point paper — responsive collapse */
+@media (max-width: 768px) {
+    .point-paper-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .point-paper-sidebar {
+        position: static;
+    }
+}
+
+/* Point paper — missing utility classes */
+.point-paper-body {
+    min-width: 0; /* prevent grid blowout */
+}
+
+.opinion-commentary--empty {
+    opacity: 0.4;
+}
+
+.point-paper-actions .empty-hint {
+    font-size: 0.8125rem;
+    margin: 0;
+}
+
+/* ── ToR Context Bar ── */
+.tor-context-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 1.5rem;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+}
+
+.tor-context-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.tor-context-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.tor-tab {
+    display: inline-block;
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration) var(--ease), background var(--duration) var(--ease);
+}
+
+.tor-tab:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+}
+
+.tor-tab.active {
+    color: var(--accent);
+    border-radius: 0;
+    border-bottom: 2px solid var(--accent);
+    background: transparent;
+}
+
+/* Theme Toggle Switch */
+.theme-toggle-container {
+    display: flex;
+    align-items: center;
+    margin-left: 1rem;
+}
+
+.theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--border-color, #e5e7eb);
+    background-color: var(--bg-default, #ffffff);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    font-size: 1.25rem;
+}
+
+.theme-toggle-btn:hover {
+    background-color: var(--bg-subtle, #f3f4f6);
+    border-color: var(--border-hover, #d1d5db);
+}
+
+.theme-toggle-btn:active {
+    background-color: var(--bg-subtle);
+    transform: scale(0.95);
+}
+
+/* Dark mode variant */
+:root.dark .theme-toggle-btn {
+    background-color: var(--bg-default, #1f2937);
+    border-color: var(--border-color, #374151);
+}
+
+:root.dark .theme-toggle-btn:hover {
+    background-color: var(--bg-subtle, #374151);
+    border-color: var(--border-hover, #4b5563);
+}
+
+.theme-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.theme-toggle-btn.transitioning .theme-icon {
+    animation: spin 0.3s ease-in-out;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    50% { transform: rotate(180deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   Users page — editorial directory redesign
+   ============================================================ */

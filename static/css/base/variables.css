@@ -1,0 +1,91 @@
+
+/* === Tokens === */
+:root {
+    --bg: #f5f2ed;
+    --bg-subtle: #edeae4;
+    --surface: #ffffff;
+    --surface-hover: #fafaf8;
+
+    --border: #e7e5e4;
+    --border-strong: #d6d3d1;
+
+    --text: #1c1917;
+    --text-secondary: #57534e;
+    --text-muted: #a8a29e;
+
+    --primary: #1c1917;
+    --primary-hover: #292524;
+    --accent: #b45309;
+    --accent-subtle: rgba(180, 83, 9, 0.08);
+    --accent-hover: #92400e;
+
+    --success: #15803d;
+    --success-bg: #f0fdf4;
+    --success-border: #86efac;
+    --danger: #b91c1c;
+    --danger-bg: #fef2f2;
+    --danger-border: #fca5a5;
+    --danger-hover: #991b1b;
+
+    --nav-bg: #1c1917;
+    --nav-text: #a8a29e;
+    --nav-text-hover: #fafaf9;
+
+    --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.07), 0 1px 2px rgba(28, 25, 23, 0.04);
+    --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.06);
+    --shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.1), 0 4px 8px rgba(28, 25, 23, 0.06);
+
+    --radius-sm: 4px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+
+    --font-display: 'Bricolage Grotesque', Georgia, serif;
+    --font-body: 'DM Sans', -apple-system, system-ui, sans-serif;
+    --font-mono: 'DM Mono', 'SF Mono', 'Menlo', monospace;
+
+    --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --duration: 150ms;
+    --duration-slow: 300ms;
+}
+
+/* === Dark Mode === */
+:root.dark {
+    --bg: #1c1917;
+    --bg-subtle: #292524;
+    --surface: #2d2723;
+    --surface-hover: #3f3935;
+
+    --border: #44403c;
+    --border-strong: #57534e;
+
+    --text: #fafaf9;
+    --text-secondary: #d6d3d1;
+    --text-muted: #78716f;
+
+    --primary: #fafaf9;
+    --primary-hover: #f5f3f0;
+    --accent: #fbbf24;
+    --accent-subtle: rgba(251, 191, 36, 0.12);
+    --accent-hover: #f59e0b;
+
+    --success: #4ade80;
+    --success-bg: #164e63;
+    --success-border: #16a34a;
+    --danger: #f87171;
+    --danger-bg: #7f1d1d;
+    --danger-border: #dc2626;
+    --danger-hover: #fca5a5;
+
+    --nav-bg: #0f0d0b;
+    --nav-text: #78716f;
+    --nav-text-hover: #fafaf9;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
+}

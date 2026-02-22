@@ -1,0 +1,28 @@
+
+/* === Status Badges === */
+.badge-success {
+    background: var(--success);
+    color: #fff;
+}
+
+.badge-muted {
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.badge-info {
+    background: #2563eb;
+    color: #fff;
+}
+
+.badge-warning {
+    background: #d97706;
+    color: #fff;
+}
+
+.badge-danger {
+    background: var(--danger);
+    color: #fff;
+}
+

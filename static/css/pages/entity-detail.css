@@ -1,0 +1,137 @@
+
+/* === Entity Detail === */
+.detail-back {
+    margin-bottom: 1.25rem;
+}
+
+.entity-detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.entity-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.entity-detail-type {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.entity-detail-label {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.entity-detail-name {
+    margin-bottom: 1rem;
+}
+
+.entity-detail-name code {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.entity-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.meta-key {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.meta-val {
+    font-size: 0.8125rem;
+    color: var(--text);
+}
+
+.entity-section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.entity-section-card h3 {
+    font-size: 0.9375rem;
+    margin-bottom: 0.5rem;
+}
+
+.entity-section-card .section-desc {
+    margin-bottom: 0.75rem;
+}
+
+.relation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration) var(--ease);
+}
+
+.rel-row:hover {
+    background: var(--bg-subtle);
+}
+
+.rel-type-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.06);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+.rel-target-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--duration) var(--ease);
+}
+
+.rel-target-link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.rel-self-label {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
