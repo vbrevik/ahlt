@@ -1,11 +1,11 @@
 use askama::Template;
-use sqlx::FromRow;
 
 use crate::models::tor::{TorListItem, TorDetail, TorMember, TorFunctionListItem, TorDependency, GovernanceMapEntry};
 use crate::models::meeting::MeetingListItem;
 use crate::models::protocol::ProtocolStep;
 use crate::models::presentation_template::{PresentationTemplate, TemplateSlide};
 use super::PageContext;
+use super::common::UserOption;
 
 #[derive(Template)]
 #[template(path = "tor/list.html")]
@@ -22,14 +22,6 @@ pub struct TorFormTemplate {
     pub form_title: String,
     pub tor: Option<TorDetail>,
     pub errors: Vec<String>,
-}
-
-/// UserOption for the "add member" dropdown.
-#[derive(FromRow)]
-pub struct UserOption {
-    pub id: i64,
-    pub name: String,
-    pub label: String,
 }
 
 #[derive(Template)]

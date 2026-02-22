@@ -3,7 +3,6 @@ use askama::Template;
 use crate::models::opinion::OpinionDetail;
 use crate::models::coa::CoaListItem;
 use super::PageContext;
-use super::tor::UserOption;
 
 #[derive(Template)]
 #[template(path = "opinion/form.html")]

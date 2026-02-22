@@ -2,7 +2,7 @@ use askama::Template;
 
 use crate::warnings::queries::{WarningPage, WarningDetail, WarningRecipient, WarningTimelineEvent};
 use super::PageContext;
-use super::tor::UserOption;
+use super::common::UserOption;
 
 #[derive(Template)]
 #[template(path = "warnings/list.html")]
