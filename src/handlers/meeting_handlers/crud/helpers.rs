@@ -33,27 +33,6 @@ pub async fn validate_meeting_tor_ownership(
     Ok(())
 }
 
-/// Validates that a date is in the future (useful for meeting scheduling).
-///
-/// # Arguments
-/// * `date_str` - Date string in format "YYYY-MM-DD"
-///
-/// # Errors
-/// - `AppError::PermissionDenied` if date is in the past or today
-pub fn validate_future_date(date_str: &str) -> Result<(), AppError> {
-    let parsed_date = chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
-        .map_err(|_| AppError::PermissionDenied("Invalid date format, expected YYYY-MM-DD".to_string()))?;
-
-    let today = chrono::Local::now().naive_local().date();
-    if parsed_date <= today {
-        return Err(AppError::PermissionDenied(
-            "Cannot confirm meetings in the past".to_string(),
-        ));
-    }
-
-    Ok(())
-}
-
 /// Parses and validates a date string.
 ///
 /// # Errors

@@ -38,12 +38,9 @@ pub async fn transition(
     let (tor_id, mid) = path.into_inner();
     abac::require_tor_capability(&pool, &session, tor_id, "can_call_meetings").await?;
 
+    validate_meeting_tor_ownership(&pool, mid, tor_id).await?;
     let meeting_detail = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
-
-    if meeting_detail.tor_id != tor_id {
-        return Err(AppError::NotFound);
-    }
 
     let permissions = get_permissions(&session)
         .map_err(|e| AppError::Session(format!("Failed to get permissions: {}", e)))?;
@@ -196,12 +193,9 @@ pub async fn generate_minutes(
     let (tor_id, mid) = path.into_inner();
     abac::require_tor_capability(&pool, &session, tor_id, "can_record_decisions").await?;
 
+    validate_meeting_tor_ownership(&pool, mid, tor_id).await?;
     let meeting_detail = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;
-
-    if meeting_detail.tor_id != tor_id {
-        return Err(AppError::NotFound);
-    }
 
     // Only completed meetings can have minutes generated.
     if meeting_detail.status != "completed" {
@@ -262,11 +256,7 @@ pub async fn save_roll_call(
     let (tor_id, meeting_id) = path.into_inner();
     abac::require_tor_capability(&pool, &session, tor_id, "can_record_decisions").await?;
 
-    let meeting = meeting::find_by_id(&pool, meeting_id).await?
-        .ok_or(AppError::NotFound)?;
-    if meeting.tor_id != tor_id {
-        return Err(AppError::NotFound);
-    }
+    validate_meeting_tor_ownership(&pool, meeting_id, tor_id).await?;
 
     meeting::update_roll_call(&pool, meeting_id, &form.roll_call_data).await?;
 
