@@ -145,10 +145,22 @@
         if (theme === currentTheme) {
             btn.classList.add('active');
         }
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             window.toggleTheme(theme);
+            try {
+                const response = await fetch('/api/v1/user/theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ theme })
+                });
+                if (!response.ok) {
+                    console.error('Failed to save theme preference to database');
+                }
+            } catch (err) {
+                console.error('Error saving theme preference:', err);
+            }
         });
     });
     

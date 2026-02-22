@@ -512,6 +512,246 @@ Implementation notes:
 
 ---
 
+## Audit-Identified Work (2026-02-22)
+
+Identified via systematic codebase + documentation audit. Ordered by effect. Each item has an embedded prompt contract.
+
+| ID | Item | Type | Priority | Effort |
+|----|------|------|----------|--------|
+| CA4.1 | **Account preferences theme → DB disconnect** | Bug | High | XS |
+| CA4.2 | **REST API integration tests** | Quality | High | S |
+| CA4.3 | **Calendar fetch timeout** | Hardening | Medium | S |
+| CA4.4 | **REST API coverage expansion** | Architecture | Medium | M |
+| CA4.5 | **Day view overlapping events** | Known gap | Medium | S |
+| F.3 | **More entity types** | Feature | Medium | L |
+| CA4.6 | **API CSRF protection** | Security | Medium | S |
+| CA4.7 | **Dead code warnings in test helpers** | Cleanup | Low | XS |
+| CA4.8 | **E2E suite CI integration** | Testing | Low | M |
+| CA4.9 | **Metrics baseline depth** | Process | Low | Ongoing |
+
+---
+
+### CA4.1 — Account Preferences Theme → DB Disconnect
+
+**GOAL:** When theme buttons on the account Preferences tab are clicked, the preference is saved to the database via `POST /api/v1/user/theme` — identical to how the header toggle persists it. After the fix, changing theme via account page syncs across devices and browsers (the intended P8 cross-device behavior). Verify: change theme on account page, open incognito tab, log in — theme matches.
+
+**CONSTRAINTS:**
+- Modify `templates/account.html` JS only. No Rust changes needed.
+- Fetch pattern must mirror `templates/base.html` lines ~88–110 exactly (same endpoint, same JSON body, same error handling).
+- `window.toggleTheme(theme)` still called for immediate visual effect.
+- `localStorage` still updated (existing fallback chain must continue to work).
+- No new helper functions, no new files.
+
+**FORMAT:** One additional `fetch()` call inside the `.theme-btn` click handler in `account.html`, after the `window.toggleTheme(theme)` call. ~10 lines.
+
+**FAILURE CONDITIONS:**
+- Theme changed on account page is not saved to `entity_properties` in DB.
+- Network error on the fetch causes the page to throw or break.
+- The existing localStorage-based `toggleTheme` flow is broken.
+- No `console.error` on fetch failure (silent failure).
+
+---
+
+### CA4.2 — REST API Integration Tests
+
+**GOAL:** `tests/api_v1_test.rs` exists and covers the full CRUD surface of `/api/v1/users` and `/api/v1/entities`. Running `cargo test --test api_v1_test` shows ≥12 tests passing. Zero regressions in existing suite.
+
+**CONSTRAINTS:**
+- Use `setup_test_db()` from `tests/common/mod.rs` for isolation. No shared state.
+- Test both success paths (200/201/204) and error paths (400 invalid input, 404 not found).
+- All tests must be self-contained — no dependency on seeded staging data.
+- Follow existing test patterns: `sqlx::PgPool`, `ahlt::` imports, no `#[ignore]` except Neo4j/E2E.
+- No new Rust dependencies.
+
+**FORMAT:**
+- Create: `tests/api_v1_test.rs`
+- Tests to cover: user list (pagination), user get, user create (valid + invalid), user update, user delete, entity list (type filter), entity get, entity create (with properties), entity update, entity delete, auth guard (unauthenticated → 4xx).
+
+**FAILURE CONDITIONS:**
+- Any test uses `.unwrap()` on a DB operation that can legitimately fail.
+- Tests depend on staging seed data (non-isolated).
+- Auth guard test is missing (leaves security gap untested).
+- `cargo test` total count decreases (test deleted accidentally).
+
+---
+
+### CA4.3 — Calendar Fetch Timeout
+
+**GOAL:** Both `fetch()` calls in `templates/tor/outlook.html` — the calendar data fetch (`fetchAndRender`) and the meeting confirmation fetch — are wrapped with `AbortController`-based timeout (30 seconds). On timeout, the UI shows "Request timed out" and hides the loading spinner. Users can retry.
+
+**CONSTRAINTS:**
+- JS only — no Rust changes.
+- Use the same `fetchWithTimeout(url, opts, ms)` + `FETCH_TIMEOUT_MS` constant pattern from the Data Manager (`DM.2`).
+- Check `e.name === 'AbortError'` in catch block.
+- No `innerHTML` — error message must use `textContent`.
+- Do not break the existing confirm badge restore-on-error logic.
+
+**FORMAT:** Add `FETCH_TIMEOUT_MS` constant + `fetchWithTimeout` helper at top of `<script>` in `outlook.html`. Replace the two bare `fetch(...)` calls with `fetchWithTimeout(...)`. ~25 lines added.
+
+**FAILURE CONDITIONS:**
+- Bare `fetch()` call remains unwrapped anywhere in the template.
+- Error message displayed uses `innerHTML`.
+- Spinner remains visible after timeout.
+- Existing confirmation badge retry logic is broken.
+- `cargo check` fails (Askama compile error from template change).
+
+---
+
+### CA4.4 — REST API Coverage Expansion
+
+**GOAL:** Add read-only endpoints for the three highest-value domain objects: `GET /api/v1/tors` (list + `?status=` filter), `GET /api/v1/tors/{id}` (detail with member count), `GET /api/v1/proposals` (list + `?status=` filter + `?tor_id=` filter), `GET /api/v1/warnings` (list + `?severity=` filter, scoped to calling user). All return JSON matching the `PaginatedResponse<T>` wrapper already used by users/entities.
+
+**CONSTRAINTS:**
+- Read-only (GET) only — no create/update/delete for now.
+- Reuse existing model queries (`tor::find_all`, `proposal::find_all_cross_tor`, warning queries). No new SQL.
+- Permission gating: `tor.list`, `proposal.view`, `warnings.view` respectively.
+- Follow existing api_v1 handler pattern: session auth, `PaginatedResponse<T>`, `ApiErrorResponse`.
+- No new dependencies.
+
+**FORMAT:**
+- Create: `src/handlers/api_v1/tors.rs`, `src/handlers/api_v1/proposals.rs`, `src/handlers/api_v1/warnings.rs`
+- Modify: `src/handlers/api_v1/mod.rs` (register routes)
+- Response types defined inline in each handler file (no shared types file yet).
+
+**FAILURE CONDITIONS:**
+- Any endpoint returns data without permission check.
+- Response shape differs from the `PaginatedResponse<T>` envelope (inconsistent API).
+- Handler uses `.unwrap()` on DB result (should use `?`).
+- Routes not registered in `main.rs` (compile passes, endpoint 404s).
+- No tests added for new endpoints.
+
+---
+
+### CA4.5 — Day View Overlapping Events
+
+**GOAL:** In the day view of the Meeting Outlook calendar (`/tor/outlook`), two concurrent events (e.g. a 120-min Sprint Planning and a 15-min Daily Standup at the same time) render side-by-side instead of overlapping. Each overlapping event occupies 50% width (or 33% for 3+). Non-overlapping events remain full width.
+
+**CONSTRAINTS:**
+- JS + CSS only — no Rust changes, no new endpoints.
+- Change is isolated to the day-view rendering logic in `templates/tor/outlook.html`.
+- Must not affect week or month view rendering.
+- No `innerHTML` — use `el()` pattern for any new DOM construction.
+- Existing event pill styling (color, label, click-through) must be preserved.
+
+**FORMAT:**
+- Modify: `templates/tor/outlook.html` — day view event placement loop
+- Optionally add: `.calendar-day-col` CSS class in `static/css/style.css` for column layout
+- Algorithm: track `[{start, end, element}]` per time slot; compute column index per event; set `left` + `width` as percentages via `style`.
+
+**FAILURE CONDITIONS:**
+- Week or month view events are affected.
+- Events with no overlap lose their full-width layout.
+- `cargo check` fails (template syntax error).
+- 3+ overlapping events produce negative width or overflow.
+
+---
+
+### F.3 — More Entity Types (Project / Task / Document)
+
+**GOAL:** The platform gains three new entity types: `project` (top-level work container), `task` (assigned work item), and `document` (file reference or external URL). Each has: list page, create/edit/delete handlers, detail page, and seeded relation types (`produces`, `assigned_to`, `referenced_by`). A project can be linked to a ToR via a `tracked_by` relation. No schema migrations.
+
+**CONSTRAINTS:**
+- Follow existing EAV model: entity_type + entity_properties, no new tables.
+- Follow existing handler/model/template patterns (UserDisplay, PageContext, render()).
+- One module per entity type under `src/models/` and `src/handlers/`.
+- Seed new relation types + nav items in `data/seed/ontology.json`.
+- Permission codes: `project.view`, `project.create`, `project.edit`, `project.delete` (seeded to admin role).
+- No new dependencies.
+
+**FORMAT:**
+- Create: `src/models/project/mod.rs`, `src/models/task/mod.rs`, `src/models/document/mod.rs`
+- Create: `src/handlers/project_handlers/` etc.
+- Create: `templates/project/`, `templates/task/`, `templates/document/` (list + form + detail)
+- Modify: `src/lib.rs`, `src/handlers/mod.rs`, `src/main.rs` (routes), `data/seed/ontology.json`
+
+**FAILURE CONDITIONS:**
+- Any new file exceeds 300 lines.
+- Permission checks missing on any mutation handler.
+- CSRF validation missing on any POST handler.
+- Audit logging missing on create/update/delete.
+- Seed changes not tested (drop DB + restart fails).
+- `cargo test` count decreases.
+
+---
+
+### CA4.6 — API CSRF Protection
+
+**GOAL:** The `/api/v1/*` endpoints are protected against CSRF. Chosen approach: require `Content-Type: application/json` header (browsers cannot send cross-origin JSON with cookies via simple form POST) OR add a same-origin check middleware. Mutation endpoints (POST/PUT/DELETE) only. Verify: a simulated cross-origin form POST to `/api/v1/users` is rejected with 400.
+
+**CONSTRAINTS:**
+- Prefer zero-dependency solution: middleware that checks `Content-Type` on mutations, or validates `Origin`/`Referer` header.
+- Do not add a CSRF token to JSON API (breaks REST clients).
+- Must not break existing session-based browser clients (they already send `Content-Type: application/json`).
+- GET endpoints are exempt.
+- Must not affect form-based handlers (which use their own CSRF tokens).
+
+**FORMAT:**
+- Add Actix-web middleware in `src/handlers/api_v1/mod.rs` or a new `src/auth/api_guard.rs`.
+- Document the protection approach in a comment at the top of the middleware.
+
+**FAILURE CONDITIONS:**
+- GET endpoints start requiring CSRF (breaks read clients).
+- Form-based handlers are affected.
+- Legitimate browser `fetch()` calls with `Content-Type: application/json` are rejected.
+- No test covers the rejection case.
+
+---
+
+### CA4.7 — Dead Code Warnings in Test Helpers
+
+**GOAL:** `tests/common/mod.rs` functions `insert_entity`, `insert_prop`, `insert_relation` no longer generate dead_code warnings. Either confirm they are genuinely unused and remove them, or add `#[allow(dead_code)]` if they're needed by other test files. `cargo test 2>&1 | grep "dead_code"` shows zero matches for these functions.
+
+**CONSTRAINTS:**
+- Run `grep -rn "insert_entity\|insert_prop\|insert_relation" tests/` before removing — confirm zero usages.
+- If unused: remove the functions entirely.
+- If used (rust-analyzer false positive): add `#[allow(dead_code)]` to the function group only, not the whole module.
+- No other changes.
+
+**FORMAT:** Single edit to `tests/common/mod.rs`. No new files.
+
+**FAILURE CONDITIONS:**
+- A test file that was importing these functions breaks (compile error).
+- Warning suppression applied to entire `mod.rs` (over-broad).
+
+---
+
+### CA4.8 — E2E Suite CI Integration
+
+**GOAL:** The 46-test Playwright suite (`scripts/users-table.test.mjs`) and the 4 calendar E2E tests can be run in a documented, repeatable way as part of the staging environment. A `scripts/README.md` documents the exact setup steps. The `#[ignore]` E2E Rust tests have clear comments explaining exactly why they're ignored and what must be true to un-ignore them.
+
+**CONSTRAINTS:**
+- Do not un-ignore Rust E2E tests unless they genuinely pass headlessly.
+- `scripts/README.md` must cover: Node.js version, Playwright install, server startup command, run command.
+- No new CI pipeline changes (GitLab config is separate).
+- Document cookie isolation requirement for E2E tests.
+
+**FORMAT:**
+- Create: `scripts/README.md`
+- Modify: `tests/calendar_confirmation_e2e.rs` — improve `#[ignore]` comments to explain pre-conditions precisely.
+
+**FAILURE CONDITIONS:**
+- README has incorrect commands (tested: copy-paste fails).
+- Ignore reason comments are vague ("needs live server" is not enough — state exact pre-conditions).
+
+---
+
+### CA4.9 — Metrics Baseline Depth
+
+**GOAL:** After the next 4 completed tasks, `docs/metrics/effectiveness-log.md` and `docs/metrics/efficiency-log.md` each have ≥5 rows. The efficiency log has enough data to compute the rolling median baseline for `Resource_efficiency`. Trend analysis (are we getting more efficient?) is possible.
+
+**CONSTRAINTS:**
+- Run `/measure-effectiveness` + `/measure-efficiency` after every task that has a prompt contract.
+- Do not retroactively fabricate measurements for past tasks.
+- Each measurement must have a real prompt contract to score against.
+
+**FORMAT:** Append rows to existing logs after each qualifying task. This item closes automatically once ≥5 rows exist in both logs.
+
+**FAILURE CONDITIONS:**
+- Tasks completed without measurement (breaks the data series).
+- Effectiveness measured without a real prompt contract (score is meaningless).
+
+---
+
 ## Implementation Order
 
 ```
@@ -574,9 +814,18 @@ CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup
 P7   ToR Context Bar (persistent section nav on all ToR-scoped pages, +meetings route) ✓ done
 P8   Dark Mode Header Toggle (persistent DB storage, syncs across devices)             ✓ done
 
-CANDIDATES (pick next)
-══════════════════════
-F.3  More entity types (project, task, document)
+CANDIDATES (pick next — ordered by effect)
+══════════════════════════════════════════
+CA4.1  Account preferences theme → DB disconnect  (bug, XS)
+CA4.2  REST API integration tests                 (quality, S)
+CA4.3  Calendar fetch timeout                     (hardening, S)
+CA4.4  REST API coverage expansion               (architecture, M)
+CA4.5  Day view overlapping events                (known gap, S)
+F.3    More entity types (project, task, document)(feature, L)
+CA4.6  API CSRF protection                        (security, S)
+CA4.7  Dead code warnings in test helpers         (cleanup, XS)
+CA4.8  E2E suite CI integration                   (testing, M)
+CA4.9  Metrics baseline depth                     (process, ongoing)
 ```
 
 ---
