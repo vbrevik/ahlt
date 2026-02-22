@@ -29,7 +29,9 @@ pub async fn detail(
 
     match proposal::find_by_id(&pool, proposal_id).await? {
         Some(p) => {
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
             let tmpl = ProposalDetailTemplate {
                 ctx,
                 tor_id,
@@ -55,7 +57,8 @@ pub async fn new_form(
     tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
     let tor_name = tor::get_tor_name(&pool, tor_id).await?;
-    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?
+        .with_tor(tor_id, &tor_name, "workflow");
 
     let tmpl = ProposalFormTemplate {
         ctx,
@@ -160,7 +163,8 @@ pub async fn edit_form(
             }
 
             let tor_name = tor::get_tor_name(&pool, tor_id).await?;
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
             let tmpl = ProposalFormTemplate {
                 ctx,
                 tor_id,

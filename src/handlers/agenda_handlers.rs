@@ -38,7 +38,9 @@ pub async fn new_form(
     let user_id = get_user_id(&session).ok_or(AppError::Session("User not logged in".to_string()))?;
     tor::require_tor_membership(&pool, user_id, tor_id).await?;
 
-    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?
+        .with_tor(tor_id, &tor_name, "workflow");
 
     let tmpl = AgendaPointFormTemplate {
         ctx,
@@ -142,7 +144,9 @@ pub async fn detail(
 
     match agenda_point::find_by_id(&pool, agenda_point_id).await? {
         Some(ap) => {
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
 
             // Fetch related COAs
             let mut coas = vec![];
@@ -229,7 +233,9 @@ pub async fn edit_form(
 
     match agenda_point::find_by_id(&pool, agenda_point_id).await? {
         Some(ap) => {
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
             let tmpl = AgendaPointFormTemplate {
                 ctx,
                 tor_id,

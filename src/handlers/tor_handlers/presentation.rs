@@ -33,10 +33,13 @@ pub async fn list_templates(
         (None, vec![])
     };
 
+    let tor_label = tor_detail.label;
+    let ctx = PageContext::build(&session, &pool, "/tor").await?
+        .with_tor(tor_id, &tor_label, "templates");
     let tmpl = PresentationTemplatesTemplate {
-        ctx: PageContext::build(&session, &pool, "/tor").await?,
+        ctx,
         tor_id,
-        tor_label: tor_detail.label,
+        tor_label,
         templates,
         selected_template,
         slides,

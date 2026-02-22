@@ -32,7 +32,8 @@ pub async fn view(
     let proposals = proposal::find_all_for_tor(&pool, tor_id).await?;
     let agenda_points = agenda_point::find_all_for_tor(&pool, tor_id).await?;
 
-    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?
+        .with_tor(tor_id, &tor_name, "workflow");
 
     let tmpl = WorkflowTemplate {
         ctx,

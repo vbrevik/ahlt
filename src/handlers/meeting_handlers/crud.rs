@@ -10,6 +10,7 @@ use crate::errors::{render, AppError};
 use crate::models::meeting;
 use crate::models::minutes;
 use crate::models::protocol;
+use crate::models::tor;
 use crate::models::workflow;
 use crate::templates_structs::{MeetingDetailTemplate, PageContext};
 
@@ -68,7 +69,9 @@ pub async fn detail(
 ) -> Result<HttpResponse, AppError> {
     require_permission(&session, "meetings.view")?;
     let (tor_id, mid) = path.into_inner();
-    let ctx = PageContext::build(&session, &pool, "/meetings").await?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/meetings").await?
+        .with_tor(tor_id, &tor_name, "meetings");
 
     let meeting = meeting::find_by_id(&pool, mid).await?
         .ok_or(AppError::NotFound)?;

@@ -157,7 +157,8 @@ pub async fn detail(
 
     match tor::find_detail_by_id(&pool, id).await? {
         Some(tor_detail) => {
-            let ctx = PageContext::build(&session, &pool, "/tor").await?;
+            let ctx = PageContext::build(&session, &pool, "/tor").await?
+                .with_tor(id, &tor_detail.label, "overview");
             let members = tor::find_members(&pool, id).await?;
             let functions = tor::find_functions(&pool, id).await?;
             let protocol_steps = protocol::find_steps_for_tor(&pool, id).await?;

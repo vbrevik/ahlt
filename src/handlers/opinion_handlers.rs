@@ -50,7 +50,9 @@ pub async fn form(
         None
     };
 
-    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?
+        .with_tor(tor_id, &tor_name, "workflow");
 
     let tmpl = OpinionFormTemplate {
         ctx,
@@ -207,7 +209,9 @@ pub async fn decision_form(
         });
     }
 
-    let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+    let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+    let ctx = PageContext::build(&session, &pool, "/workflow").await?
+        .with_tor(tor_id, &tor_name, "workflow");
 
     let tmpl = DecisionFormTemplate {
         ctx,

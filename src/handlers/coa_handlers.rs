@@ -29,7 +29,9 @@ pub async fn new_form(
     // Verify agenda point exists in this ToR
     match agenda_point::find_by_id(&pool, agenda_point_id).await {
         Ok(_) => {
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
 
             let tmpl = CoaFormTemplate {
                 ctx,
@@ -139,7 +141,9 @@ pub async fn edit_form(
 
     match coa::find_by_id(&pool, coa_id).await {
         Ok(coa_detail) => {
-            let ctx = PageContext::build(&session, &pool, "/workflow").await?;
+            let tor_name = tor::get_tor_name(&pool, tor_id).await?;
+            let ctx = PageContext::build(&session, &pool, "/workflow").await?
+                .with_tor(tor_id, &tor_name, "workflow");
 
             let tmpl = CoaFormTemplate {
                 ctx,
