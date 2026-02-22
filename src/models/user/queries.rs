@@ -337,3 +337,37 @@ pub async fn update_password(pool: &PgPool, id: i64, password_hash: &str) -> Res
 
     Ok(())
 }
+
+/// Get user's theme preference from entity_properties
+/// Returns: "light", "dark", or "auto" (default)
+pub async fn get_user_theme(pool: &PgPool, user_id: i64) -> Result<String, sqlx::Error> {
+    let result = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT value FROM entity_properties WHERE entity_id = $1 AND key = 'theme_preference' LIMIT 1"
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result.flatten().unwrap_or_else(|| "auto".to_string()))
+}
+
+/// Set user's theme preference in entity_properties
+pub async fn set_user_theme(pool: &PgPool, user_id: i64, theme: &str) -> Result<(), sqlx::Error> {
+    // Validate theme value
+    if !["light", "dark", "auto"].contains(&theme) {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
+    sqlx::query(
+        "INSERT INTO entity_properties (entity_id, key, value)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (entity_id, key) DO UPDATE SET value = $3"
+    )
+    .bind(user_id)
+    .bind("theme_preference")
+    .bind(theme)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
