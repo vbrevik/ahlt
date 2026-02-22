@@ -5,14 +5,18 @@ use ahlt::{audit, auth, db, handlers, warnings};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Load .env file if it exists (for development)
+    let _ = dotenvy::dotenv();
+
     env_logger::init();
 
     // Determine environment
     let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "dev".to_string());
     log::info!("Environment: {}", app_env);
 
-    // Read DATABASE_URL from environment
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    // Read DATABASE_URL from environment, default to dev database
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgresql://ahlt@localhost/ahlt_dev".to_string());
 
     // Initialize database pool
     let pool = db::init_pool(&database_url).await;

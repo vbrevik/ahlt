@@ -293,6 +293,7 @@ dependencies = [
  "argon2",
  "askama",
  "chrono",
+ "dotenvy",
  "env_logger",
  "hex",
  "log",
