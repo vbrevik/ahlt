@@ -1,0 +1,79 @@
+/**
+ * Shared graph toolkit: zoom/fit, toolbar wiring, keyboard shortcuts.
+ * Used by ontology schema graph and governance dependency map.
+ *
+ * Usage:
+ *   var toolkit = graphToolkit({
+ *       svg:              d3Svg,        // D3 selection of the <svg>
+ *       zoomBehavior:     zoom,         // d3.zoom() instance already applied to svg
+ *       width:            canvasWidth,  // viewport width in px
+ *       height:           canvasHeight, // viewport height in px
+ *       getNodePositions: function() {  // returns {xs: number[], ys: number[]}
+ *           return { xs: [...], ys: [...] };
+ *       },
+ *       fitPadding:       { top: 80, right: 80, bottom: 80, left: 80 },
+ *       maxScale:         1.8           // optional, default 1.8
+ *   });
+ *   toolkit.setupToolbar({ fit: 'btn-fit', reset: 'btn-reset', zoomIn: 'btn-zoom-in', zoomOut: 'btn-zoom-out' });
+ *   toolkit.setupKeyboardShortcuts();
+ *   toolkit.fitToView(true);
+ */
+function graphToolkit(config) {
+    var svg = config.svg;
+    var zoomBehavior = config.zoomBehavior;
+    var vpWidth = config.width;
+    var vpHeight = config.height;
+    var maxScale = config.maxScale || 1.8;
+
+    function fitToView(animate) {
+        var pos = config.getNodePositions();
+        if (!pos.xs.length) return;
+        var pad = config.fitPadding || { top: 80, right: 80, bottom: 80, left: 80 };
+        var x0 = Math.min.apply(null, pos.xs) - pad.left;
+        var y0 = Math.min.apply(null, pos.ys) - pad.top;
+        var x1 = Math.max.apply(null, pos.xs) + pad.right;
+        var y1 = Math.max.apply(null, pos.ys) + pad.bottom;
+        var bw = x1 - x0;
+        var bh = y1 - y0;
+        if (bw < 1 || bh < 1) return;
+        var scale = Math.min(vpWidth / bw, vpHeight / bh, maxScale);
+        var tx = (vpWidth - bw * scale) / 2 - x0 * scale;
+        var ty = (vpHeight - bh * scale) / 2 - y0 * scale;
+        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+        if (animate) {
+            svg.transition().duration(500).call(zoomBehavior.transform, t);
+        } else {
+            svg.call(zoomBehavior.transform, t);
+        }
+    }
+
+    function setupToolbar(btnIds) {
+        document.getElementById(btnIds.fit).addEventListener('click', function() {
+            fitToView(true);
+        });
+        document.getElementById(btnIds.reset).addEventListener('click', function() {
+            svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+        });
+        document.getElementById(btnIds.zoomIn).addEventListener('click', function() {
+            svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.5);
+        });
+        document.getElementById(btnIds.zoomOut).addEventListener('click', function() {
+            svg.transition().duration(300).call(zoomBehavior.scaleBy, 1 / 1.5);
+        });
+    }
+
+    function setupKeyboardShortcuts(extraHandler) {
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            switch (e.key.toLowerCase()) {
+                case 'f': fitToView(true); break;
+                case '0': svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity); break;
+                case '=': case '+': svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.5); break;
+                case '-': svg.transition().duration(300).call(zoomBehavior.scaleBy, 1 / 1.5); break;
+                default: if (extraHandler) extraHandler(e); break;
+            }
+        });
+    }
+
+    return { fitToView: fitToView, setupToolbar: setupToolbar, setupKeyboardShortcuts: setupKeyboardShortcuts };
+}

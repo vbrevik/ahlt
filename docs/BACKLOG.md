@@ -557,6 +557,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Re-export pattern in `mod.rs` maintains identical public API — zero changes to `main.rs` route registration
 - **Build**: PASS | **Tests**: 221 passing
 
+### Inline JS Extraction (TD.6)
+- **9 static JS files created** (912 lines total): `role-builder.js` (183), `filter-builder.js` (179), `account.js` (151), `nav.js` (81), `shared/graph-toolkit.js` (79), `theme.js` (71), `column-picker.js` (65), `menu-builder.js` (56), `shared/dynamic-table.js` (47)
+- **9 templates updated**: Replaced inline `<script>` blocks with `<script src="/static/js/...">` references. Templates shrink 56-83% in line count.
+- **Head IIFE preserved**: Theme initialization script in `base.html <head>` intentionally kept inline (must run before CSS to prevent flash)
+- **Two-tier JS organization**: Page-specific files in `static/js/`, shared utilities in `static/js/shared/`
+- **Build**: PASS | **Tests**: 221 passing
+
 ### Model Layer Test Coverage (TD.7)
 - **20 new integration tests** across 4 previously untested model domains:
   - `tests/suggestion_test.rs` (5 tests): CRUD + status transitions (open→accepted/rejected)
@@ -667,12 +674,12 @@ TD.8 Fetch timeouts (ontology + governance graphs)
 TD.10 Settings audit logging, TD.11 Unsafe unwrap fix
 CA4.9 Metrics baseline depth (8 effectiveness, 7 efficiency rows)
 TD.5 Handler splitting (proposal_handlers → module with crud.rs + workflow.rs)
+TD.6 Move inline JS to static files (9 files, 912 lines extracted)
 
 CANDIDATES (pick next)
 ══════════════════════
+TD.6b  Move remaining inline JS to static files (Phase 2: 13 templates)    (tech debt, M)
 F.3    More entity types (project, task — document already done)             (feature, M)
-~~TD.5   Handler splitting (proposal_handlers.rs — split to module)~~  (tech debt, M) **DONE**
-TD.6   Move remaining inline JS to static files                              (tech debt, M)
 TD.9   REST API expansion (CRUD for tors, proposals, suggestions)           (feature, M)
 ```
 

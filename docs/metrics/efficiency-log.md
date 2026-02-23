@@ -15,3 +15,4 @@ Tracks resource consumption per delivered requirement, weighted by effectiveness
 | 2026-02-23 | Role Builder Redesign (Accordion UX) | 180,000 | 45 | 30-60m | 14 | 12,857 | building | 0.82 | 0.82 | Rework (chevron, accordion timing) |
 | 2026-02-23 | TD.1 CSS Monolith Split | 50,000 | 10 | 30-60m | 12 | 4,167 | building | 0.90 | 0.90 | Minor rework (data-manager CSS split) |
 | 2026-02-23 | TD.2 Template Partial Extraction | 585,000 | 24 | 30-60m | 12 | 48,750 | 0.11 | 0.87 | 0.49 | Subagent context overhead + unnecessary Phase 1 spec review |
+| 2026-02-23 | TD.6 Move Inline JS to Static Files | 114,748 | 28 | 15-30m | 13 | 8,827 | 0.84 | 0.96 | 0.90 | Rework (Edit tool read-tracking loss, ~17.8k tokens) |
