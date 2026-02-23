@@ -1,5 +1,6 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+{% include "partials/graph_toolkit_js.html" %}
 <script>
 (function() {
     var canvas = document.getElementById('gov-canvas');
@@ -58,52 +59,32 @@
         .on('zoom', function(e) { g.attr('transform', e.transform); });
     svg.call(zoom);
 
-    function fitAll(animate) {
-        var allNodes = g.selectAll('.gov-graph-node');
-        if (allNodes.empty()) return;
-        var xs = [], ys = [];
-        allNodes.each(function(d) { xs.push(d.x); ys.push(d.y); });
-        if (!xs.length) return;
-        var pad = 80;
-        var x0 = Math.min.apply(null, xs) - pad;
-        var y0 = Math.min.apply(null, ys) - pad;
-        var x1 = Math.max.apply(null, xs) + pad + 180;
-        var y1 = Math.max.apply(null, ys) + pad + 60;
-        var bw = x1 - x0, bh = y1 - y0;
-        if (bw < 1 || bh < 1) return;
-        var scale = Math.min(width / bw, height / bh, 1.5);
-        var tx = (width - bw * scale) / 2 - x0 * scale;
-        var ty = (height - bh * scale) / 2 - y0 * scale;
-        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
-        if (animate) {
-            svg.transition().duration(500).call(zoom.transform, t);
-        } else {
-            svg.call(zoom.transform, t);
-        }
-    }
-
-    // Toolbar
-    document.getElementById('gov-btn-fit').addEventListener('click', function() { fitAll(true); });
-    document.getElementById('gov-btn-reset').addEventListener('click', function() {
-        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
-    });
-    document.getElementById('gov-btn-zoom-in').addEventListener('click', function() {
-        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
-    });
-    document.getElementById('gov-btn-zoom-out').addEventListener('click', function() {
-        svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+    // Initialize shared graph toolkit
+    // Governance nodes are rectangles (170x56), so right/bottom padding accounts for node size
+    var toolkit = graphToolkit({
+        svg: svg,
+        zoomBehavior: zoom,
+        width: width,
+        height: height,
+        getNodePositions: function() {
+            var xs = [], ys = [];
+            g.selectAll('.gov-graph-node').each(function(d) { xs.push(d.x); ys.push(d.y); });
+            return { xs: xs, ys: ys };
+        },
+        fitPadding: { top: 80, right: 260, bottom: 140, left: 80 },
+        maxScale: 1.5
     });
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        switch (e.key.toLowerCase()) {
-            case 'f': fitAll(true); break;
-            case '0': svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity); break;
-            case '=': case '+': svg.transition().duration(300).call(zoom.scaleBy, 1.5); break;
-            case '-': svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5); break;
-        }
+    // Toolbar (shared)
+    toolkit.setupToolbar({
+        fit: 'gov-btn-fit',
+        reset: 'gov-btn-reset',
+        zoomIn: 'gov-btn-zoom-in',
+        zoomOut: 'gov-btn-zoom-out'
     });
+
+    // Keyboard shortcuts (shared, no extras for governance)
+    toolkit.setupKeyboardShortcuts();
 
     fetch('/api/governance/graph')
         .then(function(r) { return r.json(); })
@@ -297,7 +278,7 @@
         }
 
         // Fit to view after rendering
-        setTimeout(function() { fitAll(false); }, 50);
+        setTimeout(function() { toolkit.fitToView(false); }, 50);
     }
 })();
 </script>

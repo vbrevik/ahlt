@@ -1,4 +1,5 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
+{% include "partials/graph_toolkit_js.html" %}
 <script>
 (function() {
     var TYPE_COLORS = {
@@ -65,42 +66,31 @@
     var allNodes = [], allLinks = [];
     var locked = false;
 
-    // Fit all nodes into view with padding (accounts for labels below nodes)
-    function fitAll(animate) {
-        if (!allNodes.length) return;
-        var padX = 80, padTop = 60, padBottom = 80;
-        var xs = allNodes.map(function(n) { return n.x; });
-        var ys = allNodes.map(function(n) { return n.y; });
-        var x0 = Math.min.apply(null, xs) - padX;
-        var y0 = Math.min.apply(null, ys) - padTop;
-        var x1 = Math.max.apply(null, xs) + padX;
-        var y1 = Math.max.apply(null, ys) + padBottom;
-        var bw = x1 - x0;
-        var bh = y1 - y0;
-        if (bw < 1 || bh < 1) return;
-        var scale = Math.min(width / bw, height / bh, 1.8);
-        var tx = (width - bw * scale) / 2 - x0 * scale;
-        var ty = (height - bh * scale) / 2 - y0 * scale;
-        var t = d3.zoomIdentity.translate(tx, ty).scale(scale);
-        if (animate) {
-            svg.transition().duration(500).call(zoom.transform, t);
-        } else {
-            svg.call(zoom.transform, t);
-        }
-    }
-
-    // Toolbar buttons
-    document.getElementById('btn-fit').addEventListener('click', function() { fitAll(true); });
-    document.getElementById('btn-reset').addEventListener('click', function() {
-        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
-    });
-    document.getElementById('btn-zoom-in').addEventListener('click', function() {
-        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
-    });
-    document.getElementById('btn-zoom-out').addEventListener('click', function() {
-        svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5);
+    // Initialize shared graph toolkit
+    var toolkit = graphToolkit({
+        svg: svg,
+        zoomBehavior: zoom,
+        width: width,
+        height: height,
+        getNodePositions: function() {
+            return {
+                xs: allNodes.map(function(n) { return n.x; }),
+                ys: allNodes.map(function(n) { return n.y; })
+            };
+        },
+        fitPadding: { top: 60, right: 80, bottom: 80, left: 80 },
+        maxScale: 1.8
     });
 
+    // Toolbar buttons (shared)
+    toolkit.setupToolbar({
+        fit: 'btn-fit',
+        reset: 'btn-reset',
+        zoomIn: 'btn-zoom-in',
+        zoomOut: 'btn-zoom-out'
+    });
+
+    // Lock button (ontology-specific)
     var lockBtn = document.getElementById('btn-lock');
     lockBtn.addEventListener('click', function() {
         locked = !locked;
@@ -115,14 +105,9 @@
         }
     });
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    // Keyboard shortcuts (shared + ontology-specific extras)
+    toolkit.setupKeyboardShortcuts(function(e) {
         switch (e.key.toLowerCase()) {
-            case 'f': fitAll(true); break;
-            case '0': svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity); break;
-            case '=': case '+': svg.transition().duration(300).call(zoom.scaleBy, 1.5); break;
-            case '-': svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.5); break;
             case 'l':
                 lockBtn.click();
                 break;
@@ -249,7 +234,7 @@
                 // Auto-fit once simulation has mostly settled
                 if (!autoFitted && simulation.alpha() < 0.05) {
                     autoFitted = true;
-                    fitAll(true);
+                    toolkit.fitToView(true);
                 }
             });
 
