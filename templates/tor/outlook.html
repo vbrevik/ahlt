@@ -83,6 +83,15 @@
     // Assign initial colors
     cachedEvents.forEach(function(e) { torColor(e.tor_id); });
 
+    var FETCH_TIMEOUT_MS = 30000;
+
+    function fetchWithTimeout(url, options, ms) {
+        var controller = new AbortController();
+        var timer = setTimeout(function() { controller.abort(); }, ms);
+        var opts = Object.assign({}, options || {}, { signal: controller.signal });
+        return fetch(url, opts).finally(function() { clearTimeout(timer); });
+    }
+
     var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
                   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -163,13 +172,22 @@
         }
 
         loadingEl.style.display = '';
-        fetch('/api/tor/calendar?start=' + start + '&end=' + end)
+        fetchWithTimeout('/api/tor/calendar?start=' + start + '&end=' + end, null, FETCH_TIMEOUT_MS)
             .then(function(r) { return r.json(); })
             .then(function(events) {
                 loadingEl.style.display = 'none';
                 events.forEach(function(e) { torColor(e.tor_id); });
                 cachedEvents = events;
                 render();
+            })
+            .catch(function(err) {
+                loadingEl.style.display = 'none';
+                if (err.name === 'AbortError') {
+                    container.textContent = 'Request timed out. The server may be busy. Please try again.';
+                } else {
+                    container.textContent = 'Failed to load calendar data.';
+                    console.error('Calendar fetch error:', err);
+                }
             });
     }
 
@@ -265,12 +283,12 @@
             body += '&meeting_id=' + encodeURIComponent(evt.meeting_id);
         }
 
-        fetch('/api/tor/' + evt.tor_id + '/meetings/confirm-calendar', {
+        fetchWithTimeout('/api/tor/' + evt.tor_id + '/meetings/confirm-calendar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body,
             credentials: 'same-origin'
-        })
+        }, FETCH_TIMEOUT_MS)
         .then(function(r) {
             if (!r.ok) { throw new Error('Server error ' + r.status); }
             return r.json();
@@ -286,8 +304,10 @@
             // Restore badge on error so user can retry
             badge.classList.remove('outlook-event-confirm-badge--loading');
             badge.textContent = '\u2713';
-            
-            // Log error for debugging
+
+            if (err.name === 'AbortError') {
+                badge.title = 'Request timed out. Click to retry.';
+            }
             console.error('Failed to confirm meeting:', err);
         });
     }

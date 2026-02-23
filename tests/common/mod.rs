@@ -195,6 +195,7 @@ async fn seed_base_entities(pool: &PgPool) -> Result<(), sqlx::Error> {
 // ============================================================================
 
 /// Insert a raw entity and return its id.
+#[allow(dead_code)]
 pub async fn insert_entity(pool: &PgPool, entity_type: &str, name: &str, label: &str) -> i64 {
     let row: (i64,) = sqlx::query_as(
         "INSERT INTO entities (entity_type, name, label) VALUES ($1, $2, $3) RETURNING id",
@@ -209,6 +210,7 @@ pub async fn insert_entity(pool: &PgPool, entity_type: &str, name: &str, label: 
 }
 
 /// Insert a raw entity property (upsert).
+#[allow(dead_code)]
 pub async fn insert_prop(pool: &PgPool, entity_id: i64, key: &str, value: &str) {
     sqlx::query(
         "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, $2, $3) \
@@ -223,6 +225,7 @@ pub async fn insert_prop(pool: &PgPool, entity_id: i64, key: &str, value: &str) 
 }
 
 /// Insert a raw relation and return its id.
+#[allow(dead_code)]
 pub async fn insert_relation(pool: &PgPool, relation_type_id: i64, source_id: i64, target_id: i64) -> i64 {
     let row: (i64,) = sqlx::query_as(
         "INSERT INTO relations (relation_type_id, source_id, target_id) VALUES ($1, $2, $3) RETURNING id",
