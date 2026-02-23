@@ -128,8 +128,8 @@ pub async fn create_role(
     let role_id: i64 = sqlx::query_scalar(
         "INSERT INTO entities (entity_type, name, label) VALUES ('role', $1, $2) RETURNING id",
     )
-    .bind(&form.name)
-    .bind(&form.label)
+    .bind(form.name.trim())
+    .bind(form.label.trim())
     .fetch_one(pool.get_ref())
     .await?;
 
@@ -138,7 +138,7 @@ pub async fn create_role(
             "INSERT INTO entity_properties (entity_id, key, value) VALUES ($1, 'description', $2)",
         )
         .bind(role_id)
-        .bind(&form.description)
+        .bind(form.description.trim())
         .execute(pool.get_ref())
         .await?;
     }

@@ -143,8 +143,8 @@ document.querySelectorAll('.rb-group__header').forEach(function(header) {
             group.classList.remove('rb-group--expanded');
             this.setAttribute('aria-expanded', 'false');
         } else {
-            body.style.maxHeight = body.scrollHeight + 'px';
             group.classList.add('rb-group--expanded');
+            body.style.maxHeight = body.scrollHeight + 'px';
             this.setAttribute('aria-expanded', 'true');
         }
     });
@@ -307,8 +307,8 @@ document.querySelectorAll('.rb-group').forEach(function(group) {
     var hasChecked = group.querySelector('.permission-item:checked');
     if (hasChecked) {
         var body = group.querySelector('.rb-group__body');
-        body.style.maxHeight = body.scrollHeight + 'px';
         group.classList.add('rb-group--expanded');
+        body.style.maxHeight = body.scrollHeight + 'px';
         group.querySelector('.rb-group__header').setAttribute('aria-expanded', 'true');
     }
 });
