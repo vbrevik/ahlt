@@ -161,6 +161,10 @@
     transition: transform var(--duration) var(--ease);
 }
 
+.rb-group__chevron::before {
+    content: '\25B6';  /* Right-pointing triangle ▶ */
+}
+
 .rb-group--expanded .rb-group__chevron {
     transform: rotate(90deg);
 }
