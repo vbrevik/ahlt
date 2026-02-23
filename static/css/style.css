@@ -4417,14 +4417,16 @@ fieldset legend {
 }
 
 .outlook-event-day {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
     display: flex;
     flex-wrap: wrap;
     white-space: normal;
     margin-bottom: 2px;
+    overflow: hidden;
+}
+
+.outlook-event-day[style*="position: absolute"] {
+    margin-bottom: 0;
+    padding: 1px 3px;
 }
 
 /* --- Month View --- */

@@ -373,11 +373,75 @@
     }
 
     // --- DAY VIEW ---
+    var DAY_SLOT_HEIGHT = 28; // px per 30-min slot
+
+    // Compute overlap columns for a list of events with startMin/endMin fields.
+    // Returns array of { evt, col, totalCols } where col is 0-based column index.
+    function computeOverlapColumns(events) {
+        if (!events.length) return [];
+
+        // Sort by start time, then by duration descending (longer events first)
+        events.sort(function(a, b) {
+            return a.startMin - b.startMin || b.endMin - a.endMin;
+        });
+
+        // Greedy column assignment: for each event, find the first column
+        // where it doesn't overlap with any already-placed event.
+        var placed = []; // { startMin, endMin, col }
+        events.forEach(function(item) {
+            // Find columns occupied by overlapping events
+            var usedCols = {};
+            placed.forEach(function(p) {
+                if (p.startMin < item.endMin && p.endMin > item.startMin) {
+                    usedCols[p.col] = true;
+                }
+            });
+            // Assign first free column
+            var col = 0;
+            while (usedCols[col]) col++;
+            item.col = col;
+            placed.push({ startMin: item.startMin, endMin: item.endMin, col: col });
+        });
+
+        // Compute total columns per overlap group using a connected-components approach.
+        // Two events are in the same group if they overlap (directly or transitively).
+        // Track by event index (not column) to avoid false grouping of non-overlapping
+        // events that happen to share the same column number.
+        events.forEach(function(item, idx) {
+            var inGroup = {};
+            inGroup[idx] = true;
+            var changed = true;
+            while (changed) {
+                changed = false;
+                events.forEach(function(other, oi) {
+                    if (inGroup[oi]) return; // already in group
+                    // Check if 'other' overlaps with any event in the group
+                    events.forEach(function(member, mi) {
+                        if (!inGroup[mi]) return;
+                        if (member.startMin < other.endMin && member.endMin > other.startMin) {
+                            inGroup[oi] = true;
+                            changed = true;
+                        }
+                    });
+                });
+            }
+            // totalCols = number of distinct columns used by events in this group
+            var groupCols = {};
+            Object.keys(inGroup).forEach(function(k) { groupCols[events[k].col] = true; });
+            item.totalCols = Object.keys(groupCols).length;
+        });
+
+        return events;
+    }
+
     function renderDay() {
         var grid = el('div', 'outlook-day-grid');
         var dateStr = fmtDate(currentDate);
+        var FIRST_HOUR = 7;
+        var LAST_HOUR = 19;
 
-        for (var hour = 7; hour < 19; hour++) {
+        // Build the time grid rows
+        for (var hour = FIRST_HOUR; hour < LAST_HOUR; hour++) {
             for (var half = 0; half < 2; half++) {
                 var timeStr = String(hour).padStart(2, '0') + ':' + (half === 0 ? '00' : '30');
                 var row = el('div', 'outlook-day-row');
@@ -389,23 +453,70 @@
 
                 var cell = el('div', 'outlook-day-cell');
                 if (dateStr === TODAY) cell.classList.add('outlook-today-col');
-
-                cachedEvents.forEach(function(evt) {
-                    if (evt.date !== dateStr || evt.start_time !== timeStr) return;
-                    var p = makePill(evt, true);
-                    p.pill.classList.add('outlook-event-day');
-                    p.pill.style.height = (p.slots * 28 - 2) + 'px';
-                    var dur = el('span', 'outlook-event-dur', evt.duration_minutes + 'min');
-                    p.pill.appendChild(document.createTextNode(' '));
-                    p.pill.appendChild(dur);
-                    cell.appendChild(p.pill);
-                });
-
                 row.appendChild(cell);
                 grid.appendChild(row);
             }
         }
+
         container.appendChild(grid);
+
+        // Collect events for this day with computed positions
+        var dayEvents = [];
+        cachedEvents.forEach(function(evt) {
+            if (evt.date !== dateStr) return;
+            var parts = evt.start_time.split(':');
+            var evtHour = parseInt(parts[0], 10);
+            var evtMinute = parseInt(parts[1], 10);
+            if (evtHour < FIRST_HOUR || evtHour >= LAST_HOUR) return;
+
+            var startMin = (evtHour - FIRST_HOUR) * 60 + evtMinute;
+            var endMin = startMin + (evt.duration_minutes || 30);
+            dayEvents.push({ evt: evt, startMin: startMin, endMin: endMin });
+        });
+
+        if (!dayEvents.length) return;
+
+        // Compute overlap columns
+        computeOverlapColumns(dayEvents);
+
+        // Get all day cells for absolute positioning
+        var dayCells = grid.querySelectorAll('.outlook-day-cell');
+
+        // Place events absolutely within their starting cell's row
+        dayEvents.forEach(function(item) {
+            var evt = item.evt;
+            var slotIndex = Math.floor(item.startMin / 30);
+            if (slotIndex >= dayCells.length) return;
+
+            var targetCell = dayCells[slotIndex];
+            var p = makePill(evt, true);
+            p.pill.classList.add('outlook-event-day');
+
+            // Compute pixel offset within the slot (for events not starting on a 30-min boundary)
+            var offsetInSlot = item.startMin % 30;
+            var topPx = Math.round(offsetInSlot * DAY_SLOT_HEIGHT / 30);
+            var heightPx = Math.round((item.endMin - item.startMin) * DAY_SLOT_HEIGHT / 30) - 2;
+            p.pill.style.height = Math.max(heightPx, 20) + 'px';
+
+            // Apply overlap positioning
+            if (item.totalCols > 1) {
+                p.pill.style.position = 'absolute';
+                p.pill.style.top = topPx + 'px';
+                var widthPct = 100 / item.totalCols;
+                p.pill.style.left = (item.col * widthPct) + '%';
+                p.pill.style.width = widthPct + '%';
+                p.pill.style.boxSizing = 'border-box';
+                p.pill.style.zIndex = String(item.col + 1);
+            } else {
+                // No overlap — full width, flow-based
+                if (topPx > 0) p.pill.style.marginTop = topPx + 'px';
+            }
+
+            var dur = el('span', 'outlook-event-dur', evt.duration_minutes + 'min');
+            p.pill.appendChild(document.createTextNode(' '));
+            p.pill.appendChild(dur);
+            targetCell.appendChild(p.pill);
+        });
     }
 
     // --- MONTH VIEW ---

@@ -10,3 +10,4 @@ Tracks resource consumption per delivered requirement, weighted by effectiveness
 |------|------|-------------|-----|------|----------|----------|-------------|----------|----------|-------------|
 | 2026-02-21 | Point Paper Redesign | 122,683 | 23 | 1-2h | 13 | 9,437 | building | 0.57 | 0.57 | Tangential (Playwright 43k) |
 | 2026-02-23 | CA4.4 REST API Coverage Expansion | 32,226 | 9 | 30-60m | 20 | 1,611 | building | 0.67 | 0.67 | Rework (warning test status_at) |
+| 2026-02-23 | CA4.5 Day View Overlapping Events | 80,000 | 14 | 15-30m | 15 | 5,333 | building | 0.57 | 0.57 | Rework (column-vs-index bug) |

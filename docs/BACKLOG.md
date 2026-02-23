@@ -280,7 +280,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Hybrid rendering: server renders initial week, client `fetch()` for tab/date switching
 - Color-coded event pills per ToR, today highlighting, click-through to ToR detail
 - Safe DOM construction (no innerHTML) via `el()` helper pattern
-- Known gap: day view doesn't handle overlapping events side-by-side (e.g. 120min Sprint Planning covers 15min Daily Standup)
+- ~~Known gap: day view doesn't handle overlapping events side-by-side~~ → **Fixed in CA4.5**: column-based overlap algorithm positions concurrent events side-by-side with computed widths
 
 - New relations seeded: `fills_position`, `protocol_of`, `feeds_into`, `escalates_to`, `minutes_of`, `section_of`, `template_of`, `slide_of`, `requires_template`
 - New permissions: `minutes.generate`, `minutes.edit`, `minutes.approve`
@@ -494,6 +494,15 @@ All domain objects share three generic tables — no dedicated tables per type:
 - 7 integration tests added (tor list/detail/not-found, proposal cross-tor/status-filter, warning user-scoped/severity-filter).
 - **Build**: PASS | **Tests**: 201 passing
 
+### CA4.5 — Day View Overlapping Events
+- Column-based overlap algorithm (`computeOverlapColumns()`) positions concurrent events side-by-side in day view
+- Greedy column assignment + connected-components grouping for totalCols per overlap cluster
+- Events with overlap get `position: absolute` with computed `left`/`width` percentages; non-overlapping events remain full-width flow layout
+- CSS: Updated `.outlook-event-day` with overflow:hidden, attribute selector for absolute variants
+- `DAY_SLOT_HEIGHT = 28px` per 30-min slot; pixel-precise top offsets for events not starting on 30-min boundaries
+- Week and month views verified unaffected
+- **Build**: PASS | **Tests**: 201 passing
+
 ### Users Page Editorial Redesign (UI)
 - **Avatar circles**: Replaced emoji with colored initial circles using 8-hue warm palette; hue computed from `charCode % 8`, CSS `[data-hue]` variants, dark mode support.
 - **Count badge**: Amber pill badge showing total user count next to page heading.
@@ -562,7 +571,7 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 | ~~CA4.2~~ | ~~**REST API integration tests**~~ | ~~Quality~~ | ~~High~~ | ~~S~~ | **DONE** |
 | ~~CA4.3~~ | ~~**Calendar fetch timeout**~~ | ~~Hardening~~ | ~~Medium~~ | ~~S~~ | **DONE** |
 | ~~CA4.4~~ | ~~**REST API coverage expansion**~~ | ~~Architecture~~ | ~~Medium~~ | ~~M~~ | **DONE** |
-| CA4.5 | **Day view overlapping events** | Known gap | Medium | S |
+| ~~CA4.5~~ | ~~**Day view overlapping events**~~ | ~~Known gap~~ | ~~Medium~~ | ~~S~~ | **DONE** |
 | F.3 | **More entity types** | Feature | Medium | L |
 | ~~CA4.6~~ | ~~**API CSRF protection**~~ | ~~Security~~ | ~~Medium~~ | ~~S~~ | **DONE** |
 | ~~CA4.7~~ | ~~**Dead code warnings in test helpers**~~ | ~~Cleanup~~ | ~~Low~~ | ~~XS~~ | **DONE** |
@@ -863,9 +872,10 @@ CA4.6  API CSRF protection (Content-Type middleware)                            
 CA4.7  Dead code warnings in test helpers (#[allow(dead_code)])                 ✓ done
 CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       ✓ done
 
+CA4.5  Day view overlapping events (column-based layout algorithm)             ✓ done
+
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-CA4.5  Day view overlapping events                (known gap, S)
 F.3    More entity types (project, task, document)(feature, L)
 CA4.8  E2E suite CI integration                   (testing, M)
 CA4.9  Metrics baseline depth                     (process, ongoing)
