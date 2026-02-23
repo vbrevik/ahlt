@@ -244,7 +244,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Phase 4: 5 large files split into 17 focused modules (1,680 lines reorganized)
 
 ### Automated Testing
-- 47 tests across 6 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder
+- 221 tests across 28 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder, API v1, suggestions, COA, opinions, data manager, governance, meetings, proposals, calendar, ABAC
 
 ### Hardening: Input Validation (H.2)
 - Centralized `src/auth/validate.rs` with 5 reusable functions: username, email, password, required field, optional field
@@ -537,51 +537,38 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Files**: `static/css/pages/role-builder.css` (410 lines), `templates/roles/builder.html` (316 lines), `src/models/role/{types,queries}.rs`, `src/models/permission.rs`, `src/handlers/role_builder_handlers.rs`, `data/seed/ontology.json`
 - **Build**: PASS | **Tests**: 201 passing
 
+### Quick-Win Tech Debt Batch (TD.8/TD.10/TD.11)
+- **TD.8 — Fetch timeouts on graph endpoints**: Added 30s `AbortSignal.timeout()` + error handling to ontology graph (`templates/ontology/partials/graph_js.html`) and governance map (`templates/governance/partials/map_js.html`) fetch calls. Timeout shows "Request timed out" via `textContent`, hides loading spinner.
+- **TD.10 — Settings audit logging**: Added `audit::log()` to `settings_handlers.rs` `save` handler. Tracks setting IDs changed, count, and summary. Imported `get_user_id` for actor attribution.
+- **TD.11 — Unsafe `.unwrap()` in user API**: Replaced `body.password.as_ref().unwrap()` in `api_v1/users.rs` `create` handler with `.ok_or_else()` returning `AppError::Hash`. Prevents panic on malformed API requests.
+- **Build**: PASS | **Tests**: 221 passing
+
+### EAV Query Deduplication (TD.3)
+- **Shared user→ToR membership query**: Extracted the 10-line EAV chain query (`user→fills_position→tor_function→belongs_to_tor→tor`) into `find_user_tors()` and `find_tor_ids_for_user()` in `src/models/tor/queries.rs`.
+- **New canonical type**: `UserTorMembership` struct in `src/models/tor/types.rs` (id, name, label, position_label).
+- **Dashboard dedup**: `src/models/dashboard.rs` rewritten to delegate to `tor::find_user_tors()` and pre-fetch ToR IDs for proposals/suggestions queries. Eliminated duplicated 10-line subqueries in 3 locations.
+- **Bug fix**: Fixed `s_status.key` → `p_status.key` SQL alias typo in `find_open_suggestions_for_tors`.
+- **Export fix**: Added `sort_order::BIGINT` casts in `src/models/data_manager/export.rs` to fix `ColumnDecode` error (pre-existing bug found by test agent).
+- **Build**: PASS | **Tests**: 221 passing
+
+### Model Layer Test Coverage (TD.7)
+- **20 new integration tests** across 4 previously untested model domains:
+  - `tests/suggestion_test.rs` (5 tests): CRUD + status transitions (open→accepted/rejected)
+  - `tests/coa_test.rs` (5 tests): CRUD + sections + agenda point scoping
+  - `tests/opinion_test.rs` (5 tests): record/update opinions, find by user, record decisions
+  - `tests/data_manager_test.rs` (5 tests): import/export round-trip, skip conflict mode, relations
+- All use `setup_test_db()` for isolation, follow established patterns
+- **Build**: PASS | **Tests**: 221 passing (up from 201), 8 ignored
+
 ---
 
 ## Remaining Backlog
-
-### Technical Debt
-
-| ID | Item | Priority | Effort | Description |
-|----|------|----------|--------|-------------|
-| TD.1 | ~~**CSS monolith split**~~ | ~~High~~ | ~~Large~~ | **DONE** — Split 6,144-line `style.css` into 60 modular PostCSS files. `npm run css:build` compiles `index.css` → `style.css`. Zero missing selectors verified. |
-| TD.2 | ~~**Template partial extraction**~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — Extracted JS from 6 oversized templates into same-directory partials (1,279 + 177 + 68 + 81 = 1,605 lines moved). Created shared `graph_toolkit_js.html` (zoom/fit/toolbar/shortcuts) and `dynamic_table_js.html` (JSON load/row factory/serialize). Largest template reduced from 586→45 lines. All pass `cargo check`. |
-
-### Hardening & Quality
-
-| ID | Item | Priority | Effort | Description |
-|----|------|----------|--------|-------------|
-| H.3 | **WebSocket error handling** | Medium | Small | Replace `conn_map.write().unwrap()` in ws.rs with proper error handling (RwLock poison recovery). ✓ DONE |
-| H.5 | ~~**Composite DB index**~~ | ~~Low~~ | ~~Small~~ | **DONE** — see Completed Work |
-
-### ToR / Meeting / Minutes Metadata Gaps (E.1–E.3)
-
-E.2 fully done. E.1/E.3 all fields done (simple strings + JSON).
-
-| ID | Entity | Remaining Fields | Priority | Effort |
-|----|--------|----------------|----------|--------|
-| ~~E.1~~ | ~~**Meeting**~~ | ~~`roll_call_data` (JSON: `[{user_id, status}]`)~~ | ~~Low~~ | ~~Small~~ | **DONE** |
-| ~~E.3~~ | ~~**Minutes**~~ | ~~`distribution_list` (JSON), `structured_action_items` (JSON: `[{description, responsible, due_date, status}]`), `structured_attendance` (JSON: `[{user_id, name, status, delegation_to}]`)~~ | ~~Low~~ | ~~Small~~ | **DONE** |
-
-Implementation notes:
-- JSON properties follow the `parse_json_list` / `lines_to_json` pattern from the ToR objectives fields
-- `roll_call_data` (meeting level) and `structured_attendance` (minutes level) overlap — decided to store at both levels for independent editing
 
 ### Features
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| F.1 | ~~**Workflow builder UI**~~ | ~~High~~ | ~~Large~~ | **DONE** — see Completed Work |
-| F.2 | ~~**REST API layer**~~ | ~~Medium~~ | ~~Large~~ | **DONE** — see Completed Work |
 | F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
-| F.4 | ~~**Dark mode**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| F.5 | ~~**User profile enhancements**~~ | ~~Low~~ | ~~Small~~ | **DONE** — see Completed Work |
-| F.6 | ~~**Dashboard widgets**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| T.2 | ~~ToR vacancy warning generators~~ | ~~Medium~~ | ~~Small~~ | **DONE** — see Completed Work |
-| T.3 | ~~Meeting outlook calendar~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| T.4 | ~~**Minutes export (HTML/PDF print)**~~ | ~~Low~~ | ~~Medium~~ | **DONE** — see Completed Work |
-| P.7 | ~~**ToR context bar**~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — persistent section navigation bar (Overview/Workflow/Meetings/Templates) on all ToR-scoped pages; new `/tor/{id}/meetings` route |
 
 ---
 
@@ -600,122 +587,7 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 | ~~CA4.6~~ | ~~**API CSRF protection**~~ | ~~Security~~ | ~~Medium~~ | ~~S~~ | **DONE** |
 | ~~CA4.7~~ | ~~**Dead code warnings in test helpers**~~ | ~~Cleanup~~ | ~~Low~~ | ~~XS~~ | **DONE** |
 | ~~CA4.8~~ | ~~**E2E suite CI integration**~~ | ~~Testing~~ | ~~Low~~ | ~~M~~ | **DONE** |
-| CA4.9 | **Metrics baseline depth** | Process | Low | Ongoing |
-
----
-
-### CA4.1 — Account Preferences Theme → DB Disconnect
-
-**GOAL:** When theme buttons on the account Preferences tab are clicked, the preference is saved to the database via `POST /api/v1/user/theme` — identical to how the header toggle persists it. After the fix, changing theme via account page syncs across devices and browsers (the intended P8 cross-device behavior). Verify: change theme on account page, open incognito tab, log in — theme matches.
-
-**CONSTRAINTS:**
-- Modify `templates/account.html` JS only. No Rust changes needed.
-- Fetch pattern must mirror `templates/base.html` lines ~88–110 exactly (same endpoint, same JSON body, same error handling).
-- `window.toggleTheme(theme)` still called for immediate visual effect.
-- `localStorage` still updated (existing fallback chain must continue to work).
-- No new helper functions, no new files.
-
-**FORMAT:** One additional `fetch()` call inside the `.theme-btn` click handler in `account.html`, after the `window.toggleTheme(theme)` call. ~10 lines.
-
-**FAILURE CONDITIONS:**
-- Theme changed on account page is not saved to `entity_properties` in DB.
-- Network error on the fetch causes the page to throw or break.
-- The existing localStorage-based `toggleTheme` flow is broken.
-- No `console.error` on fetch failure (silent failure).
-
----
-
-### CA4.2 — REST API Integration Tests
-
-**GOAL:** `tests/api_v1_test.rs` exists and covers the full CRUD surface of `/api/v1/users` and `/api/v1/entities`. Running `cargo test --test api_v1_test` shows ≥12 tests passing. Zero regressions in existing suite.
-
-**CONSTRAINTS:**
-- Use `setup_test_db()` from `tests/common/mod.rs` for isolation. No shared state.
-- Test both success paths (200/201/204) and error paths (400 invalid input, 404 not found).
-- All tests must be self-contained — no dependency on seeded staging data.
-- Follow existing test patterns: `sqlx::PgPool`, `ahlt::` imports, no `#[ignore]` except Neo4j/E2E.
-- No new Rust dependencies.
-
-**FORMAT:**
-- Create: `tests/api_v1_test.rs`
-- Tests to cover: user list (pagination), user get, user create (valid + invalid), user update, user delete, entity list (type filter), entity get, entity create (with properties), entity update, entity delete, auth guard (unauthenticated → 4xx).
-
-**FAILURE CONDITIONS:**
-- Any test uses `.unwrap()` on a DB operation that can legitimately fail.
-- Tests depend on staging seed data (non-isolated).
-- Auth guard test is missing (leaves security gap untested).
-- `cargo test` total count decreases (test deleted accidentally).
-
----
-
-### CA4.3 — Calendar Fetch Timeout
-
-**GOAL:** Both `fetch()` calls in `templates/tor/outlook.html` — the calendar data fetch (`fetchAndRender`) and the meeting confirmation fetch — are wrapped with `AbortController`-based timeout (30 seconds). On timeout, the UI shows "Request timed out" and hides the loading spinner. Users can retry.
-
-**CONSTRAINTS:**
-- JS only — no Rust changes.
-- Use the same `fetchWithTimeout(url, opts, ms)` + `FETCH_TIMEOUT_MS` constant pattern from the Data Manager (`DM.2`).
-- Check `e.name === 'AbortError'` in catch block.
-- No `innerHTML` — error message must use `textContent`.
-- Do not break the existing confirm badge restore-on-error logic.
-
-**FORMAT:** Add `FETCH_TIMEOUT_MS` constant + `fetchWithTimeout` helper at top of `<script>` in `outlook.html`. Replace the two bare `fetch(...)` calls with `fetchWithTimeout(...)`. ~25 lines added.
-
-**FAILURE CONDITIONS:**
-- Bare `fetch()` call remains unwrapped anywhere in the template.
-- Error message displayed uses `innerHTML`.
-- Spinner remains visible after timeout.
-- Existing confirmation badge retry logic is broken.
-- `cargo check` fails (Askama compile error from template change).
-
----
-
-### CA4.4 — REST API Coverage Expansion
-
-**GOAL:** Add read-only endpoints for the three highest-value domain objects: `GET /api/v1/tors` (list + `?status=` filter), `GET /api/v1/tors/{id}` (detail with member count), `GET /api/v1/proposals` (list + `?status=` filter + `?tor_id=` filter), `GET /api/v1/warnings` (list + `?severity=` filter, scoped to calling user). All return JSON matching the `PaginatedResponse<T>` wrapper already used by users/entities.
-
-**CONSTRAINTS:**
-- Read-only (GET) only — no create/update/delete for now.
-- Reuse existing model queries (`tor::find_all`, `proposal::find_all_cross_tor`, warning queries). No new SQL.
-- Permission gating: `tor.list`, `proposal.view`, `warnings.view` respectively.
-- Follow existing api_v1 handler pattern: session auth, `PaginatedResponse<T>`, `ApiErrorResponse`.
-- No new dependencies.
-
-**FORMAT:**
-- Create: `src/handlers/api_v1/tors.rs`, `src/handlers/api_v1/proposals.rs`, `src/handlers/api_v1/warnings.rs`
-- Modify: `src/handlers/api_v1/mod.rs` (register routes)
-- Response types defined inline in each handler file (no shared types file yet).
-
-**FAILURE CONDITIONS:**
-- Any endpoint returns data without permission check.
-- Response shape differs from the `PaginatedResponse<T>` envelope (inconsistent API).
-- Handler uses `.unwrap()` on DB result (should use `?`).
-- Routes not registered in `main.rs` (compile passes, endpoint 404s).
-- No tests added for new endpoints.
-
----
-
-### CA4.5 — Day View Overlapping Events
-
-**GOAL:** In the day view of the Meeting Outlook calendar (`/tor/outlook`), two concurrent events (e.g. a 120-min Sprint Planning and a 15-min Daily Standup at the same time) render side-by-side instead of overlapping. Each overlapping event occupies 50% width (or 33% for 3+). Non-overlapping events remain full width.
-
-**CONSTRAINTS:**
-- JS + CSS only — no Rust changes, no new endpoints.
-- Change is isolated to the day-view rendering logic in `templates/tor/outlook.html`.
-- Must not affect week or month view rendering.
-- No `innerHTML` — use `el()` pattern for any new DOM construction.
-- Existing event pill styling (color, label, click-through) must be preserved.
-
-**FORMAT:**
-- Modify: `templates/tor/outlook.html` — day view event placement loop
-- Optionally add: `.calendar-day-col` CSS class in `static/css/style.css` for column layout
-- Algorithm: track `[{start, end, element}]` per time slot; compute column index per event; set `left` + `width` as percentages via `style`.
-
-**FAILURE CONDITIONS:**
-- Week or month view events are affected.
-- Events with no overlap lose their full-width layout.
-- `cargo check` fails (template syntax error).
-- 3+ overlapping events produce negative width or overflow.
+| ~~CA4.9~~ | ~~**Metrics baseline depth**~~ | ~~Process~~ | ~~Low~~ | ~~Ongoing~~ | **DONE** — 8 effectiveness rows, 7 efficiency rows |
 
 ---
 
@@ -747,165 +619,52 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 
 ---
 
-### CA4.6 — API CSRF Protection
-
-**GOAL:** The `/api/v1/*` endpoints are protected against CSRF. Chosen approach: require `Content-Type: application/json` header (browsers cannot send cross-origin JSON with cookies via simple form POST) OR add a same-origin check middleware. Mutation endpoints (POST/PUT/DELETE) only. Verify: a simulated cross-origin form POST to `/api/v1/users` is rejected with 400.
-
-**CONSTRAINTS:**
-- Prefer zero-dependency solution: middleware that checks `Content-Type` on mutations, or validates `Origin`/`Referer` header.
-- Do not add a CSRF token to JSON API (breaks REST clients).
-- Must not break existing session-based browser clients (they already send `Content-Type: application/json`).
-- GET endpoints are exempt.
-- Must not affect form-based handlers (which use their own CSRF tokens).
-
-**FORMAT:**
-- Add Actix-web middleware in `src/handlers/api_v1/mod.rs` or a new `src/auth/api_guard.rs`.
-- Document the protection approach in a comment at the top of the middleware.
-
-**FAILURE CONDITIONS:**
-- GET endpoints start requiring CSRF (breaks read clients).
-- Form-based handlers are affected.
-- Legitimate browser `fetch()` calls with `Content-Type: application/json` are rejected.
-- No test covers the rejection case.
-
----
-
-### CA4.7 — Dead Code Warnings in Test Helpers
-
-**GOAL:** `tests/common/mod.rs` functions `insert_entity`, `insert_prop`, `insert_relation` no longer generate dead_code warnings. Either confirm they are genuinely unused and remove them, or add `#[allow(dead_code)]` if they're needed by other test files. `cargo test 2>&1 | grep "dead_code"` shows zero matches for these functions.
-
-**CONSTRAINTS:**
-- Run `grep -rn "insert_entity\|insert_prop\|insert_relation" tests/` before removing — confirm zero usages.
-- If unused: remove the functions entirely.
-- If used (rust-analyzer false positive): add `#[allow(dead_code)]` to the function group only, not the whole module.
-- No other changes.
-
-**FORMAT:** Single edit to `tests/common/mod.rs`. No new files.
-
-**FAILURE CONDITIONS:**
-- A test file that was importing these functions breaks (compile error).
-- Warning suppression applied to entire `mod.rs` (over-broad).
-
----
-
-### CA4.8 — E2E Suite CI Integration
-
-**GOAL:** The 46-test Playwright suite (`scripts/users-table.test.mjs`) and the 4 calendar E2E tests can be run in a documented, repeatable way as part of the staging environment. A `scripts/README.md` documents the exact setup steps. The `#[ignore]` E2E Rust tests have clear comments explaining exactly why they're ignored and what must be true to un-ignore them.
-
-**CONSTRAINTS:**
-- Do not un-ignore Rust E2E tests unless they genuinely pass headlessly.
-- `scripts/README.md` must cover: Node.js version, Playwright install, server startup command, run command.
-- No new CI pipeline changes (GitLab config is separate).
-- Document cookie isolation requirement for E2E tests.
-
-**FORMAT:**
-- Create: `scripts/README.md`
-- Modify: `tests/calendar_confirmation_e2e.rs` — improve `#[ignore]` comments to explain pre-conditions precisely.
-
-**FAILURE CONDITIONS:**
-- README has incorrect commands (tested: copy-paste fails).
-- Ignore reason comments are vague ("needs live server" is not enough — state exact pre-conditions).
-
----
-
-### CA4.9 — Metrics Baseline Depth
-
-**GOAL:** After the next 4 completed tasks, `docs/metrics/effectiveness-log.md` and `docs/metrics/efficiency-log.md` each have ≥5 rows. The efficiency log has enough data to compute the rolling median baseline for `Resource_efficiency`. Trend analysis (are we getting more efficient?) is possible.
-
-**CONSTRAINTS:**
-- Run `/measure-effectiveness` + `/measure-efficiency` after every task that has a prompt contract.
-- Do not retroactively fabricate measurements for past tasks.
-- Each measurement must have a real prompt contract to score against.
-
-**FORMAT:** Append rows to existing logs after each qualifying task. This item closes automatically once ≥5 rows exist in both logs.
-
-**FAILURE CONDITIONS:**
-- Tasks completed without measurement (breaks the data series).
-- Effectiveness measured without a real prompt contract (score is meaningless).
-
----
-
 ## Implementation Order
 
 ```
-DONE                                    CANDIDATES (pick next)
-════                                    ══════════════════════
-Epic 1: Ontology Foundation             F.3  More entity types (medium, variable)
-Epic 2: Data-Driven Nav                 
-5.1–5.4 Security                        
-4.1 Role Management                     
-4.2 Menu Builder                        
-4.3 Roles Builder                       
-3.1–3.3 App Settings                    
-6.1–6.6 UX features                     
-7.1–7.3 Housekeeping                    
-Ontology Explorer                       
-Phase 2a: Item Pipeline                 
-Phase 2b: Workflows + Governance        
-Warnings System                         
-Production Deployment                   
-Code Cleanup (Tasks 1-28)               
-H.1 Rate Limiting                       
-H.2 Input Validation                    
-H.3 WebSocket error handling            
-H.4 Test coverage expansion (141 tests) 
-H.5 Composite DB index                  
-ToR Expansion (13 tasks)                
-T.1 Governance Map Visual Graph         
-T.2 ToR Vacancy Warning Generators      
-T.3 Meeting Outlook Calendar            
-T.4 Minutes export (HTML/print)         
-Data Manager Seed Refactor              
-F.1 Workflow Builder UI                 
-F.2 REST API v1 Layer (Users + Entities)
-F.4 Dark mode theme system
-F.5 User profile enhancements
-F.6 Dashboard Redesign
-DM.1–DM.4 Data Manager hardening+batch
+DONE (chronological)
+════════════════════
+Epic 1: Ontology Foundation
+Epic 2: Data-Driven Nav
+5.1–5.4 Security
+4.1 Role Management, 4.2 Menu Builder, 4.3 Roles Builder
+3.1–3.3 App Settings, 6.1–6.6 UX features, 7.1–7.3 Housekeeping
+Ontology Explorer
+Phase 2a: Item Pipeline, Phase 2b: Workflows + Governance
+Warnings System, Production Deployment
+Code Cleanup (Tasks 1-28)
+H.1 Rate Limiting, H.2 Input Validation, H.3 WebSocket error handling
+H.4 Test coverage expansion, H.5 Composite DB index
+ToR Expansion (13 tasks), T.1 Governance Map, T.2 Vacancy Warnings
+T.3 Meeting Outlook Calendar, T.4 Minutes export
+Data Manager Seed Refactor, DM.1–DM.4 Data Manager hardening+batch
+F.1 Workflow Builder UI, F.2 REST API v1 Layer
+F.4 Dark mode, F.5 User profile, F.6 Dashboard Redesign + Personalization
+E.1–E.3 Entity metadata gaps (Meeting, Agenda Point, Minutes)
+Users/Roles/Role Builder Separation (17 tasks, multi-role support)
+ABAC — 3-split implementation (abac-core, handler-migration, template-ui)
+Enterprise Infrastructure Migration (5 phases: PostgreSQL, Neo4j, Docker, GitLab, Helm)
+OG.1 Ontology Graph Redesign
 U.1 Users Table Enhancements (filter builder, column picker, per-page, sort, CSV, Playwright)
+CA.1–CA.3 Codebase Audit Fixes (queue template, audit logging, stale URLs, dead code)
+P7 ToR Context Bar, P8 Dark Mode Header Toggle
+CA4.1 Account theme DB sync, CA4.2 REST API tests (17), CA4.3 Calendar timeout
+CA4.4 REST API expansion (tors, proposals, warnings), CA4.5 Day view overlap
+CA4.6 API CSRF protection, CA4.7 Dead code warnings, CA4.8 E2E CI integration
+UI.1 Users page redesign, UI.2 Role builder one-page, UI.3 Role builder accordion
+TD.1 CSS monolith split (60 PostCSS files), TD.2 Template partial extraction (6 templates)
+TD.3 EAV query deduplication (user→ToR membership)
+TD.7 Model layer test coverage (+20 tests: suggestion, COA, opinion, data manager)
+TD.8 Fetch timeouts (ontology + governance graphs)
+TD.10 Settings audit logging, TD.11 Unsafe unwrap fix
+CA4.9 Metrics baseline depth (8 effectiveness, 7 efficiency rows)
 
-E.1  Meeting metadata (number, classification, vtc, chair, secretary, roll_call_data) ✓ done
-E.2  Agenda Point metadata (presenter, priority, pre_read_url)                        ✓ done
-E.3  Minutes metadata (approved_by, approved_date, distribution_list,
-     structured_action_items, structured_attendance)                                  ✓ done
-
-Users/Roles/Role Builder Separation (17 tasks, multi-role support)                   ✓ done
-ABAC — 3-split implementation (abac-core, handler-migration, template-ui)             ✓ done
-
-Enterprise Infrastructure Migration (5 phases)                                        ✓ done
-  Phase 1a: SQLite → PostgreSQL 17 + sqlx 0.8 (async)
-  Phase 1b: Neo4j 5 Community integration (optional graph projection)
-  Phase 2: Docker Compose multi-environment
-  Phase 3: GitLab CE + CI/CD pipeline
-  Phase 4: Kubernetes Helm charts
-
-OG.1 Ontology Graph Redesign (search, filters, context menu, focus, drill-down)      ✓ done
-F.6b Dashboard Personalization (user ToRs, meetings, attention items)                 ✓ done
-CA.1 Codebase Audit Fixes (queue template, agenda transitions, seed gaps)            ✓ done
-CA.2 Codebase Audit Fixes (minutes export button, audit logging for 6 handlers)    ✓ done
-CA.3 Codebase Audit Fixes (stale URLs, missing delete handler, dead code cleanup)   ✓ done
-P7   ToR Context Bar (persistent section nav on all ToR-scoped pages, +meetings route) ✓ done
-P8   Dark Mode Header Toggle (persistent DB storage, syncs across devices)             ✓ done
-CA4.1  Account preferences theme → DB disconnect (bug, XS)                             ✓ done
-UI.1   Users page editorial redesign (avatar circles, count badge, action buttons)      ✓ done
-UI.2   Role builder one-page layout + compact redesign                                  ✓ done
-
-CA4.2  REST API integration tests (17 tests)                                    ✓ done
-CA4.3  Calendar fetch timeout (AbortController pattern)                         ✓ done
-CA4.6  API CSRF protection (Content-Type middleware)                             ✓ done
-CA4.7  Dead code warnings in test helpers (#[allow(dead_code)])                 ✓ done
-CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       ✓ done
-
-CA4.5  Day view overlapping events (column-based layout algorithm)             ✓ done
-CA4.8  E2E suite CI integration (scripts/README.md + #[ignore] comments)     ✓ done
-UI.3   Role builder accordion redesign (2-col, descriptions, progressive disclosure) ✓ done
-TD.1   CSS monolith split: 60 modular PostCSS files, zero-regression verified  ✓ done
-
-CANDIDATES (pick next — ordered by effect)
-══════════════════════════════════════════
-TD.2   Template partial extraction (7 templates >300 lines)                   (tech debt, M) ✓ DONE
+CANDIDATES (pick next)
+══════════════════════
 F.3    More entity types (project, task, document)                           (feature, L)
-CA4.9  Metrics baseline depth                     (process, ongoing — 6/6 effectiveness, 5/5 efficiency ✓ DONE)
+TD.5   Handler splitting (proposal_handlers.rs, tor_handlers/ — files >500 lines)  (tech debt, M)
+TD.6   Move remaining inline JS to static files                              (tech debt, M)
+TD.9   REST API expansion (CRUD for tors, proposals, suggestions)           (feature, M)
 ```
 
 ---
