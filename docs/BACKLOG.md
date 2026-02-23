@@ -546,7 +546,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
 | TD.1 | ~~**CSS monolith split**~~ | ~~High~~ | ~~Large~~ | **DONE** — Split 6,144-line `style.css` into 60 modular PostCSS files. `npm run css:build` compiles `index.css` → `style.css`. Zero missing selectors verified. |
-| TD.2 | **Template partial extraction** | Medium | Medium | 7 templates exceed 300-line threshold: `tor/outlook.html` (586), `admin/partials/data_manager_js.html` (547), `ontology/graph.html` (499), `minutes/view.html` (400), `meetings/detail.html` (398), `roles/assignment.html` (397), `governance/map.html` (378). Extract JS scripts and repeated sections into partials. |
+| TD.2 | ~~**Template partial extraction**~~ | ~~Medium~~ | ~~Medium~~ | **DONE** — Extracted JS from 6 oversized templates into same-directory partials (1,279 + 177 + 68 + 81 = 1,605 lines moved). Created shared `graph_toolkit_js.html` (zoom/fit/toolbar/shortcuts) and `dynamic_table_js.html` (JSON load/row factory/serialize). Largest template reduced from 586→45 lines. All pass `cargo check`. |
 
 ### Hardening & Quality
 
@@ -903,7 +903,7 @@ TD.1   CSS monolith split: 60 modular PostCSS files, zero-regression verified  �
 
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-TD.2   Template partial extraction (7 templates >300 lines)                   (tech debt, M)
+TD.2   Template partial extraction (7 templates >300 lines)                   (tech debt, M) ✓ DONE
 F.3    More entity types (project, task, document)                           (feature, L)
 CA4.9  Metrics baseline depth                     (process, ongoing — 6/6 effectiveness, 5/5 efficiency ✓ DONE)
 ```
