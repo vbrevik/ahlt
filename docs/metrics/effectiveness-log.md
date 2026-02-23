@@ -8,3 +8,4 @@ Tracks human+Claude team effectiveness at translating prompt contract requiremen
 |------|------|-------|-----|---------|--------|-------|------------|-------------|
 | 2026-02-21 | Point Paper Redesign | 13 | 13 | 0 | 0 | 1.00 | N/A | No |
 | 2026-02-22 | CA4.1 Account Theme DB Disconnect | 12 | 12 | 0 | 0 | 1.00 | Task trivially small | Yes, intentional (backlog additions bundled) |
+| 2026-02-23 | CA4.4 REST API Coverage Expansion | 20 | 20 | 0 | 0 | 1.00 | N/A | Yes, intentional |

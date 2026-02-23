@@ -477,6 +477,23 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Behaviour**: Theme selection on account page now persists to `entity_properties` DB, loaded server-side on next page load from any device/browser.
 - **Build**: PASS | **Tests**: 171 passing (unchanged)
 
+### Audit Batch CA4.2/3/6/7 (Quality + Hardening)
+- **CA4.2 — REST API integration tests**: Created `tests/api_v1_test.rs` with 17 tests covering user CRUD, entity CRUD, validation, permission chain, and auth guard. Uses `setup_test_db()` for isolation.
+- **CA4.3 — Calendar fetch timeout**: Wrapped both `fetch()` calls in `templates/tor/outlook.html` with `fetchWithTimeout()` + `AbortController` (30s timeout, `FETCH_TIMEOUT_MS` constant). Error message uses `textContent` (no innerHTML).
+- **CA4.6 — API CSRF protection**: Added `require_json_content_type` middleware in `src/handlers/api_v1/mod.rs`. Rejects POST/PUT/DELETE without `Content-Type: application/json` (400). GET exempt. Applied to entities, users, and user/theme scopes.
+- **CA4.7 — Dead code warnings**: Added `#[allow(dead_code)]` to `insert_entity`/`insert_prop`/`insert_relation` in `tests/common/mod.rs` (rust-analyzer false positives — functions used by sibling test files).
+- **Build**: PASS | **Tests**: 194 passing
+
+### CA4.4 — REST API Coverage Expansion
+- **GET /api/v1/tors**: Paginated list with `?status=` filter, uses `tor::find_all_list_items()`. Permission: `tor.list`.
+- **GET /api/v1/tors/{id}**: Detail with member count via `tor::count_members()`. Permission: `tor.list`.
+- **GET /api/v1/proposals**: Paginated list with `?status=` + `?tor_id=` filters, uses `proposal::find_all_cross_tor()`. Permission: `proposal.view`.
+- **GET /api/v1/warnings**: User-scoped list with `?severity=` filter, uses `warnings::queries::find_for_user()`. Permission: `warnings.view`.
+- Response types defined inline (`ApiTorListItem`, `ApiTorDetail`, `ApiProposalItem`, `ApiWarningItem`). All use `PaginatedResponse<T>` envelope.
+- Read-only scopes excluded from CSRF middleware (GET only).
+- 7 integration tests added (tor list/detail/not-found, proposal cross-tor/status-filter, warning user-scoped/severity-filter).
+- **Build**: PASS | **Tests**: 201 passing
+
 ### Users Page Editorial Redesign (UI)
 - **Avatar circles**: Replaced emoji with colored initial circles using 8-hue warm palette; hue computed from `charCode % 8`, CSS `[data-hue]` variants, dark mode support.
 - **Count badge**: Amber pill badge showing total user count next to page heading.
@@ -542,13 +559,13 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 | ID | Item | Type | Priority | Effort |
 |----|------|------|----------|--------|
 | ~~CA4.1~~ | ~~**Account preferences theme → DB disconnect**~~ | ~~Bug~~ | ~~High~~ | ~~XS~~ | **DONE** |
-| CA4.2 | **REST API integration tests** | Quality | High | S |
-| CA4.3 | **Calendar fetch timeout** | Hardening | Medium | S |
-| CA4.4 | **REST API coverage expansion** | Architecture | Medium | M |
+| ~~CA4.2~~ | ~~**REST API integration tests**~~ | ~~Quality~~ | ~~High~~ | ~~S~~ | **DONE** |
+| ~~CA4.3~~ | ~~**Calendar fetch timeout**~~ | ~~Hardening~~ | ~~Medium~~ | ~~S~~ | **DONE** |
+| ~~CA4.4~~ | ~~**REST API coverage expansion**~~ | ~~Architecture~~ | ~~Medium~~ | ~~M~~ | **DONE** |
 | CA4.5 | **Day view overlapping events** | Known gap | Medium | S |
 | F.3 | **More entity types** | Feature | Medium | L |
-| CA4.6 | **API CSRF protection** | Security | Medium | S |
-| CA4.7 | **Dead code warnings in test helpers** | Cleanup | Low | XS |
+| ~~CA4.6~~ | ~~**API CSRF protection**~~ | ~~Security~~ | ~~Medium~~ | ~~S~~ | **DONE** |
+| ~~CA4.7~~ | ~~**Dead code warnings in test helpers**~~ | ~~Cleanup~~ | ~~Low~~ | ~~XS~~ | **DONE** |
 | CA4.8 | **E2E suite CI integration** | Testing | Low | M |
 | CA4.9 | **Metrics baseline depth** | Process | Low | Ongoing |
 
@@ -840,15 +857,16 @@ CA4.1  Account preferences theme → DB disconnect (bug, XS)                    
 UI.1   Users page editorial redesign (avatar circles, count badge, action buttons)      ✓ done
 UI.2   Role builder one-page layout + compact redesign                                  ✓ done
 
+CA4.2  REST API integration tests (17 tests)                                    ✓ done
+CA4.3  Calendar fetch timeout (AbortController pattern)                         ✓ done
+CA4.6  API CSRF protection (Content-Type middleware)                             ✓ done
+CA4.7  Dead code warnings in test helpers (#[allow(dead_code)])                 ✓ done
+CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       ✓ done
+
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-CA4.2  REST API integration tests                 (quality, S)
-CA4.3  Calendar fetch timeout                     (hardening, S)
-CA4.4  REST API coverage expansion               (architecture, M)
 CA4.5  Day view overlapping events                (known gap, S)
 F.3    More entity types (project, task, document)(feature, L)
-CA4.6  API CSRF protection                        (security, S)
-CA4.7  Dead code warnings in test helpers         (cleanup, XS)
 CA4.8  E2E suite CI integration                   (testing, M)
 CA4.9  Metrics baseline depth                     (process, ongoing)
 ```
