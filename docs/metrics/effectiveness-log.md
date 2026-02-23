@@ -10,3 +10,4 @@ Tracks human+Claude team effectiveness at translating prompt contract requiremen
 | 2026-02-22 | CA4.1 Account Theme DB Disconnect | 12 | 12 | 0 | 0 | 1.00 | Task trivially small | Yes, intentional (backlog additions bundled) |
 | 2026-02-23 | CA4.4 REST API Coverage Expansion | 20 | 20 | 0 | 0 | 1.00 | N/A | Yes, intentional |
 | 2026-02-23 | CA4.5 Day View Overlapping Events | 15 | 15 | 0 | 0 | 1.00 | N/A | No |
+| 2026-02-23 | CA4.8 E2E Suite CI Integration | 16 | 16 | 0 | 0 | 1.00 | N/A | No |

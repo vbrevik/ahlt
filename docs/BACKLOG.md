@@ -503,6 +503,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Week and month views verified unaffected
 - **Build**: PASS | **Tests**: 201 passing
 
+### CA4.8 — E2E Suite CI Integration
+- Created `scripts/README.md` documenting all E2E test suites: Playwright JS (46 tests), Python admin screens, Rust curl-based calendar tests (4 tests)
+- README covers: Node.js/Playwright one-time setup, server startup with staging data, per-suite run commands, cookie isolation, troubleshooting
+- Updated all 4 `#[ignore]` comments in `tests/calendar_confirmation_e2e.rs` with exact pre-conditions: (1) port 8080 free, (2) ahlt_staging DB with seed data, (3) APP_ENV=staging, plus copy-paste run command
+- No CI pipeline changes — documentation only
+- **Build**: PASS | **Tests**: 201 passing
+
 ### Users Page Editorial Redesign (UI)
 - **Avatar circles**: Replaced emoji with colored initial circles using 8-hue warm palette; hue computed from `charCode % 8`, CSS `[data-hue]` variants, dark mode support.
 - **Count badge**: Amber pill badge showing total user count next to page heading.
@@ -575,7 +582,7 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 | F.3 | **More entity types** | Feature | Medium | L |
 | ~~CA4.6~~ | ~~**API CSRF protection**~~ | ~~Security~~ | ~~Medium~~ | ~~S~~ | **DONE** |
 | ~~CA4.7~~ | ~~**Dead code warnings in test helpers**~~ | ~~Cleanup~~ | ~~Low~~ | ~~XS~~ | **DONE** |
-| CA4.8 | **E2E suite CI integration** | Testing | Low | M |
+| ~~CA4.8~~ | ~~**E2E suite CI integration**~~ | ~~Testing~~ | ~~Low~~ | ~~M~~ | **DONE** |
 | CA4.9 | **Metrics baseline depth** | Process | Low | Ongoing |
 
 ---
@@ -873,12 +880,12 @@ CA4.7  Dead code warnings in test helpers (#[allow(dead_code)])                 
 CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       ✓ done
 
 CA4.5  Day view overlapping events (column-based layout algorithm)             ✓ done
+CA4.8  E2E suite CI integration (scripts/README.md + #[ignore] comments)     ✓ done
 
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
 F.3    More entity types (project, task, document)(feature, L)
-CA4.8  E2E suite CI integration                   (testing, M)
-CA4.9  Metrics baseline depth                     (process, ongoing)
+CA4.9  Metrics baseline depth                     (process, ongoing — 5/5 effectiveness, 4/5 efficiency)
 ```
 
 ---

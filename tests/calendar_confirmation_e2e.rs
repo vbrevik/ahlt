@@ -130,7 +130,9 @@ fn tomorrow_date() -> String {
 // ============================================================================
 
 #[test]
-#[ignore]
+#[ignore] // Requires: (1) no other process on port 8080, (2) ahlt_staging DB with seed data,
+          // (3) APP_ENV=staging. Test starts its own server. Run with:
+          // cargo test --test calendar_confirmation_e2e -- --ignored --test-threads=1 --nocapture
 fn test_can_view_outlook_calendar() {
     println!("\n[TEST START] test_can_view_outlook_calendar");
 
@@ -162,7 +164,10 @@ fn test_can_view_outlook_calendar() {
 }
 
 #[test]
-#[ignore] // Complex test requiring full form submission - basic functionality covered by other tests
+#[ignore] // Requires: (1) no other process on port 8080, (2) ahlt_staging DB with seed data
+          // containing at least one ToR, (3) APP_ENV=staging. Test starts its own server and
+          // creates a meeting via curl POST. Run with:
+          // cargo test --test calendar_confirmation_e2e -- --ignored --test-threads=1 --nocapture
 fn test_can_create_and_confirm_projected_meeting() {
     println!("\n[TEST START] test_can_create_and_confirm_projected_meeting");
 
@@ -256,7 +261,10 @@ fn test_can_create_and_confirm_projected_meeting() {
 }
 
 #[test]
-#[ignore]
+#[ignore] // Requires: (1) no other process on port 8080, (2) ahlt_staging DB with seed data
+          // containing meetings with both projected and confirmed statuses, (3) APP_ENV=staging.
+          // Test starts its own server. Run with:
+          // cargo test --test calendar_confirmation_e2e -- --ignored --test-threads=1 --nocapture
 fn test_projected_vs_confirmed_styling() {
     println!("\n[TEST START] test_projected_vs_confirmed_styling");
 
@@ -311,7 +319,10 @@ fn test_projected_vs_confirmed_styling() {
 }
 
 #[test]
-#[ignore]
+#[ignore] // Requires: (1) no other process on port 8080, (2) ahlt_staging DB with seed data,
+          // (3) APP_ENV=staging. Verifies calendar page contains expected JavaScript functions
+          // and event properties. Test starts its own server. Run with:
+          // cargo test --test calendar_confirmation_e2e -- --ignored --test-threads=1 --nocapture
 fn test_calendar_event_data_structure() {
     println!("\n[TEST START] test_calendar_event_data_structure");
 
