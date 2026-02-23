@@ -244,7 +244,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Phase 4: 5 large files split into 17 focused modules (1,680 lines reorganized)
 
 ### Automated Testing
-- 221 tests across 28 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder, API v1, suggestions, COA, opinions, data manager, governance, meetings, proposals, calendar, ABAC
+- 221 tests across 26 test files covering: infrastructure, auth, user CRUD, data integrity, permissions, role lifecycle, nav gating, workflows, warnings, role builder, API v1, suggestions, COA, opinions, data manager, governance, meetings, proposals, calendar, ABAC
 
 ### Hardening: Input Validation (H.2)
 - Centralized `src/auth/validate.rs` with 5 reusable functions: username, email, password, required field, optional field
@@ -551,6 +551,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Export fix**: Added `sort_order::BIGINT` casts in `src/models/data_manager/export.rs` to fix `ColumnDecode` error (pre-existing bug found by test agent).
 - **Build**: PASS | **Tests**: 221 passing
 
+### Handler Splitting (TD.5)
+- **proposal_handlers.rs** (449 lines) split into `proposal_handlers/` module: `crud.rs` (238 lines, detail/new/create/edit/update), `workflow.rs` (211 lines, submit/review/approve/reject), `mod.rs` (5 lines, re-exports)
+- COA handlers (423 lines) and agenda handlers (418 lines) assessed but left as-is: both under 300-line split threshold with no clear domain separation
+- Re-export pattern in `mod.rs` maintains identical public API — zero changes to `main.rs` route registration
+- **Build**: PASS | **Tests**: 221 passing
+
 ### Model Layer Test Coverage (TD.7)
 - **20 new integration tests** across 4 previously untested model domains:
   - `tests/suggestion_test.rs` (5 tests): CRUD + status transitions (open→accepted/rejected)
@@ -568,7 +574,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| F.3 | **More entity types** | Medium | Variable | Extend the platform with project, task, or document entity types. The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
+| F.3 | **More entity types** | Medium | Variable | Extend the platform with project and task entity types. Document entity type already implemented (model + handlers + templates + routes). The EAV model requires zero schema migrations — just new model files, handlers, and templates per type. |
 
 ---
 
@@ -591,9 +597,11 @@ Identified via systematic codebase + documentation audit. Ordered by effect. Eac
 
 ---
 
-### F.3 — More Entity Types (Project / Task / Document)
+### F.3 — More Entity Types (Project / Task)
 
-**GOAL:** The platform gains three new entity types: `project` (top-level work container), `task` (assigned work item), and `document` (file reference or external URL). Each has: list page, create/edit/delete handlers, detail page, and seeded relation types (`produces`, `assigned_to`, `referenced_by`). A project can be linked to a ToR via a `tracked_by` relation. No schema migrations.
+**Status:** Document entity type is already implemented (model at `src/models/document/`, handlers at `src/handlers/document_handlers/`, templates at `templates/documents/`, routes at `/documents/*`). Project and Task remain.
+
+**GOAL:** The platform gains two new entity types: `project` (top-level work container) and `task` (assigned work item). Each has: list page, create/edit/delete handlers, detail page, and seeded relation types (`produces`, `assigned_to`, `referenced_by`). A project can be linked to a ToR via a `tracked_by` relation. No schema migrations.
 
 **CONSTRAINTS:**
 - Follow existing EAV model: entity_type + entity_properties, no new tables.
@@ -658,11 +666,12 @@ TD.7 Model layer test coverage (+20 tests: suggestion, COA, opinion, data manage
 TD.8 Fetch timeouts (ontology + governance graphs)
 TD.10 Settings audit logging, TD.11 Unsafe unwrap fix
 CA4.9 Metrics baseline depth (8 effectiveness, 7 efficiency rows)
+TD.5 Handler splitting (proposal_handlers → module with crud.rs + workflow.rs)
 
 CANDIDATES (pick next)
 ══════════════════════
-F.3    More entity types (project, task, document)                           (feature, L)
-TD.5   Handler splitting (proposal_handlers.rs, tor_handlers/ — files >500 lines)  (tech debt, M)
+F.3    More entity types (project, task — document already done)             (feature, M)
+~~TD.5   Handler splitting (proposal_handlers.rs — split to module)~~  (tech debt, M) **DONE**
 TD.6   Move remaining inline JS to static files                              (tech debt, M)
 TD.9   REST API expansion (CRUD for tors, proposals, suggestions)           (feature, M)
 ```

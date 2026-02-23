@@ -64,6 +64,7 @@ src/
 │   ├── tor/             # Terms of Reference
 │   ├── agenda_point/    # Meeting agenda points
 │   ├── minutes/         # Meeting minutes
+│   ├── document/        # Document entity type
 │   ├── graph_sync/      # Neo4j graph projection (optional)
 │   └── data_manager/    # JSON import/export
 └── handlers/            # HTTP request handlers
@@ -71,8 +72,11 @@ src/
     ├── user_handlers/   # User CRUD (list, create, update, delete, crud)
     ├── role_handlers/   # Role CRUD (helpers, list, crud, builder)
     ├── tor_handlers/, governance_handlers/
+    ├── meeting_handlers/, minutes_handlers/
+    ├── proposal_handlers/ # Proposal CRUD (crud.rs) + workflow (workflow.rs)
+    ├── document_handlers/ # Document CRUD (crud.rs, list.rs)
     ├── api_v1/          # REST API (entities, users, tors, proposals, warnings)
-    ├── workflow_handlers.rs, suggestion_handlers.rs, proposal_handlers.rs, ...
+    ├── workflow_handlers.rs, suggestion_handlers.rs, ...
     └── ...              # auth, account, settings, audit, dashboard, etc.
 
 migrations/              # PostgreSQL schema migrations (sqlx)
@@ -150,7 +154,7 @@ Read-only graph projection of EAV data. Set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PA
 Tests use PostgreSQL schema isolation (unique schema per test via `search_path`) — safe to run in parallel. Requires `ahlt_test` database. Crate name in test imports: `ahlt`.
 
 ```bash
-cargo test                          # All tests (~200+ across 24 files)
+cargo test                          # All tests (~221 across 26 files, 8 ignored)
 cargo test user_test                # Single test file
 cargo test -- --nocapture           # With stdout
 cargo test --test meeting_test      # Integration test by file
