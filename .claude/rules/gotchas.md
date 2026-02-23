@@ -9,6 +9,7 @@
 - **No `&&` in `{% if %}` conditions**: Use nested `{% if a %}{% if b %}...{% endif %}{% endif %}` instead
 - **No `||` in `{% if %}` conditions**: Use `{% if a %}...{% else %}{% if b %}...{% endif %}{% endif %}` — duplicate the inner block in both branches
 - **No array indexing `arr[i]`**: Can't write `steps[idx-1]`. Find target by ID server-side, determine neighbour, then swap.
+- **Partial files inherit parent struct**: When extracting `{% include "partials/foo.html" %}`, all variables used in the partial must exist on the parent template struct. Compile error `no field X on type Y` means the parent struct is missing the field, not the partial.
 
 ## Askama — JSON in `<script>` blocks
 
@@ -25,6 +26,7 @@
 ## CSS
 
 - **`display:flex` class overrides `[hidden]` attribute**: Browser UA sheet has specificity (0,1,0) for `[hidden]`. A class also has (0,1,0), and source order breaks the tie. If your stylesheet loads after UA, `display:flex` on a class wins. Fix: set `display:none` on the class, add `.class:not([hidden]) { display:flex }` for when it should show.
+- **Accordion `scrollHeight` timing**: When using `max-height` transitions for collapse/expand, add the expanded class (which may add padding) BEFORE reading `scrollHeight`. Otherwise the measured height is too small by the padding amount and content clips at the bottom.
 
 ## PostgreSQL + sqlx
 

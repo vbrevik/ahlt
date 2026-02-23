@@ -12,3 +12,4 @@ Tracks resource consumption per delivered requirement, weighted by effectiveness
 | 2026-02-23 | CA4.4 REST API Coverage Expansion | 32,226 | 9 | 30-60m | 20 | 1,611 | building | 0.67 | 0.67 | Rework (warning test status_at) |
 | 2026-02-23 | CA4.5 Day View Overlapping Events | 80,000 | 14 | 15-30m | 15 | 5,333 | building | 0.57 | 0.57 | Rework (column-vs-index bug) |
 | 2026-02-23 | CA4.8 E2E Suite CI Integration | 25,000 | 7 | 15-30m | 16 | 1,563 | building | 1.00 | 1.00 | None |
+| 2026-02-23 | Role Builder Redesign (Accordion UX) | 180,000 | 45 | 30-60m | 14 | 12,857 | building | 0.82 | 0.82 | Rework (chevron, accordion timing) |

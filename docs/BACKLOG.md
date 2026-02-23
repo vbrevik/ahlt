@@ -33,7 +33,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 |---|---|---|
 | `relation_type` | Named relationship kinds (35 defined) | — |
 | `role` | Named collection of permissions | `description`, `is_default` |
-| `permission` | Atomic capability (30+ defined) | `group_name` |
+| `permission` | Atomic capability (46 defined) | `group_name`, `description` |
 | `user` | Account with role relation | `password`, `email` |
 | `nav_item` | Menu entry (module or page) | `url`, `parent` *(permission via relation)* |
 | `setting` | Key-value config (8 defined) | `value`, `description`, `setting_type` |
@@ -527,9 +527,26 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **Files**: `templates/roles/builder.html` (rewritten), `static/css/style.css` (role builder section replaced)
 - **Build**: PASS | **Tests**: 171 passing (unchanged)
 
+### Role Builder Accordion Redesign (UI.3)
+- **2-column accordion layout**: Replaced 3-column flat-list with `2fr | 1fr` grid (main + sticky preview sidebar).
+- **Permission descriptions**: Added `description` EAV property to all 46 permission entities, threaded through model pipeline (types → queries → handler → template).
+- **Collapsible groups**: Accordion with chevron rotation, `max-height` CSS transition, select-all toggle, checked count badge per group.
+- **Accent tint**: Groups with selected permissions show `color-mix(in srgb, var(--accent) 6%, transparent)` header background.
+- **Responsive**: 3 breakpoints (>1100px 2-col, 768-1100px single, <768px full stack).
+- **Review fixes**: Accordion `scrollHeight` read after class addition (padding-aware), `create_role` handler trims name/label/description (matches `update_role`).
+- **Files**: `static/css/pages/role-builder.css` (410 lines), `templates/roles/builder.html` (316 lines), `src/models/role/{types,queries}.rs`, `src/models/permission.rs`, `src/handlers/role_builder_handlers.rs`, `data/seed/ontology.json`
+- **Build**: PASS | **Tests**: 201 passing
+
 ---
 
 ## Remaining Backlog
+
+### Technical Debt
+
+| ID | Item | Priority | Effort | Description |
+|----|------|----------|--------|-------------|
+| TD.1 | **CSS monolith split** | High | Large | `static/css/style.css` is 6,144 lines. Split into PostCSS modular build: `base/`, `components/`, `layout/`, `pages/`, `utilities/`. Page-specific CSS already started in `static/css/pages/`. |
+| TD.2 | **Template partial extraction** | Medium | Medium | 7 templates exceed 300-line threshold: `tor/outlook.html` (586), `admin/partials/data_manager_js.html` (547), `ontology/graph.html` (499), `minutes/view.html` (400), `meetings/detail.html` (398), `roles/assignment.html` (397), `governance/map.html` (378). Extract JS scripts and repeated sections into partials. |
 
 ### Hardening & Quality
 
@@ -881,11 +898,14 @@ CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       �
 
 CA4.5  Day view overlapping events (column-based layout algorithm)             ✓ done
 CA4.8  E2E suite CI integration (scripts/README.md + #[ignore] comments)     ✓ done
+UI.3   Role builder accordion redesign (2-col, descriptions, progressive disclosure) ✓ done
 
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-F.3    More entity types (project, task, document)(feature, L)
-CA4.9  Metrics baseline depth                     (process, ongoing — 5/5 effectiveness, 4/5 efficiency)
+TD.1   CSS monolith split: style.css (6,144 lines → modular PostCSS build)   (tech debt, L)
+TD.2   Template partial extraction (7 templates >300 lines)                   (tech debt, M)
+F.3    More entity types (project, task, document)                           (feature, L)
+CA4.9  Metrics baseline depth                     (process, ongoing — 6/6 effectiveness, 5/5 efficiency ✓ DONE)
 ```
 
 ---
