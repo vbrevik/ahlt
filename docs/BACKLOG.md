@@ -565,6 +565,17 @@ All domain objects share three generic tables — no dedicated tables per type:
 - **1 template deferred** (workflow/partials/graph_script.html): Needs API endpoint refactor before extraction
 - **Build**: PASS | **Tests**: 221 passing
 
+### JS File Splitting (TD.12)
+- **5 oversized JS files** split into 15 focused modules + 1 shared helper:
+  - `ontology-graph.js` (728→266): + context-menu (143), detail (96), filters (194), shared/graph-helpers (40)
+  - `data-manager.js` (547→109): + import (138), errors (187)
+  - `outlook-calendar.js` (542→229): + calendar-day-view (134), calendar-views (130)
+  - `ontology-schema-graph.js` (423→168): + schema-graph-panels (149)
+  - `governance-map.js` (287→74): + governance-map-render (164)
+- **Pattern**: Factory function with dependency injection (no ES modules/bundler needed)
+- **Shared utility**: `graph-helpers.js` eliminates typeColor/createEl duplication across graph files
+- **Build**: PASS | **Tests**: 221 passing (unchanged)
+
 ### Model Layer Test Coverage (TD.7)
 - **20 new integration tests** across 4 previously untested model domains:
   - `tests/suggestion_test.rs` (5 tests): CRUD + status transitions (open→accepted/rejected)
@@ -582,7 +593,6 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| TD.12 | **Split oversized JS files** | Medium | S | 5 JS files exceed 200-line threshold: `ontology-graph.js` (728), `data-manager.js` (547), `outlook-calendar.js` (542), `ontology-schema-graph.js` (423), `governance-map.js` (287). Split into focused modules. |
 | TD.13 | **Extract remaining large templates** | Low | S | 3 templates exceed 300-line threshold: `meetings/detail.html` (331), `workflow/view.html` (317), `workflow/partials/graph_script.html` (303). Extract sections into partials. |
 
 ### Features
@@ -684,12 +694,13 @@ CA4.9 Metrics baseline depth (8 effectiveness, 7 efficiency rows)
 TD.5 Handler splitting (proposal_handlers → module with crud.rs + workflow.rs)
 TD.6 Move inline JS to static files (9 files, 912 lines extracted)
 TD.6b Move remaining inline JS to static files (Phase 2: 11 templates, 3 with JSON bridges)
+TD.12 Split oversized JS files (5 files → 15 modules + shared helpers)
 
 CANDIDATES (pick next)
 ══════════════════════
-TD.12  Split oversized JS files (5 files >200 lines)                        (tech debt, S)
 F.3    More entity types (project, task — document already done)             (feature, M)
 TD.9   REST API expansion (CRUD for tors, proposals, suggestions)           (feature, M)
+TD.13  Extract remaining large templates (3 files >300 lines)               (tech debt, S)
 ```
 
 ---
