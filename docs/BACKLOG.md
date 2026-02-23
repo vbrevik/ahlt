@@ -545,7 +545,7 @@ All domain objects share three generic tables — no dedicated tables per type:
 
 | ID | Item | Priority | Effort | Description |
 |----|------|----------|--------|-------------|
-| TD.1 | **CSS monolith split** | High | Large | `static/css/style.css` is 6,144 lines. Split into PostCSS modular build: `base/`, `components/`, `layout/`, `pages/`, `utilities/`. Page-specific CSS already started in `static/css/pages/`. |
+| TD.1 | ~~**CSS monolith split**~~ | ~~High~~ | ~~Large~~ | **DONE** — Split 6,144-line `style.css` into 60 modular PostCSS files. `npm run css:build` compiles `index.css` → `style.css`. Zero missing selectors verified. |
 | TD.2 | **Template partial extraction** | Medium | Medium | 7 templates exceed 300-line threshold: `tor/outlook.html` (586), `admin/partials/data_manager_js.html` (547), `ontology/graph.html` (499), `minutes/view.html` (400), `meetings/detail.html` (398), `roles/assignment.html` (397), `governance/map.html` (378). Extract JS scripts and repeated sections into partials. |
 
 ### Hardening & Quality
@@ -899,10 +899,10 @@ CA4.4  REST API coverage expansion (tors, proposals, warnings + 7 tests)       �
 CA4.5  Day view overlapping events (column-based layout algorithm)             ✓ done
 CA4.8  E2E suite CI integration (scripts/README.md + #[ignore] comments)     ✓ done
 UI.3   Role builder accordion redesign (2-col, descriptions, progressive disclosure) ✓ done
+TD.1   CSS monolith split: 60 modular PostCSS files, zero-regression verified  ✓ done
 
 CANDIDATES (pick next — ordered by effect)
 ══════════════════════════════════════════
-TD.1   CSS monolith split: style.css (6,144 lines → modular PostCSS build)   (tech debt, L)
 TD.2   Template partial extraction (7 templates >300 lines)                   (tech debt, M)
 F.3    More entity types (project, task, document)                           (feature, L)
 CA4.9  Metrics baseline depth                     (process, ongoing — 6/6 effectiveness, 5/5 efficiency ✓ DONE)
