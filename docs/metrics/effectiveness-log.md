@@ -12,3 +12,5 @@ Tracks human+Claude team effectiveness at translating prompt contract requiremen
 | 2026-02-23 | CA4.5 Day View Overlapping Events | 15 | 15 | 0 | 0 | 1.00 | N/A | No |
 | 2026-02-23 | CA4.8 E2E Suite CI Integration | 16 | 16 | 0 | 0 | 1.00 | N/A | No |
 | 2026-02-23 | Role Builder Redesign (Accordion UX) | 14 | 14 | 0 | 0 | 1.00 | N/A | Yes, intentional |
+| 2026-02-23 | TD.1 CSS Monolith Split | 12 | 12 | 0 | 0 | 1.00 | N/A | No |
+| 2026-02-23 | TD.2 Template Partial Extraction | 12 | 12 | 0 | 0 | 1.00 | N/A | Yes, intentional |
