@@ -284,7 +284,8 @@
       "label": "View Dashboard",
       "sort_order": 0,
       "properties": {
-        "group_name": "Dashboard"
+        "group_name": "Dashboard",
+        "description": "Access the main dashboard with stats and activity"
       }
     },
     {
@@ -293,7 +294,8 @@
       "label": "List Users",
       "sort_order": 0,
       "properties": {
-        "group_name": "Users"
+        "group_name": "Users",
+        "description": "View the list of all user accounts"
       }
     },
     {
@@ -302,7 +304,8 @@
       "label": "Create Users",
       "sort_order": 0,
       "properties": {
-        "group_name": "Users"
+        "group_name": "Users",
+        "description": "Create new user accounts"
       }
     },
     {
@@ -311,7 +314,8 @@
       "label": "Edit Users",
       "sort_order": 0,
       "properties": {
-        "group_name": "Users"
+        "group_name": "Users",
+        "description": "Edit existing user profiles and account details"
       }
     },
     {
@@ -320,7 +324,8 @@
       "label": "Delete Users",
       "sort_order": 0,
       "properties": {
-        "group_name": "Users"
+        "group_name": "Users",
+        "description": "Permanently remove user accounts"
       }
     },
     {
@@ -329,7 +334,8 @@
       "label": "Manage Roles",
       "sort_order": 0,
       "properties": {
-        "group_name": "Roles"
+        "group_name": "Roles",
+        "description": "Create, edit, and delete roles and their permissions"
       }
     },
     {
@@ -338,7 +344,8 @@
       "label": "Assign Roles",
       "sort_order": 0,
       "properties": {
-        "group_name": "Roles"
+        "group_name": "Roles",
+        "description": "Assign and remove roles from users"
       }
     },
     {
@@ -347,7 +354,8 @@
       "label": "Manage Settings",
       "sort_order": 0,
       "properties": {
-        "group_name": "Settings"
+        "group_name": "Settings",
+        "description": "View and modify application settings"
       }
     },
     {
@@ -356,7 +364,8 @@
       "label": "View Audit Log",
       "sort_order": 0,
       "properties": {
-        "group_name": "Admin"
+        "group_name": "Admin",
+        "description": "View the audit log of all system actions"
       }
     },
     {
@@ -365,7 +374,8 @@
       "label": "List Terms of Reference",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "View list of all Terms of Reference"
       }
     },
     {
@@ -374,7 +384,8 @@
       "label": "Create Terms of Reference",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Create new Terms of Reference"
       }
     },
     {
@@ -383,7 +394,8 @@
       "label": "Edit Terms of Reference",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Modify ToR structure, functions, and settings"
       }
     },
     {
@@ -392,7 +404,8 @@
       "label": "Manage ToR Members",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Add and remove members from ToR functions"
       }
     },
     {
@@ -401,7 +414,8 @@
       "label": "View suggestions in member ToRs",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "View suggestions submitted to your ToRs"
       }
     },
     {
@@ -410,7 +424,8 @@
       "label": "Submit new suggestions",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Submit new suggestions to ToRs you belong to"
       }
     },
     {
@@ -419,7 +434,8 @@
       "label": "Accept or reject suggestions",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Accept or reject submitted suggestions"
       }
     },
     {
@@ -428,7 +444,8 @@
       "label": "View proposals in member ToRs",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "View proposals in your ToRs"
       }
     },
     {
@@ -437,7 +454,8 @@
       "label": "Create new proposals",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Draft new proposals from accepted suggestions"
       }
     },
     {
@@ -446,7 +464,8 @@
       "label": "Submit draft proposals for review",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Submit draft proposals for formal review"
       }
     },
     {
@@ -455,7 +474,8 @@
       "label": "Edit draft proposals",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Modify proposals still in draft status"
       }
     },
     {
@@ -464,7 +484,8 @@
       "label": "Move proposals to under_review status",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Move proposals to under-review status"
       }
     },
     {
@@ -473,7 +494,8 @@
       "label": "Approve or reject proposals under review",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Cast final approval or rejection on proposals"
       }
     },
     {
@@ -482,7 +504,8 @@
       "label": "View Agenda",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "View meeting agendas"
       }
     },
     {
@@ -491,7 +514,8 @@
       "label": "Create Agenda Points",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Add new agenda points to meetings"
       }
     },
     {
@@ -500,7 +524,8 @@
       "label": "Queue Proposals for Agenda",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Queue approved proposals onto meeting agendas"
       }
     },
     {
@@ -509,7 +534,8 @@
       "label": "Manage Agenda Status",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Change agenda point status and ordering"
       }
     },
     {
@@ -518,7 +544,8 @@
       "label": "Participate in Meeting",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Participate in meetings and discussions"
       }
     },
     {
@@ -527,7 +554,8 @@
       "label": "Make Final Decisions",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Record final decisions on agenda points"
       }
     },
     {
@@ -536,7 +564,8 @@
       "label": "Create Courses of Action",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Create new courses of action from decisions"
       }
     },
     {
@@ -545,7 +574,8 @@
       "label": "Edit Courses of Action",
       "sort_order": 0,
       "properties": {
-        "group_name": "Workflow"
+        "group_name": "Workflow",
+        "description": "Modify existing courses of action"
       }
     },
     {
@@ -554,7 +584,8 @@
       "label": "Manage Workflow System",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Configure workflow statuses and transitions"
       }
     },
     {
@@ -563,7 +594,8 @@
       "label": "View Warnings",
       "sort_order": 0,
       "properties": {
-        "group_name": "Admin"
+        "group_name": "Admin",
+        "description": "View system warnings and notifications"
       }
     },
     {
@@ -572,7 +604,8 @@
       "label": "Generate Meeting Minutes",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Generate meeting minutes from agenda data"
       }
     },
     {
@@ -581,7 +614,8 @@
       "label": "Edit Meeting Minutes",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Edit generated meeting minutes"
       }
     },
     {
@@ -590,7 +624,8 @@
       "label": "Approve Meeting Minutes",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "Approve meeting minutes as official record"
       }
     },
     {
@@ -599,7 +634,8 @@
       "label": "View Meetings",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "View meeting details and schedules"
       }
     },
     {
@@ -608,7 +644,8 @@
       "label": "List Documents",
       "sort_order": 0,
       "properties": {
-        "group_name": "Documents"
+        "group_name": "Documents",
+        "description": "View the document library"
       }
     },
     {
@@ -617,7 +654,8 @@
       "label": "Create Documents",
       "sort_order": 1,
       "properties": {
-        "group_name": "Documents"
+        "group_name": "Documents",
+        "description": "Upload or create new documents"
       }
     },
     {
@@ -626,7 +664,8 @@
       "label": "View Document Details",
       "sort_order": 2,
       "properties": {
-        "group_name": "Documents"
+        "group_name": "Documents",
+        "description": "Open and read document details"
       }
     },
     {
@@ -635,7 +674,8 @@
       "label": "Edit Documents",
       "sort_order": 3,
       "properties": {
-        "group_name": "Documents"
+        "group_name": "Documents",
+        "description": "Modify existing documents"
       }
     },
     {
@@ -644,7 +684,8 @@
       "label": "Delete Documents",
       "sort_order": 4,
       "properties": {
-        "group_name": "Documents"
+        "group_name": "Documents",
+        "description": "Permanently remove documents"
       }
     },
     {
@@ -653,7 +694,8 @@
       "label": "List Entities (API)",
       "sort_order": 0,
       "properties": {
-        "group_name": "API"
+        "group_name": "API",
+        "description": "List entities via the REST API"
       }
     },
     {
@@ -662,7 +704,8 @@
       "label": "Create Entities (API)",
       "sort_order": 1,
       "properties": {
-        "group_name": "API"
+        "group_name": "API",
+        "description": "Create entities via the REST API"
       }
     },
     {
@@ -671,7 +714,8 @@
       "label": "Edit Entities (API)",
       "sort_order": 2,
       "properties": {
-        "group_name": "API"
+        "group_name": "API",
+        "description": "Modify entities via the REST API"
       }
     },
     {
@@ -680,7 +724,8 @@
       "label": "Delete Entities (API)",
       "sort_order": 3,
       "properties": {
-        "group_name": "API"
+        "group_name": "API",
+        "description": "Remove entities via the REST API"
       }
     },
     {
@@ -689,7 +734,8 @@
       "label": "View Meeting Minutes",
       "sort_order": 0,
       "properties": {
-        "group_name": "Governance"
+        "group_name": "Governance",
+        "description": "View meeting minutes"
       }
     },
     {
