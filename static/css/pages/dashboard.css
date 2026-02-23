@@ -1,7 +1,4 @@
-/* ============================================================
-   Dashboard Page Styles — Layout, Cards, and Widgets
-   Extracted from components/cards.css per spec compliance
-   ============================================================ */
+/* --- Dashboard specifics --- */
 
 /* Compact header */
 .dash-header {
@@ -429,4 +426,35 @@ a.dash-attention__group-link:hover { text-decoration: underline; }
 .text-secondary {
     color: var(--text-secondary);
     font-size: 0.9375rem;
+}
+
+a.card-action,
+a.card-action:hover,
+a.card-action:visited {
+    text-decoration: none;
+    color: var(--text);
+    display: block;
+    padding: 1.25rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+}
+
+a.card-action:hover {
+    border-left-color: var(--accent-hover);
+    background: var(--surface);
+}
+
+.card-action-title {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--text);
+}
+
+.card-action-desc {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
 }

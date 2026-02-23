@@ -1,5 +1,182 @@
 
-/* === Meeting Outlook Calendar === */
+.data-manager-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .data-manager-grid { grid-template-columns: 1fr; }
+}
+
+.dm-panel .card-header h2 { margin: 0; }
+
+/* Drop zone */
+.dm-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 1rem;
+}
+.dm-drop-zone:hover,
+.dm-drop-zone:focus {
+    border-color: var(--accent);
+    background: var(--surface-raised);
+    outline: none;
+}
+.dm-drop-active {
+    border-color: var(--accent) !important;
+    background: var(--surface-raised) !important;
+}
+.dm-drop-icon {
+    font-size: 2rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+}
+.dm-drop-text { margin: 0; font-weight: 500; }
+.dm-drop-subtext { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.85rem; }
+
+.dm-file-name {
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-raised);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+/* Type filter and radio groups */
+.dm-type-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+}
+.dm-checkbox,
+.dm-radio {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.dm-radio-group {
+    display: flex;
+    gap: 1.25rem;
+}
+
+/* Result counts */
+.dm-result-counts {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+.dm-count {
+    font-size: 0.95rem;
+}
+.dm-count strong {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+}
+.dm-count-created strong { color: var(--success, #2d7d46); }
+.dm-count-updated strong { color: var(--accent); }
+.dm-count-skipped strong { color: var(--muted); }
+.dm-count-errors strong { color: var(--danger, #c0392b); }
+
+/* Error section */
+.dm-errors .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.dm-error-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.dm-error-btn-group {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+}
+
+/* Editor overlay */
+.dm-editor-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.dm-editor-overlay:not([hidden]) {
+    display: flex;
+}
+.dm-editor-modal {
+    width: min(640px, 90vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+.dm-editor-modal .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.dm-editor-textarea {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    resize: vertical;
+}
+.dm-editor-footer {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+}
+
+/* Loading */
+.dm-loading {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.7);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+}
+.dm-loading:not([hidden]) {
+    display: flex;
+}
+.dm-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: dm-spin 0.6s linear infinite;
+}
+@keyframes dm-spin { to { transform: rotate(360deg); } }
+.dm-loading-status {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0;
+    min-height: 1.2em;
+}
+
 .outlook-controls {
     display: flex;
     align-items: center;
@@ -286,14 +463,16 @@
 }
 
 .outlook-event-day {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
     display: flex;
     flex-wrap: wrap;
     white-space: normal;
     margin-bottom: 2px;
+    overflow: hidden;
+}
+
+.outlook-event-day[style*="position: absolute"] {
+    margin-bottom: 0;
+    padding: 1px 3px;
 }
 
 /* --- Month View --- */
@@ -377,4 +556,3 @@
         min-height: 56px;
     }
 }
-

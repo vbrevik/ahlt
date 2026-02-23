@@ -1,5 +1,3 @@
-
-/* === Status Badges === */
 .badge-success {
     background: var(--success);
     color: #fff;
@@ -25,4 +23,3 @@
     background: var(--danger);
     color: #fff;
 }
-

@@ -1,5 +1,3 @@
-
-/* === ToR Info Grid (detail header) === */
 .tor-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -42,4 +40,3 @@
     color: var(--text-secondary);
     font-weight: 400;
 }
-

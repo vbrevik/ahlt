@@ -1,5 +1,3 @@
-
-/* === Form Layout === */
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -57,4 +55,3 @@ fieldset legend {
     color: var(--text-secondary);
     padding: 0 0.5rem;
 }
-

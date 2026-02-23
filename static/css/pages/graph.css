@@ -1,5 +1,3 @@
-
-/* === Graph View === */
 .graph-container {
     position: relative;
     background: var(--surface);
@@ -259,3 +257,270 @@
     border-top: 1px solid var(--border);
 }
 
+/* --- Graph Search --- */
+.graph-search {
+    margin-bottom: 0.625rem;
+}
+
+.graph-search__input {
+    width: 100%;
+    padding: 0.375rem 0.5rem 0.375rem 1.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text);
+    background: var(--surface);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 0.5rem center;
+    transition: border-color var(--duration) var(--ease);
+}
+
+.graph-search__input::placeholder {
+    color: var(--text-muted);
+}
+
+.graph-search__input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* --- Filter Sections --- */
+.filter-section__title {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.filter-actions__btn {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.125rem 0;
+    transition: color var(--duration) var(--ease);
+}
+
+.filter-actions__btn:hover {
+    color: var(--text);
+}
+
+.filter-actions__btn.active {
+    color: var(--primary);
+}
+
+.chip-count {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+/* --- Search Highlight Pulse --- */
+@keyframes search-pulse {
+    0%, 100% { stroke-opacity: 0.6; }
+    50% { stroke-opacity: 1; }
+}
+
+.node-highlight-ring {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 3;
+    animation: search-pulse 1.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* --- Context Menu --- */
+.context-menu {
+    position: absolute;
+    z-index: 20;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg, var(--shadow-md));
+    min-width: 220px;
+    max-width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    animation: slideDown var(--duration-slow) var(--ease-out);
+}
+
+.context-menu__header {
+    padding: 0.625rem 0.75rem 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.context-menu__header-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.context-menu__header-badge {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--radius-sm);
+    background: var(--bg-subtle);
+}
+
+.context-menu__divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0;
+}
+
+.context-menu__action {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background var(--duration) var(--ease);
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.context-menu__action:hover {
+    background: var(--bg-subtle);
+}
+
+.context-menu__action-icon {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    width: 1rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.context-menu__group {
+    padding: 0.125rem 0;
+}
+
+.context-menu__group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--duration) var(--ease);
+}
+
+.context-menu__group-header:hover {
+    background: var(--bg-subtle);
+}
+
+.context-menu__group-toggle {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    transition: transform var(--duration) var(--ease);
+}
+
+.context-menu__group.collapsed .context-menu__group-toggle {
+    transform: rotate(-90deg);
+}
+
+.context-menu__group.collapsed .context-menu__group-items {
+    display: none;
+}
+
+.context-menu__group-count {
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 0.25rem;
+}
+
+.context-menu__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.75rem 0.25rem 1.75rem;
+    font-size: 0.8125rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background var(--duration) var(--ease);
+}
+
+.context-menu__item:hover {
+    background: var(--bg-subtle);
+}
+
+.context-menu__item-arrow {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity var(--duration) var(--ease);
+}
+
+.context-menu__item:hover .context-menu__item-arrow {
+    opacity: 1;
+}
+
+.context-menu__overflow {
+    padding: 0.1875rem 0.75rem 0.1875rem 1.75rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* --- Focus Pill --- */
+.focus-pill {
+    position: absolute;
+    top: 3rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.75rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-full);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    animation: slideDown var(--duration-slow) var(--ease-out);
+    transition: background var(--duration) var(--ease);
+}
+
+.focus-pill:hover {
+    filter: brightness(0.9);
+}
+
+.focus-pill__close {
+    font-size: 0.875rem;
+    font-weight: 400;
+    opacity: 0.7;
+}

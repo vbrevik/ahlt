@@ -1,6 +1,23 @@
-
-/* === Utilities === */
 .inline {
     display: inline;
 }
 
+.empty-hint {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    padding: 1.5rem 0;
+    font-style: italic;
+}
+
+.badge-error {
+    background: var(--danger);
+    color: #fff;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.hidden {
+    display: none;
+}
