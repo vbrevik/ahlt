@@ -14,3 +14,7 @@
 .serena/
 .worktrees/
 test_data/
+node_modules/
+
+# CSS build artifact — source of truth is static/css/index.css + modular files
+static/css/style.css
