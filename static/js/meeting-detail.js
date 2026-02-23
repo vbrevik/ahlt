@@ -1,0 +1,62 @@
+(function() {
+    var STATUS_OPTIONS = ['present', 'absent', 'excused'];
+
+    function makeRollCallRow(item, canEdit) {
+        var username = item.username || '';
+        var status = item.status || 'present';
+
+        var tr = document.createElement('tr');
+
+        var nameTd = document.createElement('td');
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'input input--sm';
+        nameInput.placeholder = 'Name';
+        nameInput.value = username;
+        nameInput.readOnly = !canEdit;
+        nameTd.appendChild(nameInput);
+        tr.appendChild(nameTd);
+
+        var statusTd = document.createElement('td');
+        var statusSel = document.createElement('select');
+        statusSel.className = 'input input--sm';
+        statusSel.disabled = !canEdit;
+        STATUS_OPTIONS.forEach(function(opt) {
+            var o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt;
+            if (opt === status) { o.selected = true; }
+            statusSel.appendChild(o);
+        });
+        statusTd.appendChild(statusSel);
+        tr.appendChild(statusTd);
+
+        if (canEdit) {
+            var actionTd = document.createElement('td');
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-danger';
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', function() { tr.remove(); });
+            actionTd.appendChild(removeBtn);
+            tr.appendChild(actionTd);
+        }
+
+        return tr;
+    }
+
+    createDynamicTable({
+        tableBodyId: 'roll-call-body',
+        dataId: 'roll-call-data',
+        addBtnId: 'add-roll-call-row',
+        saveBtnId: 'save-roll-call',
+        hiddenInputId: 'roll-call-json',
+        makeRow: makeRollCallRow,
+        serializeRow: function(tr) {
+            var inputs = tr.querySelectorAll('input, select');
+            var username = inputs[0].value.trim();
+            if (!username) return null;
+            return { username: username, status: inputs[1].value };
+        }
+    });
+})();

@@ -30,21 +30,7 @@ Run `cargo build` to verify the project compiles. Note any errors — these may 
 
 Do NOT fix issues at this step — just observe.
 
-## Step 4: Review Effectiveness & Efficiency Trends
-
-Check recent measurement data to understand team performance trends:
-
-1. **Read metrics logs** — check `docs/metrics/effectiveness-log.md` and `docs/metrics/efficiency-log.md` if they exist
-2. **Search claude-mem** — search for recent `EFFECTIVENESS |` and `EFFICIENCY |` entries in project `im-ctrl-metrics`
-
-Report a brief trend summary:
-- Last 3 effectiveness scores (or "no data yet" if none)
-- Last 3 efficiency scores (or "no data yet" if none)
-- Any recurring patterns (e.g., consistently low path efficiency, high rework)
-
-Do NOT run the measurement skills themselves — this is a read-only review of past results.
-
-## Step 5: Synthesize & Present
+## Step 4: Synthesize & Present
 
 Present a concise briefing to the user:
 
@@ -62,11 +48,6 @@ Present a concise briefing to the user:
 ### Current State
 - [Any uncommitted changes or WIP noted]
 - [Any build issues found]
-
-### Team Metrics Trend
-**Effectiveness:** [last 3 scores, e.g. "92% → 85% → 100%"] or "No data yet"
-**Efficiency:** [last 3 scores, e.g. "68% → 72% → 65%"] or "No data yet"
-[If pattern detected: brief note, e.g. "Path efficiency consistently low — consider tighter exploration scoping"]
 
 ### Next Up (from backlog)
 1. **[task id] — [task name]** — [priority] | [effort]

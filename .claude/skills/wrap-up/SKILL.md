@@ -36,18 +36,7 @@ When writing to **CLAUDE.md**: place the learning in the most relevant existing 
 
 State which tier was applied for each learning.
 
-## Step 3: Measure Effectiveness & Efficiency
-
-Run the measurement skills to score the completed task:
-
-1. **Invoke `/measure-effectiveness`** — traces prompt contract requirements against delivered code and produces a scorecard. If no prompt contract exists, construct requirements from the original user request.
-2. **Invoke `/measure-efficiency`** — computes resource cost per delivered requirement, path efficiency, and combined score weighted by effectiveness. Requires effectiveness to have been measured first.
-
-These persist results to both `claude-mem` (project: `im-ctrl-metrics`) and `docs/metrics/` markdown logs.
-
-Summarize both scores in the output (see Output Format below).
-
-## Step 4: Scan for Long Files & Technical Debt
+## Step 3: Scan for Long Files & Technical Debt
 
 ### Long File Scan
 
@@ -77,7 +66,7 @@ For each issue found, create a concise backlog entry with:
 
 **Priority**: Long files and dead code go at the TOP of the "Remaining Backlog" as the next items to address.
 
-## Step 5: Update Backlog
+## Step 4: Update Backlog
 
 - Read `docs/BACKLOG.md`.
 - Move the completed task from "Remaining Backlog" to "Completed Work" (or update its status).
@@ -86,7 +75,7 @@ For each issue found, create a concise backlog entry with:
 - If the implementation order diagram needs updating, update it.
 - Summarize what changed in the backlog.
 
-## Step 6: Commit & Push
+## Step 5: Commit & Push
 
 - Run `git status` and `git diff --stat` to see what changed.
 - Stage relevant files (be specific, avoid `git add .`).
@@ -94,20 +83,20 @@ For each issue found, create a concise backlog entry with:
 - Commit and push to the current branch.
 - Show the commit hash and push result.
 
-## Step 7: Suggest Next Task
+## Step 6: Suggest Next Task
 
 - Re-read the "Implementation Order" and "Remaining Backlog" sections of `docs/BACKLOG.md`.
 - If tech debt items were added in Step 4, consider whether they should be the immediate next task (especially long files blocking further feature work).
 - Recommend the single highest-priority next task with a 1-2 sentence rationale.
 - Ask the user if they want to proceed with it.
 
-## Step 8: Clear Context Window
+## Step 7: Clear Context Window
 
 - Inform the user that you're clearing the context window to start fresh.
 - Use the `/clear` command to clear the conversation context.
 - This ensures a clean slate for the next task without accumulated context weight.
 
-## Step 9: Run Catch-Up
+## Step 8: Run Catch-Up
 
 - Invoke the `catch-up` skill to initialize fresh context for the next session.
 - This loads current project state, recent changes, and prepares for the next task.
@@ -125,12 +114,6 @@ Use this structure so the user can scan quickly:
 - bullet 1 → [CLAUDE.md | memory | backlog | skip]
 - bullet 2 → [CLAUDE.md | memory | backlog | skip]
 - ...
-
-### Effectiveness: [score%]
-[n] requirements — Met: [n] | Partial: [n] | Missed: [n]
-
-### Efficiency: [score%]
-Work tokens: [n] | Path efficiency: [0.XX] | Top overhead: [category]
 
 ### Technical Health
 **Long files:** [n found / none]

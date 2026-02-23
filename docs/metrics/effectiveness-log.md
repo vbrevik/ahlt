@@ -15,3 +15,4 @@ Tracks human+Claude team effectiveness at translating prompt contract requiremen
 | 2026-02-23 | TD.1 CSS Monolith Split | 12 | 12 | 0 | 0 | 1.00 | N/A | No |
 | 2026-02-23 | TD.2 Template Partial Extraction | 12 | 12 | 0 | 0 | 1.00 | N/A | Yes, intentional |
 | 2026-02-23 | TD.6 Move Inline JS to Static Files | 13 | 13 | 0 | 0 | 1.00 | N/A | Yes, intentional |
+| 2026-02-23 | TD.6b Move Remaining Inline JS (Phase 2) | 13 | 13 | 0 | 0 | 1.00 | N/A | No |

@@ -557,11 +557,12 @@ All domain objects share three generic tables — no dedicated tables per type:
 - Re-export pattern in `mod.rs` maintains identical public API — zero changes to `main.rs` route registration
 - **Build**: PASS | **Tests**: 221 passing
 
-### Inline JS Extraction (TD.6)
-- **9 static JS files created** (912 lines total): `role-builder.js` (183), `filter-builder.js` (179), `account.js` (151), `nav.js` (81), `shared/graph-toolkit.js` (79), `theme.js` (71), `column-picker.js` (65), `menu-builder.js` (56), `shared/dynamic-table.js` (47)
-- **9 templates updated**: Replaced inline `<script>` blocks with `<script src="/static/js/...">` references. Templates shrink 56-83% in line count.
+### Inline JS Extraction (TD.6 + TD.6b)
+- **Phase 1 (TD.6)**: 9 static JS files created (912 lines total): `role-builder.js` (183), `filter-builder.js` (179), `account.js` (151), `nav.js` (81), `shared/graph-toolkit.js` (79), `theme.js` (71), `column-picker.js` (65), `menu-builder.js` (56), `shared/dynamic-table.js` (47). 9 templates updated.
+- **Phase 2 (TD.6b)**: 11 additional static JS files created: `ontology-schema-graph.js` (423), `governance-map.js` (287), `data-manager.js` (547), `outlook-calendar.js` (542), `users-list.js` (57), `coa-form.js`, `meeting-detail.js`, `minutes-view.js`, `table-controls.js`, `role-assignment.js`, `proposal-queue.js`. 11 templates updated. 3 NEEDS_BRIDGE templates used JSON `<script type="application/json">` bridges for Askama template variables.
 - **Head IIFE preserved**: Theme initialization script in `base.html <head>` intentionally kept inline (must run before CSS to prevent flash)
 - **Two-tier JS organization**: Page-specific files in `static/js/`, shared utilities in `static/js/shared/`
+- **1 template deferred** (workflow/partials/graph_script.html): Needs API endpoint refactor before extraction
 - **Build**: PASS | **Tests**: 221 passing
 
 ### Model Layer Test Coverage (TD.7)
@@ -576,6 +577,13 @@ All domain objects share three generic tables — no dedicated tables per type:
 ---
 
 ## Remaining Backlog
+
+### Tech Debt
+
+| ID | Item | Priority | Effort | Description |
+|----|------|----------|--------|-------------|
+| TD.12 | **Split oversized JS files** | Medium | S | 5 JS files exceed 200-line threshold: `ontology-graph.js` (728), `data-manager.js` (547), `outlook-calendar.js` (542), `ontology-schema-graph.js` (423), `governance-map.js` (287). Split into focused modules. |
+| TD.13 | **Extract remaining large templates** | Low | S | 3 templates exceed 300-line threshold: `meetings/detail.html` (331), `workflow/view.html` (317), `workflow/partials/graph_script.html` (303). Extract sections into partials. |
 
 ### Features
 
@@ -675,10 +683,11 @@ TD.10 Settings audit logging, TD.11 Unsafe unwrap fix
 CA4.9 Metrics baseline depth (8 effectiveness, 7 efficiency rows)
 TD.5 Handler splitting (proposal_handlers → module with crud.rs + workflow.rs)
 TD.6 Move inline JS to static files (9 files, 912 lines extracted)
+TD.6b Move remaining inline JS to static files (Phase 2: 11 templates, 3 with JSON bridges)
 
 CANDIDATES (pick next)
 ══════════════════════
-TD.6b  Move remaining inline JS to static files (Phase 2: 13 templates)    (tech debt, M)
+TD.12  Split oversized JS files (5 files >200 lines)                        (tech debt, S)
 F.3    More entity types (project, task — document already done)             (feature, M)
 TD.9   REST API expansion (CRUD for tors, proposals, suggestions)           (feature, M)
 ```
