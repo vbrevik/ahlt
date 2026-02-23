@@ -24,7 +24,7 @@ async fn query_entities(pool: &PgPool, types: Option<&[String]>) -> Result<Vec<E
         Some(ts) if !ts.is_empty() => {
             // Use ANY($1) with a slice instead of individual placeholders
             let rows: Vec<(i64, String, String, String, i64)> = sqlx::query_as(
-                "SELECT id, entity_type, name, label, sort_order FROM entities WHERE entity_type = ANY($1) ORDER BY id",
+                "SELECT id, entity_type, name, label, sort_order::BIGINT FROM entities WHERE entity_type = ANY($1) ORDER BY id",
             )
                 .bind(ts)
                 .fetch_all(pool)
@@ -44,7 +44,7 @@ async fn query_entities(pool: &PgPool, types: Option<&[String]>) -> Result<Vec<E
         }
         _ => {
             let rows: Vec<(i64, String, String, String, i64)> = sqlx::query_as(
-                "SELECT id, entity_type, name, label, sort_order FROM entities ORDER BY id",
+                "SELECT id, entity_type, name, label, sort_order::BIGINT FROM entities ORDER BY id",
             )
             .fetch_all(pool)
             .await?;

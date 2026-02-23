@@ -90,8 +90,9 @@ pub async fn create(
         }));
     }
 
-    // Hash password
-    let hashed = password::hash_password(body.password.as_ref().unwrap())
+    // Hash password — password presence validated above, but use ok_or for safety
+    let pwd = body.password.as_ref().ok_or_else(|| AppError::Hash("Password missing".to_string()))?;
+    let hashed = password::hash_password(pwd)
         .map_err(|_| AppError::Hash("Password hash failed".to_string()))?;
 
     // Create user

@@ -3,8 +3,9 @@ use actix_web::{web, HttpResponse};
 use sqlx::PgPool;
 
 use crate::models::setting;
+use crate::audit;
 use crate::auth::csrf;
-use crate::auth::session::require_permission;
+use crate::auth::session::{get_user_id, require_permission};
 use crate::errors::{AppError, render};
 use crate::templates_structs::{PageContext, SettingsTemplate};
 
@@ -69,13 +70,26 @@ pub async fn save(
     let params = parse_form_body(&body);
     csrf::validate_csrf(&session, get_field(&params, "csrf_token"))?;
 
+    let current_user_id = get_user_id(&session).unwrap_or(0);
+
     // Each setting is submitted as setting_<id>=<value>
+    let mut changed = Vec::new();
     for (key, value) in &params {
         if let Some(id_str) = key.strip_prefix("setting_") {
             if let Ok(id) = id_str.parse::<i64>() {
                 setting::update_value(&pool, id, value.trim()).await?;
+                changed.push(id);
             }
         }
+    }
+
+    if !changed.is_empty() {
+        let details = serde_json::json!({
+            "setting_ids": changed,
+            "count": changed.len(),
+            "summary": format!("Updated {} setting(s)", changed.len())
+        });
+        let _ = audit::log(&pool, current_user_id, "settings.update", "setting", 0, details).await;
     }
 
     let _ = session.insert("flash", "Settings saved successfully");

@@ -86,11 +86,19 @@
     // Keyboard shortcuts (shared, no extras for governance)
     toolkit.setupKeyboardShortcuts();
 
-    fetch('/api/governance/graph')
+    var FETCH_TIMEOUT_MS = 30000;
+    fetch('/api/governance/graph', { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             loading.style.display = 'none';
             renderGraph(data);
+        })
+        .catch(function(e) {
+            loading.style.display = 'none';
+            var msg = (e.name === 'TimeoutError' || e.name === 'AbortError')
+                ? 'Request timed out. Please refresh to retry.'
+                : 'Failed to load graph data.';
+            canvas.textContent = msg;
         });
 
     function renderGraph(data) {
