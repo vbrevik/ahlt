@@ -1,5 +1,8 @@
 pub mod entities;
+pub mod proposals;
+pub mod tors;
 pub mod users;
+pub mod warnings;
 
 use actix_web::{
     web, Error, HttpResponse,
@@ -66,5 +69,19 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         web::scope("/user")
             .wrap(actix_web::middleware::from_fn(require_json_content_type))
             .route("/theme", web::post().to(users::update_theme))
+    );
+    // Read-only domain endpoints (no CSRF middleware needed — GET only)
+    cfg.service(
+        web::scope("/tors")
+            .route("", web::get().to(tors::list))
+            .route("/{id}", web::get().to(tors::detail))
+    );
+    cfg.service(
+        web::scope("/proposals")
+            .route("", web::get().to(proposals::list))
+    );
+    cfg.service(
+        web::scope("/warnings")
+            .route("", web::get().to(warnings::list))
     );
 }
