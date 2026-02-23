@@ -58,6 +58,7 @@
 @import "pages/role-builder.css";
 @import "pages/role-list.css";
 @import "pages/role-permissions.css";
+@import "pages/role-assignment.css";
 @import "pages/schema-tables.css";
 @import "pages/tor-grid.css";
 @import "pages/tor-info-grid.css";
