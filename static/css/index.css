@@ -39,6 +39,7 @@
 @import "pages/calendar.css";
 @import "pages/dashboard.css";
 @import "pages/data-browser.css";
+@import "pages/data-manager.css";
 @import "pages/dependency-flow.css";
 @import "pages/entity-detail.css";
 @import "pages/error.css";

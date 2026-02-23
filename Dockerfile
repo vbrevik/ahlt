@@ -1,4 +1,12 @@
-# ── Stage 1: Build ────────────────────────────────────────────────────
+# ── Stage 0: CSS Build ───────────────────────────────────────────────
+FROM node:20-slim AS css-builder
+WORKDIR /app
+COPY package.json package-lock.json postcss.config.js ./
+RUN npm ci
+COPY static/css/ static/css/
+RUN npm run css:build
+
+# ── Stage 1: Rust Build ─────────────────────────────────────────────
 FROM rust:1.88-bookworm AS builder
 
 WORKDIR /app
@@ -26,6 +34,7 @@ WORKDIR /app
 COPY --from=builder /app/target/release/ahlt /app/ahlt
 COPY templates/ templates/
 COPY static/ static/
+COPY --from=css-builder /app/static/css/style.css static/css/style.css
 COPY migrations/ migrations/
 COPY data/seed/ data/seed/
 
