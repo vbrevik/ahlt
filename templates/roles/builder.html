@@ -11,12 +11,7 @@
 
 <div class="page-header">
     <h1>{% if role.is_some() %}Edit Role{% else %}New Role{% endif %}</h1>
-    <div class="page-header-actions">
-        <a href="/roles" class="btn btn-sm">Cancel</a>
-        <button type="submit" form="role-builder-form" class="btn btn-primary" id="submit-btn" disabled>
-            {% if role.is_some() %}Update Role{% else %}Create Role{% endif %}
-        </button>
-    </div>
+    <a href="/roles" class="btn btn-sm">Back to Roles</a>
 </div>
 
 <form id="role-builder-form"
@@ -28,70 +23,58 @@
     <input type="hidden" name="role_id" value="{{ r.id }}">
     {% endif %}
 
-    <div class="role-builder-layout">
-
-        <!-- Left: Role details -->
-        <aside class="rb-details-panel">
-            <h2 class="rb-panel-heading">Role Details</h2>
-
-            <div class="form-group">
-                <label for="name" class="form-label">Internal Name <span class="required-mark">*</span></label>
-                <input type="text" id="name" name="name" class="form-input" required
-                       pattern="[a-zA-Z0-9_]+" maxlength="50"
-                       value="{% if let Some(r) = role %}{{ r.name }}{% endif %}"
-                       placeholder="e.g. content_editor">
-                <small class="form-hint">Alphanumeric and underscore only</small>
+    <div class="rb-layout">
+        <div class="rb-main">
+            <!-- Role Details -->
+            <div class="rb-details">
+                <div class="rb-details__row">
+                    <div class="form-group">
+                        <label for="name" class="form-label">Internal Name <span class="required-mark">*</span></label>
+                        <input type="text" id="name" name="name" class="form-input" required
+                               pattern="[a-zA-Z0-9_]+" maxlength="50"
+                               value="{% if let Some(r) = role %}{{ r.name }}{% endif %}"
+                               placeholder="e.g. content_editor">
+                        <small class="form-hint">Alphanumeric and underscore only</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="label" class="form-label">Display Label <span class="required-mark">*</span></label>
+                        <input type="text" id="label" name="label" class="form-input" required
+                               maxlength="100"
+                               value="{% if let Some(r) = role %}{{ r.label }}{% endif %}"
+                               placeholder="e.g. Content Editor">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" name="description" class="form-input" rows="2"
+                              placeholder="What can users with this role do?">{% if let Some(r) = role %}{{ r.description }}{% endif %}</textarea>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="label" class="form-label">Display Label <span class="required-mark">*</span></label>
-                <input type="text" id="label" name="label" class="form-input" required
-                       maxlength="100"
-                       value="{% if let Some(r) = role %}{{ r.label }}{% endif %}"
-                       placeholder="e.g. Content Editor">
-            </div>
+            <!-- Permissions Accordion -->
+            <div class="rb-accordion">
+                <div class="rb-accordion__header">
+                    <h2>Permissions</h2>
+                    <span class="rb-perm-count" id="perm-count"></span>
+                </div>
 
-            <div class="form-group">
-                <label for="description" class="form-label">Description</label>
-                <textarea id="description" name="description" class="form-input" rows="3"
-                          placeholder="What can users with this role do?">{% if let Some(r) = role %}{{ r.description }}{% endif %}</textarea>
-            </div>
-
-            {% if let Some(r) = role %}
-            <div class="rb-danger-zone">
-                <p class="rb-danger-zone__label">Danger Zone</p>
-                <form method="post" action="/roles/builder/{{ r.id }}/delete"
-                      onsubmit="return confirm('Delete this role? This cannot be undone.')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-danger btn-sm">Delete Role</button>
-                </form>
-            </div>
-            {% endif %}
-        </aside>
-
-        <!-- Center: Permissions -->
-        <div class="rb-permissions-panel">
-            <h2 class="rb-panel-heading">
-                Permissions
-                <span class="rb-perm-count" id="perm-count"></span>
-            </h2>
-
-            <div class="rb-permission-scroll">
                 {% for group in permission_groups %}
-                <div class="rb-permission-group">
-                    <div class="rb-group-header">
-                        <span class="rb-group-name">{{ group.group_name }}</span>
-                        <label class="rb-select-all">
+                <div class="rb-group" data-group="{{ group.group_name }}">
+                    <button type="button" class="rb-group__header" aria-expanded="false">
+                        <span class="rb-group__chevron"></span>
+                        <span class="rb-group__name">{{ group.group_name }}</span>
+                        <span class="rb-group__badge" data-total="{{ group.permissions.len() }}">0/{{ group.permissions.len() }}</span>
+                        <label class="rb-group__select-all" onclick="event.stopPropagation()">
                             <input type="checkbox" class="checkbox-input select-all-checkbox"
                                    data-group="{{ group.group_name }}">
                             <span class="checkbox-mark"></span>
                             All
                         </label>
-                    </div>
-                    <div class="rb-permission-list">
+                    </button>
+                    <div class="rb-group__body">
                         {% for perm in group.permissions %}
-                        <label class="rb-perm-row">
-                            <span class="rb-perm-row__check">
+                        <label class="rb-perm">
+                            <span class="rb-perm__check">
                                 <input type="checkbox"
                                        class="checkbox-input permission-item"
                                        data-group="{{ group.group_name }}"
@@ -99,19 +82,41 @@
                                        {% if perm.checked %}checked{% endif %}>
                                 <span class="checkbox-mark"></span>
                             </span>
-                            <span class="rb-perm-row__label">{{ perm.label }}</span>
-                            <code class="rb-perm-row__code">{{ perm.code }}</code>
+                            <span class="rb-perm__info">
+                                <span class="rb-perm__label">{{ perm.label }}</span>
+                                {% if !perm.description.is_empty() %}
+                                <span class="rb-perm__desc">{{ perm.description }}</span>
+                                {% endif %}
+                            </span>
+                            <code class="rb-perm__code">{{ perm.code }}</code>
                         </label>
                         {% endfor %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
+
+            <!-- Actions Bar -->
+            <div class="rb-actions">
+                {% if let Some(r) = role %}
+                <form method="post" action="/roles/builder/{{ r.id }}/delete"
+                      onsubmit="return confirm('Delete this role? This cannot be undone.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete Role</button>
+                </form>
+                {% endif %}
+                <div class="rb-actions__right">
+                    <a href="/roles" class="btn btn-sm">Cancel</a>
+                    <button type="submit" form="role-builder-form" class="btn btn-primary" id="submit-btn" disabled>
+                        {% if role.is_some() %}Update Role{% else %}Create Role{% endif %}
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <!-- Right: Live menu preview -->
-        <aside class="rb-preview-panel">
-            <h2 class="rb-panel-heading">Menu Preview</h2>
+        <!-- Preview Sidebar -->
+        <aside class="rb-preview">
+            <h2 class="rb-preview__heading">Menu Preview</h2>
             <div class="rb-mock-sidebar" id="mock-sidebar">
                 <div id="preview-empty" class="rb-preview-empty">
                     Select permissions to preview menu access
@@ -120,14 +125,32 @@
             </div>
             <p class="rb-preview-summary" id="preview-summary"></p>
         </aside>
-
     </div>
 </form>
 
 <script>
 var debounceTimer = null;
 
-// Select All toggle
+/* ── Accordion Toggle ── */
+document.querySelectorAll('.rb-group__header').forEach(function(header) {
+    header.addEventListener('click', function() {
+        var group = this.closest('.rb-group');
+        var body = group.querySelector('.rb-group__body');
+        var isExpanded = group.classList.contains('rb-group--expanded');
+
+        if (isExpanded) {
+            body.style.maxHeight = '0';
+            group.classList.remove('rb-group--expanded');
+            this.setAttribute('aria-expanded', 'false');
+        } else {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            group.classList.add('rb-group--expanded');
+            this.setAttribute('aria-expanded', 'true');
+        }
+    });
+});
+
+/* ── Select All Toggle ── */
 document.querySelectorAll('.select-all-checkbox').forEach(function(checkbox) {
     checkbox.addEventListener('change', function() {
         var group = this.dataset.group;
@@ -139,7 +162,7 @@ document.querySelectorAll('.select-all-checkbox').forEach(function(checkbox) {
     });
 });
 
-// Individual permission change
+/* ── Individual Permission Change ── */
 document.querySelectorAll('.permission-item').forEach(function(checkbox) {
     checkbox.addEventListener('change', function() {
         var group = this.dataset.group;
@@ -151,11 +174,32 @@ document.querySelectorAll('.permission-item').forEach(function(checkbox) {
     });
 });
 
+/* ── Helpers ── */
 function getSelectedIds() {
     return Array.from(document.querySelectorAll('.permission-item:checked'))
         .map(function(cb) { return parseInt(cb.value); });
 }
 
+function updateGroupState(groupEl) {
+    var checkboxes = groupEl.querySelectorAll('.permission-item');
+    var checkedCount = groupEl.querySelectorAll('.permission-item:checked').length;
+    var total = checkboxes.length;
+
+    var badge = groupEl.querySelector('.rb-group__badge');
+    if (badge) badge.textContent = checkedCount + '/' + total;
+
+    if (checkedCount > 0) {
+        groupEl.classList.add('rb-group--has-selected');
+    } else {
+        groupEl.classList.remove('rb-group--has-selected');
+    }
+}
+
+function updateAllGroupStates() {
+    document.querySelectorAll('.rb-group').forEach(updateGroupState);
+}
+
+/* ── Permission Change Handler ── */
 function onPermissionChange() {
     var selectedIds = getSelectedIds();
     document.getElementById('permission-ids-input').value = JSON.stringify(selectedIds);
@@ -166,10 +210,13 @@ function onPermissionChange() {
     var countEl = document.getElementById('perm-count');
     countEl.textContent = selectedIds.length > 0 ? selectedIds.length + ' selected' : '';
 
+    updateAllGroupStates();
+
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(fetchPreview, 200);
 }
 
+/* ── Preview Fetch ── */
 async function fetchPreview() {
     var selectedIds = getSelectedIds();
 
@@ -242,7 +289,9 @@ function displayPreview(data) {
     });
 }
 
-// Initialize on load (handles edit mode with pre-checked permissions)
+/* ── Initialization ── */
+
+// Set initial state (handles edit mode with pre-checked permissions)
 onPermissionChange();
 
 // Sync "Select All" checkboxes on load
@@ -251,6 +300,17 @@ document.querySelectorAll('.select-all-checkbox').forEach(function(selectAll) {
     var groupCheckboxes = document.querySelectorAll('.permission-item[data-group="' + group + '"]');
     var allChecked = groupCheckboxes.length > 0 && Array.from(groupCheckboxes).every(function(cb) { return cb.checked; });
     selectAll.checked = allChecked;
+});
+
+// Auto-expand groups with checked permissions (edit mode)
+document.querySelectorAll('.rb-group').forEach(function(group) {
+    var hasChecked = group.querySelector('.permission-item:checked');
+    if (hasChecked) {
+        var body = group.querySelector('.rb-group__body');
+        body.style.maxHeight = body.scrollHeight + 'px';
+        group.classList.add('rb-group--expanded');
+        group.querySelector('.rb-group__header').setAttribute('aria-expanded', 'true');
+    }
 });
 </script>
 {% endblock %}

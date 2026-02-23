@@ -1,35 +1,88 @@
-   Role Builder — compact precision layout
+/* Role Builder — 2-column accordion layout
    ============================================================ */
 
-/* Grid: narrow details | flex permissions | narrow preview */
-.role-builder-layout {
+/* ── Layout ── */
+
+.rb-layout {
     display: grid;
-    grid-template-columns: 240px 1fr 200px;
-    gap: 1rem;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
     align-items: start;
 }
 
-/* Shared panel base — tight padding */
-.rb-details-panel,
-.rb-permissions-panel,
-.rb-preview-panel {
+.rb-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Role Details Card ── */
+
+.rb-details {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.25rem;
 }
 
-/* Panel section heading */
-.rb-panel-heading {
+.rb-details__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Compact form fields scoped to details card */
+.rb-details .form-group {
+    margin-bottom: 0.75rem;
+}
+
+.rb-details .form-group label {
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+}
+
+.rb-details .form-group input,
+.rb-details .form-group textarea {
+    padding: 0.4rem 0.625rem;
+    font-size: 0.8125rem;
+}
+
+.rb-details .form-group small {
+    font-size: 0.7rem;
+    margin-top: 0.2rem;
+    display: block;
+}
+
+/* Required asterisk */
+.required-mark {
+    color: var(--danger);
+    margin-left: 0.125rem;
+}
+
+/* ── Accordion Container ── */
+
+.rb-accordion {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.rb-accordion__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.rb-accordion__header h2 {
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-muted);
-    margin: 0 0 0.875rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    margin: 0;
 }
 
 /* Permissions count badge */
@@ -48,39 +101,209 @@
     text-transform: none;
 }
 
-/* Compact form fields scoped to details panel */
-.rb-details-panel .form-group {
-    margin-bottom: 0.75rem;
+/* Scrollbar for accordion body */
+.rb-accordion::-webkit-scrollbar { width: 3px; }
+.rb-accordion::-webkit-scrollbar-track { background: transparent; }
+.rb-accordion::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
 }
 
-.rb-details-panel .form-group label {
-    font-size: 0.75rem;
-    margin-bottom: 0.2rem;
+/* ── Permission Group ── */
+
+.rb-group {
+    border-bottom: 1px solid var(--border);
 }
 
-.rb-details-panel .form-group input,
-.rb-details-panel .form-group textarea {
-    padding: 0.4rem 0.625rem;
-    font-size: 0.8125rem;
+.rb-group:last-child {
+    border-bottom: none;
 }
 
-.rb-details-panel .form-group small {
+/* Group header — full-width clickable button */
+.rb-group__header {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    font-family: inherit;
+    transition: background var(--duration) var(--ease);
+}
+
+.rb-group__header:hover {
+    background: var(--surface-hover);
+}
+
+/* Accent tint when group has selected permissions */
+.rb-group--has-selected .rb-group__header {
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.rb-group--has-selected .rb-group__header:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Chevron — rotates on expand */
+.rb-group__chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    transform: rotate(0deg);
+    transition: transform var(--duration) var(--ease);
+}
+
+.rb-group--expanded .rb-group__chevron {
+    transform: rotate(90deg);
+}
+
+/* Group name */
+.rb-group__name {
     font-size: 0.7rem;
-    margin-top: 0.2rem;
-    display: block;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
 }
 
-/* Required asterisk */
-.required-mark {
-    color: var(--danger);
-    margin-left: 0.125rem;
+/* Group count badge "3/4" */
+.rb-group__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.35rem;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
 }
 
-/* Danger zone at bottom of details panel */
+/* Select-all label — pushed to the right */
+.rb-group__select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--duration) var(--ease);
+}
+
+.rb-group__select-all:hover {
+    color: var(--text);
+}
+
+/* Collapsible group body */
+.rb-group__body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--duration-slow) var(--ease);
+}
+
+.rb-group--expanded .rb-group__body {
+    padding: 0.25rem 0;
+}
+
+/* ── Permission Rows ── */
+
+.rb-perm {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.375rem 0.875rem;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background var(--duration) var(--ease),
+                border-left-color var(--duration) var(--ease);
+}
+
+.rb-perm:hover {
+    background: var(--surface-hover);
+}
+
+/* Checked state: accent marker + subtle tint */
+.rb-perm:has(.permission-item:checked) {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    border-left-color: var(--accent);
+}
+
+.rb-perm__check {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 0.125rem;
+}
+
+.rb-perm__info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.rb-perm__label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    transition: color var(--duration) var(--ease), font-weight 0s;
+}
+
+.rb-perm:has(.permission-item:checked) .rb-perm__label {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.rb-perm__desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
+    line-height: 1.35;
+}
+
+.rb-perm__code {
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    background: var(--bg-subtle);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 0.125rem;
+}
+
+/* ── Actions Bar ── */
+
+.rb-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+}
+
+.rb-actions__right {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+/* Danger zone (delete button area) */
 .rb-danger-zone {
-    margin-top: 1.25rem;
-    padding-top: 0.875rem;
-    border-top: 1px solid var(--border);
+    margin-top: 0;
 }
 
 .rb-danger-zone__label {
@@ -92,118 +315,25 @@
     margin: 0 0 0.5rem 0;
 }
 
-/* ── Permissions panel ── */
+/* ── Preview Sidebar ── */
 
-.rb-permission-scroll {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    max-height: 64vh;
-    overflow-y: auto;
-    padding-right: 0.25rem;
-}
-
-.rb-permission-scroll::-webkit-scrollbar { width: 3px; }
-.rb-permission-scroll::-webkit-scrollbar-track { background: transparent; }
-.rb-permission-scroll::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 999px;
-}
-
-.rb-permission-group {
+.rb-preview {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 5px;
-    overflow: hidden;
-}
-
-/* Sticky group headers */
-.rb-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.3rem 0.625rem;
-    background: var(--surface-hover);
-    border-bottom: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
     position: sticky;
-    top: 0;
-    z-index: 1;
+    top: 1rem;
 }
 
-.rb-group-name {
-    font-size: 0.7rem;
+.rb-preview__heading {
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-secondary);
-}
-
-.rb-select-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.7rem;
+    letter-spacing: 0.07em;
     color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
-    transition: color var(--duration) var(--ease);
+    margin: 0 0 0.875rem 0;
 }
-
-.rb-select-all:hover { color: var(--text); }
-
-.rb-permission-list { padding: 0.125rem 0; }
-
-/* Permission row — dense, with accent left-border on check */
-.rb-perm-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.625rem;
-    cursor: pointer;
-    border-left: 2px solid transparent;
-    transition: background var(--duration) var(--ease),
-                border-left-color var(--duration) var(--ease);
-}
-
-.rb-perm-row:hover { background: var(--surface-hover); }
-
-/* Checked state: accent marker + subtle tint */
-.rb-perm-row:has(.permission-item:checked) {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-    border-left-color: var(--accent);
-}
-
-.rb-perm-row__check {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.rb-perm-row__label {
-    flex: 1;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    line-height: 1.3;
-    transition: color var(--duration) var(--ease), font-weight 0s;
-}
-
-.rb-perm-row:has(.permission-item:checked) .rb-perm-row__label {
-    color: var(--text);
-    font-weight: 500;
-}
-
-.rb-perm-row__code {
-    font-size: 0.65rem;
-    font-family: var(--font-mono);
-    color: var(--text-muted);
-    background: var(--bg-subtle);
-    padding: 0.1rem 0.3rem;
-    border-radius: 3px;
-    border: 1px solid var(--border);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-/* ── Preview panel ── */
 
 .rb-mock-sidebar {
     min-height: 100px;
@@ -221,7 +351,9 @@
     line-height: 1.5;
 }
 
-.rb-mock-module { margin-bottom: 0.375rem; }
+.rb-mock-module {
+    margin-bottom: 0.375rem;
+}
 
 .rb-mock-module-name {
     font-size: 0.625rem;
@@ -239,7 +371,8 @@
     text-decoration: none;
     padding: 0.2rem 0.75rem;
     border-radius: 3px;
-    transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+    transition: background var(--duration) var(--ease),
+                color var(--duration) var(--ease);
 }
 
 .rb-mock-link:hover {
@@ -257,13 +390,17 @@
 /* ── Responsive ── */
 
 @media (max-width: 1100px) {
-    .role-builder-layout {
-        grid-template-columns: 220px 1fr;
+    .rb-layout {
+        grid-template-columns: 1fr;
     }
-    .rb-preview-panel { grid-column: 1 / -1; }
+
+    .rb-preview {
+        position: static;
+    }
 }
 
 @media (max-width: 768px) {
-    .role-builder-layout { grid-template-columns: 1fr; }
-    .rb-permission-scroll { max-height: none; }
+    .rb-details__row {
+        grid-template-columns: 1fr;
+    }
 }
