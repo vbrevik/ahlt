@@ -1,45 +1,45 @@
+{% include "partials/dynamic_table_js.html" %}
 <script>
 (function() {
-    const STATUS_OPTIONS = ['present', 'absent', 'excused'];
-    const tbody = document.getElementById('roll-call-body');
-    const jsonInput = document.getElementById('roll-call-json');
-    const addBtn = document.getElementById('add-roll-call-row');
-    const canEdit = !!addBtn;  // presence of add button = has permission
+    var STATUS_OPTIONS = ['present', 'absent', 'excused'];
 
-    function makeRow(username, status) {
-        const tr = document.createElement('tr');
+    function makeRollCallRow(item, canEdit) {
+        var username = item.username || '';
+        var status = item.status || 'present';
 
-        const nameTd = document.createElement('td');
-        const nameInput = document.createElement('input');
+        var tr = document.createElement('tr');
+
+        var nameTd = document.createElement('td');
+        var nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'input input--sm';
         nameInput.placeholder = 'Name';
-        nameInput.value = username || '';
+        nameInput.value = username;
         nameInput.readOnly = !canEdit;
         nameTd.appendChild(nameInput);
         tr.appendChild(nameTd);
 
-        const statusTd = document.createElement('td');
-        const statusSel = document.createElement('select');
+        var statusTd = document.createElement('td');
+        var statusSel = document.createElement('select');
         statusSel.className = 'input input--sm';
         statusSel.disabled = !canEdit;
-        STATUS_OPTIONS.forEach(opt => {
-            const o = document.createElement('option');
+        STATUS_OPTIONS.forEach(function(opt) {
+            var o = document.createElement('option');
             o.value = opt;
             o.textContent = opt;
-            if (opt === status) o.selected = true;
+            if (opt === status) { o.selected = true; }
             statusSel.appendChild(o);
         });
         statusTd.appendChild(statusSel);
         tr.appendChild(statusTd);
 
         if (canEdit) {
-            const actionTd = document.createElement('td');
-            const removeBtn = document.createElement('button');
+            var actionTd = document.createElement('td');
+            var removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'btn btn-sm btn-danger';
-            removeBtn.textContent = '×';
-            removeBtn.addEventListener('click', () => tr.remove());
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', function() { tr.remove(); });
             actionTd.appendChild(removeBtn);
             tr.appendChild(actionTd);
         }
@@ -47,22 +47,19 @@
         return tr;
     }
 
-    // Load existing data
-    const existing = JSON.parse(document.getElementById('roll-call-data').textContent || '[]');
-    existing.forEach(entry => tbody.appendChild(makeRow(entry.username, entry.status)));
-
-    if (canEdit) {
-        addBtn.addEventListener('click', () => tbody.appendChild(makeRow('', 'present')));
-
-        // Serialize on form submit
-        document.getElementById('save-roll-call').closest('form').addEventListener('submit', () => {
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            const data = rows.map(tr => {
-                const inputs = tr.querySelectorAll('input, select');
-                return { username: inputs[0].value.trim(), status: inputs[1].value };
-            }).filter(e => e.username);
-            jsonInput.value = JSON.stringify(data);
-        });
-    }
+    createDynamicTable({
+        tableBodyId: 'roll-call-body',
+        dataId: 'roll-call-data',
+        addBtnId: 'add-roll-call-row',
+        saveBtnId: 'save-roll-call',
+        hiddenInputId: 'roll-call-json',
+        makeRow: makeRollCallRow,
+        serializeRow: function(tr) {
+            var inputs = tr.querySelectorAll('input, select');
+            var username = inputs[0].value.trim();
+            if (!username) return null;
+            return { username: username, status: inputs[1].value };
+        }
+    });
 })();
 </script>
