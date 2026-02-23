@@ -68,15 +68,17 @@ src/
 │   └── data_manager/    # JSON import/export
 └── handlers/            # HTTP request handlers
     ├── mod.rs           # Handler module declarations
-    ├── user_handlers/   # User CRUD (list, crud)
-    ├── role_handlers/   # Role CRUD (helpers, list, crud)
+    ├── user_handlers/   # User CRUD (list, create, update, delete, crud)
+    ├── role_handlers/   # Role CRUD (helpers, list, crud, builder)
     ├── tor_handlers/, governance_handlers/
+    ├── api_v1/          # REST API (entities, users, tors, proposals, warnings)
     ├── workflow_handlers.rs, suggestion_handlers.rs, proposal_handlers.rs, ...
     └── ...              # auth, account, settings, audit, dashboard, etc.
 
 migrations/              # PostgreSQL schema migrations (sqlx)
 templates/               # Askama HTML templates
-static/                  # CSS (BEM naming), fonts, client-side JS
+static/                  # CSS (modular, BEM naming), fonts, client-side JS
+static/css/              # PostCSS modular build: index.css → base/, components/, layout/, pages/, utilities/
 data/seed/               # JSON seed fixtures (ontology.json, staging.json)
 docs/plans/              # Design & implementation documentation
 docker-compose.yml       # Base services (Postgres + Neo4j)
@@ -148,7 +150,7 @@ Read-only graph projection of EAV data. Set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PA
 Tests use PostgreSQL schema isolation (unique schema per test via `search_path`) — safe to run in parallel. Requires `ahlt_test` database. Crate name in test imports: `ahlt`.
 
 ```bash
-cargo test                          # All tests (~171 across 23 files)
+cargo test                          # All tests (~200+ across 24 files)
 cargo test user_test                # Single test file
 cargo test -- --nocapture           # With stdout
 cargo test --test meeting_test      # Integration test by file
@@ -200,6 +202,7 @@ node /Users/vidarbrevik/projects/im-ctrl/scripts/users-table.test.mjs
 - **No `innerHTML`**: Security hook rejects it — use `createElement`/`textContent`/`appendChild`
 - **All model calls are async**: Every `model::function(&pool, ...)` must have `.await`
 - **Cast timestamps in SELECT**: Use `created_at::TEXT` when selecting into `String` fields
+- **Template partials**: Large templates are split into `{page}/partials/*.html` — edit partials, not the parent template
 - **Seed changes need DB drop**: Seed skips non-empty DB — drop and recreate the database to pick up fixture changes
 - **Full gotchas**: `.claude/rules/gotchas.md`
 
