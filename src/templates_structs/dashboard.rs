@@ -16,7 +16,7 @@ pub struct DashboardTemplate {
     pub audit_entry_count: i64,
     pub recent_activity: Vec<crate::models::audit::AuditEntry>,
     // Personalized data
-    pub user_tors: Vec<crate::models::dashboard::UserTor>,
+    pub user_tors: Vec<crate::models::dashboard::UserTorMembership>,
     pub upcoming_meetings: Vec<crate::models::dashboard::UpcomingMeeting>,
     pub pending_items: crate::models::dashboard::PendingItems,
 }

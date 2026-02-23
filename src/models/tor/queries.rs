@@ -391,6 +391,34 @@ pub async fn require_tor_membership(
     Ok(())
 }
 
+/// Find all ToRs where the given user fills a position.
+/// Chain: user --(fills_position)--> tor_function --(belongs_to_tor)--> tor
+pub async fn find_user_tors(pool: &PgPool, user_id: i64) -> Vec<UserTorMembership> {
+    sqlx::query_as::<_, UserTorMembership>(
+        "SELECT DISTINCT tor.id AS tor_id, tor.name AS tor_name, tor.label AS tor_label, \
+                f.label AS position_label \
+         FROM entities tor \
+         JOIN relations r_tor ON tor.id = r_tor.target_id \
+         JOIN entities f ON r_tor.source_id = f.id \
+         JOIN relations r_fills ON f.id = r_fills.target_id \
+         WHERE tor.entity_type = 'tor' \
+           AND f.entity_type = 'tor_function' \
+           AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
+           AND r_fills.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
+           AND r_fills.source_id = $1 \
+         ORDER BY tor.label"
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+}
+
+/// Returns just the ToR IDs for a user (lightweight version of find_user_tors).
+pub async fn find_tor_ids_for_user(pool: &PgPool, user_id: i64) -> Vec<i64> {
+    find_user_tors(pool, user_id).await.into_iter().map(|t| t.tor_id).collect()
+}
+
 /// Get a ToR's display name (label) by ID.
 pub async fn get_tor_name(pool: &PgPool, tor_id: i64) -> Result<String, AppError> {
     let row: (String,) = sqlx::query_as(

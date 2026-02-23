@@ -1,15 +1,10 @@
 use sqlx::PgPool;
+use crate::models::tor;
+
+// Re-export UserTorMembership as the canonical type for dashboard consumers
+pub use crate::models::tor::types::UserTorMembership;
 
 // ---------- Types ----------
-
-/// A ToR the current user fills a position in.
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
-pub struct UserTor {
-    pub tor_id: i64,
-    pub tor_name: String,
-    pub tor_label: String,
-    pub position_label: String,
-}
 
 /// A compact upcoming meeting for the dashboard.
 #[derive(Debug, Clone, Default)]
@@ -60,26 +55,9 @@ pub struct PendingSuggestion {
 // ---------- Queries ----------
 
 /// Find all ToRs where the given user fills a position.
-/// Chain: user --(fills_position)--> tor_function --(belongs_to_tor)--> tor
-pub async fn find_user_tors(pool: &PgPool, user_id: i64) -> Vec<UserTor> {
-    sqlx::query_as::<_, UserTor>(
-        "SELECT DISTINCT tor.id AS tor_id, tor.name AS tor_name, tor.label AS tor_label, \
-                f.label AS position_label \
-         FROM entities tor \
-         JOIN relations r_tor ON tor.id = r_tor.target_id \
-         JOIN entities f ON r_tor.source_id = f.id \
-         JOIN relations r_fills ON f.id = r_fills.target_id \
-         WHERE tor.entity_type = 'tor' \
-           AND f.entity_type = 'tor_function' \
-           AND r_tor.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
-           AND r_fills.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
-           AND r_fills.source_id = $1 \
-         ORDER BY tor.label"
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default()
+/// Delegates to the canonical implementation in tor::queries.
+pub async fn find_user_tors(pool: &PgPool, user_id: i64) -> Vec<UserTorMembership> {
+    tor::find_user_tors(pool, user_id).await
 }
 
 /// Find upcoming meetings (next N days) for ToRs the user belongs to.
@@ -91,9 +69,8 @@ pub async fn find_upcoming_meetings(pool: &PgPool, user_id: i64, days: i64) -> V
     let today = Local::now().date_naive();
     let end = today + Duration::days(days);
 
-    // Get user's ToR IDs
-    let user_tors = find_user_tors(pool, user_id).await;
-    let tor_ids: Vec<i64> = user_tors.iter().map(|t| t.tor_id).collect();
+    // Get user's ToR IDs via shared query
+    let tor_ids = tor::find_tor_ids_for_user(pool, user_id).await;
 
     if tor_ids.is_empty() {
         return Vec::new();
@@ -126,9 +103,12 @@ pub async fn find_upcoming_meetings(pool: &PgPool, user_id: i64, days: i64) -> V
 
 /// Find pending items that need the user's attention.
 pub async fn find_pending_items(pool: &PgPool, user_id: i64) -> PendingItems {
+    // Pre-fetch user's ToR IDs once, shared by proposals and suggestions queries
+    let tor_ids = tor::find_tor_ids_for_user(pool, user_id).await;
+
     let unread_warnings = find_unread_warnings(pool, user_id).await;
-    let pending_proposals = find_pending_proposals(pool, user_id).await;
-    let open_suggestions = find_open_suggestions(pool, user_id).await;
+    let pending_proposals = find_pending_proposals_for_tors(pool, &tor_ids).await;
+    let open_suggestions = find_open_suggestions_for_tors(pool, &tor_ids).await;
 
     PendingItems {
         unread_warnings,
@@ -166,9 +146,19 @@ async fn find_unread_warnings(pool: &PgPool, user_id: i64) -> Vec<PendingWarning
     .unwrap_or_default()
 }
 
-/// Pending proposals (submitted or under_review) across user's ToRs.
-async fn find_pending_proposals(pool: &PgPool, user_id: i64) -> Vec<PendingProposal> {
-    sqlx::query_as::<_, PendingProposal>(
+/// Pending proposals (submitted or under_review) across given ToR IDs.
+async fn find_pending_proposals_for_tors(pool: &PgPool, tor_ids: &[i64]) -> Vec<PendingProposal> {
+    if tor_ids.is_empty() {
+        return Vec::new();
+    }
+
+    // Build dynamic IN clause for tor IDs
+    let placeholders: Vec<String> = tor_ids.iter().enumerate()
+        .map(|(i, _)| format!("${}", i + 1))
+        .collect();
+    let in_clause = placeholders.join(", ");
+
+    let sql = format!(
         "SELECT p.id, p.label AS title, \
                 COALESCE(p_status.value, '') AS status, \
                 COALESCE(tor.label, '') AS tor_label, \
@@ -181,30 +171,31 @@ async fn find_pending_proposals(pool: &PgPool, user_id: i64) -> Vec<PendingPropo
          LEFT JOIN entity_properties p_sub ON p.id = p_sub.entity_id AND p_sub.key = 'submitted_by_name' \
          WHERE p.entity_type = 'proposal' \
            AND COALESCE(p_status.value, '') IN ('submitted', 'under_review') \
-           AND tor.id IN ( \
-               SELECT DISTINCT tor2.id \
-               FROM entities tor2 \
-               JOIN relations r_bt ON tor2.id = r_bt.target_id \
-               JOIN entities f ON r_bt.source_id = f.id \
-               JOIN relations r_fp ON f.id = r_fp.target_id \
-               WHERE tor2.entity_type = 'tor' \
-                 AND f.entity_type = 'tor_function' \
-                 AND r_bt.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
-                 AND r_fp.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
-                 AND r_fp.source_id = $1 \
-           ) \
+           AND tor.id IN ({in_clause}) \
          ORDER BY p.created_at DESC \
          LIMIT 5"
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default()
+    );
+
+    let mut query = sqlx::query_as::<_, PendingProposal>(&sql);
+    for id in tor_ids {
+        query = query.bind(*id);
+    }
+    query.fetch_all(pool).await.unwrap_or_default()
 }
 
-/// Open suggestions across user's ToRs.
-async fn find_open_suggestions(pool: &PgPool, user_id: i64) -> Vec<PendingSuggestion> {
-    sqlx::query_as::<_, PendingSuggestion>(
+/// Open suggestions across given ToR IDs.
+async fn find_open_suggestions_for_tors(pool: &PgPool, tor_ids: &[i64]) -> Vec<PendingSuggestion> {
+    if tor_ids.is_empty() {
+        return Vec::new();
+    }
+
+    // Build dynamic IN clause for tor IDs
+    let placeholders: Vec<String> = tor_ids.iter().enumerate()
+        .map(|(i, _)| format!("${}", i + 1))
+        .collect();
+    let in_clause = placeholders.join(", ");
+
+    let sql = format!(
         "SELECT s.id, \
                 COALESCE(LEFT(p_desc.value, 80), s.label) AS description_preview, \
                 COALESCE(tor.label, '') AS tor_label, \
@@ -218,23 +209,14 @@ async fn find_open_suggestions(pool: &PgPool, user_id: i64) -> Vec<PendingSugges
          LEFT JOIN entity_properties p_sub ON s.id = p_sub.entity_id AND p_sub.key = 'submitted_by_name' \
          WHERE s.entity_type = 'suggestion' \
            AND COALESCE(p_status.value, '') = 'open' \
-           AND tor.id IN ( \
-               SELECT DISTINCT tor2.id \
-               FROM entities tor2 \
-               JOIN relations r_bt ON tor2.id = r_bt.target_id \
-               JOIN entities f ON r_bt.source_id = f.id \
-               JOIN relations r_fp ON f.id = r_fp.target_id \
-               WHERE tor2.entity_type = 'tor' \
-                 AND f.entity_type = 'tor_function' \
-                 AND r_bt.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'belongs_to_tor') \
-                 AND r_fp.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'fills_position') \
-                 AND r_fp.source_id = $1 \
-           ) \
+           AND tor.id IN ({in_clause}) \
          ORDER BY s.created_at DESC \
          LIMIT 5"
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default()
+    );
+
+    let mut query = sqlx::query_as::<_, PendingSuggestion>(&sql);
+    for id in tor_ids {
+        query = query.bind(*id);
+    }
+    query.fetch_all(pool).await.unwrap_or_default()
 }

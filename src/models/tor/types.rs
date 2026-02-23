@@ -1,3 +1,12 @@
+/// A ToR the current user fills a position in (shared across dashboard, etc.).
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
+pub struct UserTorMembership {
+    pub tor_id: i64,
+    pub tor_name: String,
+    pub tor_label: String,
+    pub position_label: String,
+}
+
 /// For the ToR list page.
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TorListItem {
