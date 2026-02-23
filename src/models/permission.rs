@@ -8,14 +8,18 @@ pub struct PermissionInfo {
     pub code: String,
     pub label: String,
     pub group_name: String,
+    pub description: String,
 }
 
 /// Get all permissions with their group_name property, ordered by group then name.
 pub async fn find_all_with_groups(pool: &PgPool) -> Result<Vec<PermissionInfo>, sqlx::Error> {
     let rows = sqlx::query_as::<_, PermissionInfo>(
-        "SELECT e.id, e.name AS code, e.label, COALESCE(ep.value, 'Other') AS group_name \
+        "SELECT e.id, e.name AS code, e.label, \
+                COALESCE(ep.value, 'Other') AS group_name, \
+                COALESCE(ed.value, '') AS description \
          FROM entities e \
          LEFT JOIN entity_properties ep ON e.id = ep.entity_id AND ep.key = 'group_name' \
+         LEFT JOIN entity_properties ed ON e.id = ed.entity_id AND ed.key = 'description' \
          WHERE e.entity_type = 'permission' AND e.is_active = true \
          ORDER BY group_name, e.name"
     )

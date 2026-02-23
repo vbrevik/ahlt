@@ -33,6 +33,7 @@ pub async fn wizard_form(
                 code: perm.code,
                 label: perm.label,
                 group_name: perm.group_name,
+                description: perm.description,
                 checked: false,
             }
         );

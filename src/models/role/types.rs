@@ -36,6 +36,7 @@ pub struct PermissionCheckbox {
     pub code: String,
     pub label: String,
     pub group_name: String,
+    pub description: String,
     pub checked: bool,
 }
 

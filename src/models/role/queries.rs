@@ -67,6 +67,7 @@ struct PermissionCheckboxRow {
     code: String,
     label: String,
     group_name: String,
+    description: String,
     checked: i32,
 }
 
@@ -75,9 +76,11 @@ pub async fn find_permission_checkboxes(pool: &PgPool, role_id: i64) -> Result<V
     let rows = sqlx::query_as::<_, PermissionCheckboxRow>(
         "SELECT p.id, p.name AS code, p.label, \
                 COALESCE(pg.value, '') AS group_name, \
+                COALESCE(pd.value, '') AS description, \
                 CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END AS checked \
          FROM entities p \
          LEFT JOIN entity_properties pg ON p.id = pg.entity_id AND pg.key = 'group_name' \
+         LEFT JOIN entity_properties pd ON p.id = pd.entity_id AND pd.key = 'description' \
          LEFT JOIN relations r ON r.source_id = $1 AND r.target_id = p.id \
              AND r.relation_type_id = (SELECT id FROM entities WHERE entity_type = 'relation_type' AND name = 'has_permission') \
          WHERE p.entity_type = 'permission' \
@@ -92,6 +95,7 @@ pub async fn find_permission_checkboxes(pool: &PgPool, role_id: i64) -> Result<V
         code: row.code,
         label: row.label,
         group_name: row.group_name,
+        description: row.description,
         checked: row.checked == 1,
     }).collect();
 
